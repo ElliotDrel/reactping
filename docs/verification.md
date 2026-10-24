@@ -18,8 +18,17 @@ The earlier sign-in blocker is superseded: Elliot signed in to Chrome, and React
 
 Credentials are in ignored `.env` and the SQLite database is ignored. A temporary isolated Cloudflare tunnel forwards to local port `37131`. Its hostname changes on restart; it is a test connection, not a production deployment.
 
-OAuth is prepared at Slack's final **Allow** screen and awaits action-time user approval. No user grant, live reaction test, or release tag has been completed. No real Slack messages have been sent.
+The earlier OAuth approval wait is superseded: Elliot approved the installation, OAuth completed, and ReactPing settings show the workspace **Active** for Slack user `U0000000001`.
 
-Next: approve the ReactPing installation, then run [the live coverage checklist](live-checklist.md). Public/private channels, threads, DMs, group DMs, and Slack Connect remain unverified.
+## Live results
+
+- A clearly labeled connection-test DM was accepted by Slack and read back in the Chrome Slack UI: [connection-test message](https://example-workspace.slack.com/archives/D0000000000/p1792814058864929).
+- A [test message](https://example-workspace.slack.com/archives/C0000000000/p1792814219778789) was posted as Elliot in the default public channel. Elliot's own white-check-mark reaction was visible in Slack. The real signed callback produced `event_processed` with outcome `ignored`, and the live database had zero deliveries, as expected for a self-reaction.
+- A **synthetic** event was passed through the real author filter, deduplication, message-link lookup, and delivery worker using the authorized tokens. First receipt returned `enqueued`, repeated receipt returned `duplicate`, and exactly one DM was sent. The [resulting DM](https://example-workspace.slack.com/archives/D0000000000/p1792814297446249) is explicitly labeled synthetic; no actual bot reaction was added to the source message. This test used an isolated in-memory queue, not fabricated production events.
+- Added secret-safe event outcome logging; the full 54-test check suite still passes.
+
+The default channel has one member. A positive alert from another person's real Slack reaction remains unverified, as do private channels, threads, DMs, group DMs, Slack Connect, and cross-workspace routing. The app remains limited to its creation workspace; public distribution was not activated. No release tag or permanent hosting deployment has been created.
+
+Next: have another Slack member react to the test message and follow [the live coverage checklist](live-checklist.md). The local service and temporary tunnel remain running for that test; stopping them makes the test URL unavailable.
 
 See [setup](setup.md) for configuration and the test procedure. Live authorization remains subject to the selected workspace's app policy.

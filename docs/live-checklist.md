@@ -9,7 +9,7 @@ Setup: two workspaces (A, B), both connected from one ReactPing session. A secon
 | Check                                                        | Status     | Notes                                                                    |
 | ------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------ |
 | Request URL verifies on save in Slack                        | Verified   | October 23, 2026; Test Workspace; Slack shows Verified and events On. |
-| Workspace A OAuth completes; settings show Active            | Unverified |                                                                          |
+| Workspace A OAuth completes; settings show Active            | Verified   | October 23, 2026; approved by Elliot; workspace Active for U0000000001.  |
 | Workspace B OAuth completes (public distribution on)         | Unverified |                                                                          |
 | OAuth callback opened in another browser/profile is rejected | Unverified |                                                                          |
 | Reloading a used callback URL is rejected                    | Unverified |                                                                          |
@@ -29,13 +29,19 @@ React as the reactor to a message authored by the connected user. Expect one bot
 
 ## Filtering
 
-| Check                                                   | Status     | Notes |
-| ------------------------------------------------------- | ---------- | ----- |
-| Author reacting to own message sends nothing            | Unverified |       |
-| Reaction on a file (not a message) sends nothing        | Unverified |       |
-| Reaction on another user's message sends nothing to you | Unverified |       |
-| `reaction_removed` sends nothing                        | Unverified |       |
-| DM has no link/media unfurl                             | Unverified |       |
+| Check                                                   | Status     | Notes                                                                                              |
+| ------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
+| Author reacting to own message sends nothing            | Verified   | October 23, 2026; real white-check-mark reaction; signed callback ignored; zero queued deliveries. |
+| Reaction on a file (not a message) sends nothing        | Unverified |                                                                                                    |
+| Reaction on another user's message sends nothing to you | Unverified |                                                                                                    |
+| `reaction_removed` sends nothing                        | Unverified |                                                                                                    |
+| DM has no link/media unfurl                             | Unverified |                                                                                                    |
+
+## Component smoke checks
+
+- Real connection-test bot DM delivered and read back in Slack.
+- Explicitly labeled synthetic reaction passed filtering, deduplication, real permalink lookup, and real DM delivery. Duplicate submission produced one notification. This does not verify a second person's actual reaction.
+- The default test channel has one member; positive real reaction coverage remains **Unverified**.
 
 ## Cross-workspace routing
 

@@ -421,6 +421,7 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
     if (body.type === "event_callback") {
       // Committed to SQLite before the 200, so a crash before this point makes Slack retry.
       const outcome = handleEventCallback(store, body as Parameters<typeof handleEventCallback>[1]);
+      log("info", "event_processed", { outcome });
       if (outcome === "enqueued") deps.onEnqueued?.();
     }
     return send(res, 200, "", "text/plain");
