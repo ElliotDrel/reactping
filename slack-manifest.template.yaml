@@ -1,0 +1,32 @@
+# Replace YOUR_PUBLIC_HOST with the host from BASE_URL, then paste into
+# https://api.slack.com/apps -> Create New App -> From a manifest.
+display_information:
+  name: ReactPing
+  description: Bot DMs when someone reacts to your messages.
+features:
+  bot_user:
+    display_name: ReactPing
+    always_online: false
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: true
+oauth_config:
+  redirect_urls:
+    - https://YOUR_PUBLIC_HOST/slack/oauth/callback
+  scopes:
+    user:
+      - reactions:read
+    bot:
+      - chat:write
+settings:
+  event_subscriptions:
+    request_url: https://YOUR_PUBLIC_HOST/slack/events
+    user_events:
+      - reaction_added
+    bot_events:
+      - app_uninstalled
+      - tokens_revoked
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

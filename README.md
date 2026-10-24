@@ -2,7 +2,7 @@
 
 Bot DMs when someone reacts to your Slack messages, with an optional single inbox across connected workspaces.
 
-Status: private project initialized; application implementation and deployment pending.
+Status: v1 implemented and covered by automated tests against a mocked Slack API. Live Slack coverage and deployment are pending; see [the live checklist](docs/live-checklist.md).
 
 ## V1
 
@@ -17,7 +17,7 @@ Each workspace requires authorization under its own app policies. Connecting a s
 
 ## Smallest architecture
 
-One TypeScript/Node service using Slack Bolt, OAuth, a public HTTPS Events API endpoint, and SQLite on a persistent volume. One process can accept events and drain a durable delivery table; no separate queue service, dashboard framework, or microservices.
+One TypeScript/Node service using the Slack Web API client (`@slack/web-api`), a small `node:http` receiver for OAuth and the Events API over public HTTPS, and SQLite (`node:sqlite`) on a persistent volume. Bolt was not needed: session-bound OAuth state and acknowledge-after-durable-write are simpler to implement directly. (Superseded: earlier drafts named Slack Bolt.) One process can accept events and drain a durable delivery table; no separate queue service, dashboard framework, or microservices.
 
 Store encrypted installation credentials, linked workspace/user IDs, routing preferences, and short-lived event/delivery records. Acknowledge events after durable receipt, deduplicate by Slack event ID and recipient, retry transient failures with backoff, honor rate limits, and surface revoked credentials. Do not promise exactly-once delivery after an ambiguous Slack API timeout.
 
@@ -39,7 +39,16 @@ Billing, analytics dashboards, digests, per-emoji filters, message previews, his
 
 ## Development setup
 
-No runtime dependencies or application code have been added yet. During implementation, add the minimal formatter, typecheck, lint, build, and test commands, then run them before pushes. Work in a sibling worktree; keep the primary checkout on `main`.
+Requires Node 24+. See [setup and run](docs/setup.md) for the Slack app, tunnel, and environment.
+
+```sh
+npm ci
+npm run check    # format:check, typecheck, lint, build, test
+npm run format   # prettier --write
+npm run dev      # run src/ with .env
+```
+
+Layout: `src/web.ts` (routes, sessions, CSRF, OAuth), `src/events.ts` (signature check, filtering, routing), `src/delivery.ts` (durable outbox worker), `src/db.ts` (SQLite schema and storage), `src/slack.ts` (Slack client and error mapping). Tests live in `test/`.
 
 ## Verified references
 
