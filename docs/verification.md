@@ -12,10 +12,14 @@ Verified October 23, 2026. Application code is on `feat/v1`; the primary checkou
 - Independent review added coverage for mid-delivery revocation, consent changes, account transfer, persisted rate-limit pauses through a real SQLite reopen, immediate local disconnect, and graceful worker shutdown.
 - Browser testing caught and fixed `Referrer-Policy: no-referrer` causing form submissions to send `Origin: null`; the service now uses `strict-origin-when-cross-origin`.
 
-## Awaiting Slack sign-in and live setup
+## Slack setup
 
-Slack app management in Chrome required sign-in. No app, OAuth grant, live reaction test, public deployment, or release tag has been created. No real Slack messages have been sent.
+The earlier sign-in blocker is superseded: Elliot signed in to Chrome, and ReactPing was created in Test Workspace (`T0000000000`), app ID `A0CBVN3467K`. The minimal manifest was saved and Slack reports the Events API Request URL as **Verified** and events **On**.
 
-Next: sign in to Slack in Chrome, create the app from the manifest, configure a public HTTPS endpoint and local secrets, then run [the live coverage checklist](live-checklist.md). Public/private channels, threads, DMs, group DMs, and Slack Connect remain unverified.
+Credentials are in ignored `.env` and the SQLite database is ignored. A temporary isolated Cloudflare tunnel forwards to local port `37131`. Its hostname changes on restart; it is a test connection, not a production deployment.
+
+OAuth is prepared at Slack's final **Allow** screen and awaits action-time user approval. No user grant, live reaction test, or release tag has been completed. No real Slack messages have been sent.
+
+Next: approve the ReactPing installation, then run [the live coverage checklist](live-checklist.md). Public/private channels, threads, DMs, group DMs, and Slack Connect remain unverified.
 
 See [setup](setup.md) for configuration and the test procedure. Live authorization remains subject to the selected workspace's app policy.

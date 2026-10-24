@@ -1,18 +1,18 @@
 # Live Slack coverage checklist
 
-Nothing below has been verified against live Slack yet. Automated tests use a mocked Slack API. Record the date, workspace, and observed result for each row; change **Unverified** only after you see the behavior yourself.
+Automated tests use a mocked Slack API. The endpoint verification below was also observed in the real Slack app settings. Record the date, workspace, and observed result for each row; change **Unverified** only after you see the behavior yourself.
 
 Setup: two workspaces (A, B), both connected from one ReactPing session. A second Slack user (the "reactor") in each workspace.
 
 ## Install and linking
 
-| Check                                                        | Status     | Notes |
-| ------------------------------------------------------------ | ---------- | ----- |
-| Request URL verifies on save in Slack                        | Unverified |       |
-| Workspace A OAuth completes; settings show Active            | Unverified |       |
-| Workspace B OAuth completes (public distribution on)         | Unverified |       |
-| OAuth callback opened in another browser/profile is rejected | Unverified |       |
-| Reloading a used callback URL is rejected                    | Unverified |       |
+| Check                                                        | Status     | Notes                                                                    |
+| ------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------ |
+| Request URL verifies on save in Slack                        | Verified   | October 23, 2026; Test Workspace; Slack shows Verified and events On. |
+| Workspace A OAuth completes; settings show Active            | Unverified |                                                                          |
+| Workspace B OAuth completes (public distribution on)         | Unverified |                                                                          |
+| OAuth callback opened in another browser/profile is rejected | Unverified |                                                                          |
+| Reloading a used callback URL is rejected                    | Unverified |                                                                          |
 
 ## Reaction coverage (same-workspace destination)
 

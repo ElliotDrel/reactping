@@ -18,6 +18,8 @@ Any TLS-terminating tunnel or host works. Examples (not installed by this repo):
 
 Copy the `https://…` origin. Quick tunnels change hostname on restart; when that happens, update `BASE_URL` and both URLs in the Slack app.
 
+If Cloudflare inherits an existing configuration and the quick tunnel returns an unexpected 404, use a dedicated YAML config containing only `url: http://localhost:3000`, then run `cloudflared tunnel --config <path-to-that-file> --no-autoupdate --url http://localhost:3000`. Preserve the user's global Cloudflare configuration.
+
 ## 3. Create the Slack app
 
 1. Open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From a manifest**.
