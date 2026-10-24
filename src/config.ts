@@ -7,6 +7,7 @@ export interface Config {
   slackSigningSecret: string;
   encryptionKey: Buffer;
   retentionHours: number;
+  includeSelfReactions: boolean;
   tlsCertFile?: string;
   tlsKeyFile?: string;
 }
@@ -34,6 +35,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (!Number.isInteger(port) || port < 1 || port > 65535) throw new Error("PORT must be an integer from 1 to 65535");
   if (Boolean(env.TLS_CERT_FILE) !== Boolean(env.TLS_KEY_FILE))
     throw new Error("Set both TLS_CERT_FILE and TLS_KEY_FILE");
+  const includeSelfReactions = env.INCLUDE_SELF_REACTIONS ?? "false";
+  if (includeSelfReactions !== "true" && includeSelfReactions !== "false")
+    throw new Error("INCLUDE_SELF_REACTIONS must be true or false");
   return {
     baseUrl: baseUrl.origin,
     port,
@@ -43,6 +47,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     slackSigningSecret: required(env, "SLACK_SIGNING_SECRET"),
     encryptionKey,
     retentionHours,
+    includeSelfReactions: includeSelfReactions === "true",
     tlsCertFile: env.TLS_CERT_FILE || undefined,
     tlsKeyFile: env.TLS_KEY_FILE || undefined,
   };

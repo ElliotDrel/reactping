@@ -2,7 +2,7 @@
 
 Bot DMs when someone reacts to your Slack messages, with an optional single inbox across connected workspaces.
 
-Status: v1 implemented and covered by automated tests against a mocked Slack API. Live Slack coverage and deployment are pending; see [the live checklist](docs/live-checklist.md).
+Status: v1 implemented and covered by automated tests against a mocked Slack API. A real public-channel reaction has delivered a bot DM. Broader live coverage and permanent deployment are pending; see [the live checklist](docs/live-checklist.md).
 
 ## V1
 
@@ -38,6 +38,8 @@ Ship criterion: a hosted pilot works end to end for Elliot across two workspaces
 Billing, analytics dashboards, digests, per-emoji filters, message previews, historical backfill, Marketplace submission, and organization-wide deployment.
 
 ## Development setup
+
+Normal behavior excludes your own reactions to your messages. For solo testing, set `INCLUDE_SELF_REACTIONS=true` in `.env` and restart; the settings page displays a testing notice. The flag defaults to `false` and never enables notifications about other people's messages.
 
 Requires Node 24+. See [setup and run](docs/setup.md) for the Slack app, tunnel, and environment.
 

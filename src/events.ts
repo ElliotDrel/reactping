@@ -43,14 +43,14 @@ export type EventOutcome = "enqueued" | "duplicate" | "ignored" | "revoked";
  * Applies one verified event_callback. Runs synchronously against SQLite so the HTTP
  * handler can acknowledge only after the outcome is durable.
  */
-export function handleEventCallback(store: Store, envelope: EventEnvelope): EventOutcome {
+export function handleEventCallback(store: Store, envelope: EventEnvelope, includeSelfReactions = false): EventOutcome {
   const teamId = envelope.team_id;
   const event = envelope.event;
   if (!teamId || !ID.test(teamId) || !event) return "ignored";
 
   switch (event.type) {
     case "reaction_added":
-      return handleReaction(store, teamId, envelope.event_id, event);
+      return handleReaction(store, teamId, envelope.event_id, event, includeSelfReactions);
     case "tokens_revoked": {
       const ids = (value: unknown) => (Array.isArray(value) ? value.filter((v) => typeof v === "string") : []);
       const userIds = ids(event.tokens?.oauth);
@@ -75,12 +75,13 @@ function handleReaction(
   teamId: string,
   eventId: string | undefined,
   event: NonNullable<EventEnvelope["event"]>,
+  includeSelfReactions: boolean,
 ): EventOutcome {
   const { item, user: reactorId, item_user: authorId, reaction } = event;
   if (item?.type !== "message") return "ignored";
   if (!eventId || !/^Ev[A-Z0-9]{2,40}$/.test(eventId)) return "ignored";
   if (!reactorId || !authorId || !USER_ID.test(reactorId) || !USER_ID.test(authorId)) return "ignored";
-  if (reactorId === authorId) return "ignored";
+  if (!includeSelfReactions && reactorId === authorId) return "ignored";
   if (!reaction || !REACTION.test(reaction)) return "ignored";
   if (!item.channel || !item.ts || !CHANNEL_ID.test(item.channel) || !TS.test(item.ts)) return "ignored";
 

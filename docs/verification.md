@@ -1,10 +1,10 @@
 # V1 verification
 
-Verified October 23, 2026. Application code is on `feat/v1`; the primary checkout remains on `main`.
+Updated October 24, 2026. Application code is on `feat/v1`; the primary checkout remains on `main`.
 
 ## Completed
 
-- `npm run check`: formatting, TypeScript checks, ESLint, production build, and 54 tests pass.
+- `npm run check`: formatting, TypeScript checks, ESLint, production build, and 57 tests pass.
 - `npm audit --omit=dev --audit-level=high`: no known runtime dependency vulnerabilities reported.
 - Docker image builds and serves `/healthz` with HTTP 200 on Node 24.22.1, running as the non-root `node` user. Disposable smoke container stopped and removed.
 - Chrome browser: welcome page, browser session creation, settings page, and saving the same-workspace destination work. Preview used dummy credentials and no connected Slack workspaces.
@@ -25,10 +25,18 @@ The earlier OAuth approval wait is superseded: Elliot approved the installation,
 - A clearly labeled connection-test DM was accepted by Slack and read back in the Chrome Slack UI: [connection-test message](https://example-workspace.slack.com/archives/D0000000000/p1792814058864929).
 - A [test message](https://example-workspace.slack.com/archives/C0000000000/p1792814219778789) was posted as Elliot in the default public channel. Elliot's own white-check-mark reaction was visible in Slack. The real signed callback produced `event_processed` with outcome `ignored`, and the live database had zero deliveries, as expected for a self-reaction.
 - A **synthetic** event was passed through the real author filter, deduplication, message-link lookup, and delivery worker using the authorized tokens. First receipt returned `enqueued`, repeated receipt returned `duplicate`, and exactly one DM was sent. The [resulting DM](https://example-workspace.slack.com/archives/D0000000000/p1792814297446249) is explicitly labeled synthetic; no actual bot reaction was added to the source message. This test used an isolated in-memory queue, not fabricated production events.
-- Added secret-safe event outcome logging; the full 54-test check suite still passes.
+- Added secret-safe event outcome logging; the full 57-test check suite passes after adding the explicit self-reaction testing flag.
 
-The default channel has one member. A positive alert from another person's real Slack reaction remains unverified, as do private channels, threads, DMs, group DMs, Slack Connect, and cross-workspace routing. The app remains limited to its creation workspace; public distribution was not activated. No release tag or permanent hosting deployment has been created.
+Superseded: the default channel originally had one member; Tester A has now joined and a second white-check-mark reaction is visible. A positive alert from another person's real Slack reaction remains unverified, as do private channels, threads, DMs, group DMs, Slack Connect, and cross-workspace routing. The app remains limited to its creation workspace; public distribution was not activated. No release tag or permanent hosting deployment has been created.
 
-Next: have another Slack member react to the test message and follow [the live coverage checklist](live-checklist.md). The local service and temporary tunnel remain running for that test; stopping them makes the test URL unavailable.
+Next: have another Slack member add a fresh reaction to the test message and follow [the live coverage checklist](live-checklist.md). The local service and temporary tunnel remain running for that test; stopping them makes the test URL unavailable.
 
 See [setup](setup.md) for configuration and the test procedure. Live authorization remains subject to the selected workspace's app policy.
+
+## October 24: missing notification and recovery
+
+- The temporary tunnel was replaced while Slack still pointed to its old hostname. No deliveries were recorded in the live queue. Tester A's reaction is visible on the source message, but its callback was not observed; it is not counted as delivered.
+- Updated both Slack manifest URLs to the replacement tunnel host and reverified the Events API endpoint. Slack shows **Verified** and events **On**. The installation remains active.
+- Enabled `INCLUDE_SELF_REACTIONS=true` in the ignored local `.env` for testing. The committed default remains `false`; both modes only notify about the connected user's own messages.
+- Added a real eyes reaction as Elliot to the test message. A signed Slack callback was logged as `enqueued`; delivery `Ev0CBCHSRCGP` reached `sent` in one attempt with no error. Read back the [real notification DM](https://example-workspace.slack.com/archives/D0000000000/p1792816251770189) in Chrome, including the eyes emoji, Elliot mention, and original-message link. This supersedes the earlier absence of a positive real-reaction test; another person's successful delivery remains unverified.
+- Restarting a quick tunnel requires updating both Slack URLs and verifying a new real reaction before declaring testing ready. This local session remains dependent on the service, tunnel, and computer staying running. Permanent hosting remains pending.

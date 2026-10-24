@@ -60,7 +60,7 @@ docker run --env-file .env -e DATABASE_PATH=/data/reactping.sqlite -p 3000:3000 
 ## Behavior notes
 
 - **Routing:** an event is routed to the connected installation whose `team_id` matches the event and whose Slack user matches `item_user`. The `authorizations` array is not used for routing because Slack includes only one of the installations that can see the event.
-- **Filtering:** only `reaction_added` events where `item.type` is `message` qualify. Self-reactions and messages without `item_user` (e.g. incoming webhooks) are ignored.
+- **Filtering:** only `reaction_added` events on the connected user's own messages qualify. Self-reactions are excluded by default. For testing alone, set `INCLUDE_SELF_REACTIONS=true` in `.env` and restart the service; settings show a testing-mode notice. Set it back to `false` and restart to restore the normal behavior. Testing mode still excludes other people's messages and preserves workspace isolation. Messages without `item_user` (e.g. incoming webhooks) are ignored.
 - **Delivery:** events are written to SQLite before Slack gets the `200`. A worker drains the outbox every 2 seconds, deduplicated by `(event_id, recipient)`. Transient failures retry with exponential backoff (10 s doubling, capped at 15 min, 8 attempts max). Rate limits from message-link lookup or posting honor the full `Retry-After` and persist a worker pause across restarts. A timeout or network error is ambiguous, so a retry can produce a **duplicate DM**. There is no exactly-once guarantee. Routing and consent are checked again after link lookup; a request already sent to Slack cannot be cancelled.
 - **Message link:** fetched at delivery time with the source user's token via `chat.getPermalink`. If that fails, ReactPing falls back to `<workspace url>archives/<channel>/p<ts without dot>`, built from `auth.test`'s workspace URL captured at install. For thread replies the fallback may open the parent channel rather than the thread.
 - **Cross-workspace text** says "Someone reacted…" (no `users:read` scope, and the reactor's ID means nothing in another workspace). Same-workspace text mentions the reactor.
@@ -72,4 +72,4 @@ docker run --env-file .env -e DATABASE_PATH=/data/reactping.sqlite -p 3000:3000 
 
 - **Restart:** pending deliveries persist in SQLite and resume on boot.
 - **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the database and reconnect every workspace.
-- **Changed tunnel host:** update `BASE_URL`, the Redirect URL, and the Event Request URL.
+- **Changed tunnel host:** update `BASE_URL`, restart the service, and update both the Redirect URL and Event Request URL in Slack. Verify the Event Request URL shows **Verified** with events **On**, then add a fresh reaction and confirm both a queued delivery and its bot DM before testing with others. A healthy `/healthz` alone does not prove Slack is sending to the current host. Reactions missed during downtime are not backfilled by ReactPing.

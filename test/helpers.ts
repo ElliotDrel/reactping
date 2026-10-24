@@ -21,6 +21,7 @@ export function makeConfig(baseUrl: string): Config {
     slackSigningSecret: SIGNING_SECRET,
     encryptionKey: randomBytes(32),
     retentionHours: 48,
+    includeSelfReactions: false,
   };
 }
 

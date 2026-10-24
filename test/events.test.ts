@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { reactionEvent, seedInstallation, signedEvent, startApp, type TestApp } from "./helpers.ts";
+import { Browser, reactionEvent, seedInstallation, signedEvent, startApp, type TestApp } from "./helpers.ts";
 
 let app: TestApp;
 let accountId: string;
@@ -74,6 +74,25 @@ describe("reaction filtering and routing", () => {
     assert.equal((await signedEvent(app, event)).status, 200);
     assert.equal((await signedEvent(app, event)).status, 200);
     assert.equal(pending().length, 1);
+  });
+
+  it("includes self-reactions only in testing mode and still deduplicates retries", async () => {
+    app.config.includeSelfReactions = true;
+    const event = reactionEvent("T1", { user: "UAUTHOR", event_id: "EvSELFTEST1" });
+    assert.equal((await signedEvent(app, event)).status, 200);
+    assert.equal((await signedEvent(app, event)).status, 200);
+    assert.equal(pending().length, 1);
+    assert.equal(pending()[0]!.reactorId, "UAUTHOR");
+    const settings = new Browser(app);
+    await settings.start();
+    assert.match(await (await settings.request("/settings")).text(), /Testing mode:/);
+  });
+
+  it("keeps testing mode limited to connected authors in the matching workspace", async () => {
+    app.config.includeSelfReactions = true;
+    await signedEvent(app, reactionEvent("T1", { item_user: "UOTHER", user: "UOTHER" }));
+    await signedEvent(app, reactionEvent("T2", { user: "UAUTHOR" }));
+    assert.equal(pending().length, 0);
   });
 
   it("routes a reaction only to the author's own installation", async () => {

@@ -160,6 +160,7 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
       html`
         ${notice ? html`<p class="notice" role="status">${notice}</p>` : ""}
         <h2>Connected workspaces</h2>
+        ${config.includeSelfReactions ? html`<p class="notice">Testing mode: reactions you add to your own messages also send notifications.</p>` : ""}
         ${
           installations.length === 0
             ? html`<p>No workspaces connected yet.</p>`
@@ -420,7 +421,11 @@ export function createHandler(deps: AppDeps): (req: IncomingMessage, res: Server
     }
     if (body.type === "event_callback") {
       // Committed to SQLite before the 200, so a crash before this point makes Slack retry.
-      const outcome = handleEventCallback(store, body as Parameters<typeof handleEventCallback>[1]);
+      const outcome = handleEventCallback(
+        store,
+        body as Parameters<typeof handleEventCallback>[1],
+        config.includeSelfReactions,
+      );
       log("info", "event_processed", { outcome });
       if (outcome === "enqueued") deps.onEnqueued?.();
     }

@@ -28,7 +28,13 @@ const purge = () => store.purgeExpired(config.retentionHours * 60 * 60 * 1000);
 purge();
 const purgeTimer = setInterval(purge, 60 * 60 * 1000);
 
-server.listen(config.port, () => log("info", "listening", { port: config.port, baseUrl: config.baseUrl }));
+server.listen(config.port, () =>
+  log("info", "listening", {
+    port: config.port,
+    baseUrl: config.baseUrl,
+    includeSelfReactions: config.includeSelfReactions,
+  }),
+);
 
 let shuttingDown = false;
 async function shutdown(): Promise<void> {

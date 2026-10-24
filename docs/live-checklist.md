@@ -16,32 +16,32 @@ Setup: two workspaces (A, B), both connected from one ReactPing session. A secon
 
 ## Reaction coverage (same-workspace destination)
 
-React as the reactor to a message authored by the connected user. Expect one bot DM with emoji, `<@reactor>`, workspace name, and a working link.
+October 24: public-channel positive result used Elliot as reactor with `INCLUDE_SELF_REACTIONS=true`; a different user is still needed to verify the normal-mode positive path. React as the reactor to a message authored by the connected user. Expect one bot DM with emoji, `<@reactor>`, workspace name, and a working link.
 
-| Conversation                         | Status     | DM received | Link opens message |
-| ------------------------------------ | ---------- | ----------- | ------------------ |
-| Public channel                       | Unverified |             |                    |
-| Private channel (author is a member) | Unverified |             |                    |
-| Thread reply                         | Unverified |             |                    |
-| 1:1 DM between reactor and author    | Unverified |             |                    |
-| Group DM (MPIM)                      | Unverified |             |                    |
-| Slack Connect shared channel         | Unverified |             |                    |
+| Conversation                         | Status                | DM received | Link opens message                     |
+| ------------------------------------ | --------------------- | ----------- | -------------------------------------- |
+| Public channel                       | Verified in test mode | Yes         | Correct original-message URL read back |
+| Private channel (author is a member) | Unverified            |             |                                        |
+| Thread reply                         | Unverified            |             |                                        |
+| 1:1 DM between reactor and author    | Unverified            |             |                                        |
+| Group DM (MPIM)                      | Unverified            |             |                                        |
+| Slack Connect shared channel         | Unverified            |             |                                        |
 
 ## Filtering
 
-| Check                                                   | Status     | Notes                                                                                              |
-| ------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
-| Author reacting to own message sends nothing            | Verified   | October 23, 2026; real white-check-mark reaction; signed callback ignored; zero queued deliveries. |
-| Reaction on a file (not a message) sends nothing        | Unverified |                                                                                                    |
-| Reaction on another user's message sends nothing to you | Unverified |                                                                                                    |
-| `reaction_removed` sends nothing                        | Unverified |                                                                                                    |
-| DM has no link/media unfurl                             | Unverified |                                                                                                    |
+| Check                                                       | Status     | Notes                                                                                              |
+| ----------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
+| Author reacting to own message sends nothing (default mode) | Verified   | October 23, 2026; real white-check-mark reaction; signed callback ignored; zero queued deliveries. |
+| Reaction on a file (not a message) sends nothing            | Unverified |                                                                                                    |
+| Reaction on another user's message sends nothing to you     | Unverified |                                                                                                    |
+| `reaction_removed` sends nothing                            | Unverified |                                                                                                    |
+| DM has no link/media unfurl                                 | Unverified |                                                                                                    |
 
 ## Component smoke checks
 
 - Real connection-test bot DM delivered and read back in Slack.
 - Explicitly labeled synthetic reaction passed filtering, deduplication, real permalink lookup, and real DM delivery. Duplicate submission produced one notification. This does not verify a second person's actual reaction.
-- The default test channel has one member; positive real reaction coverage remains **Unverified**.
+- October 24: real self-reaction with the explicit test override delivered one bot DM; live queue shows `sent`, one attempt, no error. Tester A has joined, but his earlier reaction did not reach the queue while Slack pointed at the expired tunnel URL. Another-person positive delivery remains **Unverified**.
 
 ## Cross-workspace routing
 
