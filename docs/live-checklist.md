@@ -16,7 +16,7 @@ Setup: two workspaces (A, B), both connected from one ReactPing session. A secon
 
 ## Reaction coverage (same-workspace destination)
 
-October 24: public-channel positive result used Elliot as reactor with `INCLUDE_SELF_REACTIONS=true`; a different user is still needed to verify the normal-mode positive path. React as the reactor to a message authored by the connected user. Expect one bot DM with emoji, `<@reactor>`, workspace name, and a working link.
+October 24: public-channel positive result used Elliot as reactor with `INCLUDE_SELF_REACTIONS=true`; Tester A's real white-check-mark reaction also delivered successfully with the test flag enabled. The flag changes only self-reaction filtering; normal-mode exclusion was verified separately. React as the reactor to a message authored by the connected user. Expect one bot DM with emoji, `<@reactor>`, workspace name, and a working link.
 
 | Conversation                         | Status                | DM received | Link opens message                     |
 | ------------------------------------ | --------------------- | ----------- | -------------------------------------- |
@@ -41,7 +41,7 @@ October 24: public-channel positive result used Elliot as reactor with `INCLUDE_
 
 - Real connection-test bot DM delivered and read back in Slack.
 - Explicitly labeled synthetic reaction passed filtering, deduplication, real permalink lookup, and real DM delivery. Duplicate submission produced one notification. This does not verify a second person's actual reaction.
-- October 24: real self-reaction with the explicit test override delivered one bot DM; live queue shows `sent`, one attempt, no error. Tester A has joined, but his earlier reaction did not reach the queue while Slack pointed at the expired tunnel URL. Another-person positive delivery remains **Unverified**.
+- October 24: real self-reaction with the explicit test override delivered one bot DM; live queue shows `sent`, one attempt, no error. Tester A has joined, but his earlier reaction did not reach the queue while Slack pointed at the expired tunnel URL. Subsequently, Tester A's real white-check-mark event delivered successfully in one attempt, and its DM was read back in Chrome. Another real self-reaction (tada) also delivered once.
 
 ## Cross-workspace routing
 
