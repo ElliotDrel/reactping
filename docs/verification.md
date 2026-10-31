@@ -1,6 +1,8 @@
 # V1 verification
 
-Updated October 24, 2026. Application code is on `feat/v1`; the primary checkout remains on `main`.
+Updated October 31, 2026. The latest v1 implementation (`ae03de1`) has been fast-forwarded and pushed to `main`; the primary checkout remains on `main`. Superseded: the implementation was previously available only on `feat/v1`.
+
+October 31 takeover verification: formatting, typecheck, lint, production build, and all 57 tests passed again against `ae03de1`. The remote `main` SHA matched the local checkout, and the repository remained private. Historical live Slack results below were not rerun during this takeover.
 
 ## Completed
 
