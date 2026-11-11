@@ -1,5 +1,7 @@
 # Live Slack coverage checklist
 
+> **Historical (v1 SQLite service, October 2026).** Every result below was observed on the old single-process build reached through a temporary tunnel. None of it has been rerun on the Vercel + Supabase version, which is not yet deployed. When the hosted version is connected, copy these tables into a new dated section, use the `/api/slack/...` URLs from [setup](setup.md), and record results only from live observation. Rows about stopping or killing "the process" map to a failed function invocation and lease recovery in the hosted design.
+
 Automated tests use a mocked Slack API. The endpoint verification below was also observed in the real Slack app settings. Record the date, workspace, and observed result for each row; change **Unverified** only after you see the behavior yourself.
 
 Setup: two workspaces (A, B), both connected from one ReactPing session. A second Slack user (the "reactor") in each workspace.

@@ -1,5 +1,16 @@
 # V1 verification
 
+## November 10, 2026: website and Vercel + Supabase migration (local only)
+
+Built in worktree branch `t3/fd07a5d9`; not pushed, deployed, or live-tested.
+
+- `npm run check` with a disposable local Postgres 17 container (`TEST_DATABASE_URL`): formatting, typecheck, lint, production build, and 80 tests pass. Without the database, 18 tests pass and the 4 Postgres suites report as skipped. See [test migration](test-migration.md) for how the 57 v1 tests map to the new suite.
+- `npm audit --omit=dev`: 0 vulnerabilities. `@vercel/functions` was evaluated and not used because its dependency tree carried high-severity advisories; `waitUntil` is read from Vercel's request context directly. Dev-only ESLint tooling still reports moderate `minimatch` advisories.
+- The built site was served by `npm run dev` with no configuration and checked with headless Chrome (desktop, and an emulated 375 px phone): no horizontal overflow on any route, the mobile menu opens, `/app` shows "Setup not connected", unknown paths return the 404 page, and `/api/health` reports `ready: false`. Screenshots are in ignored `local-evidence/`.
+- Not verified: Vercel routing and the `nodejs24.x` runtime on a real deployment, Supabase Auth email codes, deleting `auth.users` on hosted Supabase, pg_cron/pg_net/Vault, and any Slack behavior on this code. Those need the owner's accounts.
+
+Superseded: the sections below describe the v1 SQLite service, including its Docker image (now removed).
+
 Updated October 31, 2026. The latest v1 implementation (`ae03de1`) has been fast-forwarded and pushed to `main`; the primary checkout remains on `main`. Superseded: the implementation was previously available only on `feat/v1`.
 
 October 31 takeover verification: formatting, typecheck, lint, production build, and all 57 tests passed again against `ae03de1`. The remote `main` SHA matched the local checkout, and the repository remained private. Historical live Slack results below were not rerun during this takeover.

@@ -40,10 +40,14 @@ interface EventEnvelope {
 export type EventOutcome = "enqueued" | "duplicate" | "ignored" | "revoked";
 
 /**
- * Applies one verified event_callback. Runs synchronously against SQLite so the HTTP
- * handler can acknowledge only after the outcome is durable.
+ * Applies one verified event_callback. The HTTP handler awaits this, so Slack is acknowledged
+ * only after the outcome is committed to Postgres.
  */
-export function handleEventCallback(store: Store, envelope: EventEnvelope, includeSelfReactions = false): EventOutcome {
+export async function handleEventCallback(
+  store: Store,
+  envelope: EventEnvelope,
+  includeSelfReactions = false,
+): Promise<EventOutcome> {
   const teamId = envelope.team_id;
   const event = envelope.event;
   if (!teamId || !ID.test(teamId) || !event) return "ignored";
@@ -55,13 +59,13 @@ export function handleEventCallback(store: Store, envelope: EventEnvelope, inclu
       const ids = (value: unknown) => (Array.isArray(value) ? value.filter((v) => typeof v === "string") : []);
       const userIds = ids(event.tokens?.oauth);
       // A revoked bot token means the bot can no longer DM anyone in that workspace.
-      let count = store.markRevoked({ teamId, userIds }, "user");
-      if (ids(event.tokens?.bot).length > 0) count += store.markRevoked({ teamId }, "bot");
+      let count = await store.markRevoked({ teamId, userIds }, "user");
+      if (ids(event.tokens?.bot).length > 0) count += await store.markRevoked({ teamId }, "bot");
       log("info", "tokens_revoked", { teamId, installations: count });
       return "revoked";
     }
     case "app_uninstalled": {
-      const count = store.markRevoked({ teamId });
+      const count = await store.markRevoked({ teamId });
       log("info", "app_uninstalled", { teamId, installations: count });
       return "revoked";
     }
@@ -70,13 +74,13 @@ export function handleEventCallback(store: Store, envelope: EventEnvelope, inclu
   }
 }
 
-function handleReaction(
+async function handleReaction(
   store: Store,
   teamId: string,
   eventId: string | undefined,
   event: NonNullable<EventEnvelope["event"]>,
   includeSelfReactions: boolean,
-): EventOutcome {
+): Promise<EventOutcome> {
   const { item, user: reactorId, item_user: authorId, reaction } = event;
   if (item?.type !== "message") return "ignored";
   if (!eventId || !/^Ev[A-Z0-9]{2,40}$/.test(eventId)) return "ignored";
@@ -87,10 +91,10 @@ function handleReaction(
 
   // Route by the message author's own installation in this workspace. The envelope's
   // `authorizations` array names only one installation that can see the event, so it is not used.
-  const source = store.findActiveInstallation(teamId, authorId);
+  const source = await store.findActiveInstallation(teamId, authorId);
   if (!source) return "ignored";
 
-  const created = store.enqueueDelivery({
+  const created = await store.enqueueDelivery({
     eventId,
     sourceInstallationId: source.id,
     reactorId,

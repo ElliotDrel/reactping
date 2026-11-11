@@ -1,16 +1,26 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { describe, it } from "node:test";
-import { Store, type Installation } from "../src/db.ts";
+import { beforeEach, describe, it } from "node:test";
+import type { Installation, Store } from "../src/db.ts";
 import { DeliveryWorker } from "../src/delivery.ts";
 import { SlackCallError } from "../src/slack.ts";
-import { Browser, Clock, FakeSlack, oauthResult, seedInstallation, startApp } from "./helpers.ts";
+import {
+  Browser,
+  Clock,
+  createAccount,
+  dbSkip,
+  FakeSlack,
+  makeStore,
+  oauthResult,
+  seedInstallation,
+  startApp,
+  useDatabase,
+} from "./helpers.ts";
 
-function enqueue(store: Store, source: Installation, eventId = "EvREVIEW1"): void {
-  store.enqueueDelivery({
+const PERMALINK = "https://acme.slack.com/archives/C123/p1700000000000100";
+
+function enqueue(store: Store, source: Installation, eventId = "EvREVIEW1"): Promise<boolean> {
+  return store.enqueueDelivery({
     eventId,
     sourceInstallationId: source.id,
     reactorId: "UREACTOR",
@@ -20,225 +30,153 @@ function enqueue(store: Store, source: Installation, eventId = "EvREVIEW1"): voi
   });
 }
 
-function fixture() {
-  const clock = new Clock();
-  const store = new Store(":memory:", randomBytes(32), clock.now);
-  const slack = new FakeSlack();
-  const accountId = store.createAccountSession().session.accountId;
-  const source = seedInstallation(store, accountId, "T1", "UAUTHOR");
-  return { store, slack, clock, accountId, source, worker: new DeliveryWorker(store, slack, clock.now) };
-}
-
-describe("delivery ordering regressions", () => {
-  it("does not deliver after the source is revoked during permalink lookup", async () => {
-    const f = fixture();
-    try {
-      f.slack.getPermalink = async () => {
-        f.store.markRevoked({ id: f.source.id });
-        return "https://acme.slack.com/archives/C123/p1700000000000100";
-      };
-      enqueue(f.store, f.source);
-      await f.worker.runOnce();
-      assert.equal(f.slack.callsTo("postMessage").length, 0);
-      assert.equal(f.store.getDeliveryStatus(1)?.lastError, "source_changed");
-    } finally {
-      f.store.close();
-    }
+describe("regressions", { skip: dbSkip }, () => {
+  const db = useDatabase();
+  let clock: Clock;
+  let key: Buffer<ArrayBuffer>;
+  let store: Store;
+  let slack: FakeSlack;
+  let accountId: string;
+  let source: Installation;
+  let worker: DeliveryWorker;
+  beforeEach(async () => {
+    clock = new Clock();
+    key = randomBytes(32);
+    store = makeStore(db.pool(), clock, key);
+    slack = new FakeSlack();
+    accountId = await createAccount(store);
+    source = await seedInstallation(store, accountId, "T1", "UAUTHOR");
+    worker = new DeliveryWorker(store, slack, clock.now);
   });
 
-  it("rechecks routing consent after permalink lookup", async () => {
-    const f = fixture();
-    try {
-      const destination = seedInstallation(f.store, f.accountId, "T2", "UDEST");
-      f.store.setDestination(f.accountId, destination.id, true);
-      f.slack.getPermalink = async () => {
-        f.store.setDestination(f.accountId, null, false);
-        return "https://acme.slack.com/archives/C123/p1700000000000100";
+  describe("delivery ordering", () => {
+    it("does not deliver after the source is revoked during permalink lookup", async () => {
+      slack.getPermalink = async () => {
+        await store.markRevoked({ id: source.id });
+        return PERMALINK;
       };
-      enqueue(f.store, f.source);
-      await f.worker.runOnce();
-      assert.equal(f.slack.callsTo("postMessage")[0]?.args[0], "xoxb-T1");
-    } finally {
-      f.store.close();
-    }
-  });
+      await enqueue(store, source);
+      await worker.drain();
+      assert.equal(slack.callsTo("postMessage").length, 0);
+      assert.equal((await store.getDeliveryStatus(1))?.lastError, "source_changed");
+    });
 
-  it("does not send an old account's event after its source identity moves", async () => {
-    const f = fixture();
-    try {
-      f.slack.getPermalink = async () => {
-        const account = f.store.createAccountSession().session.accountId;
-        seedInstallation(f.store, account, "T1", "UAUTHOR");
-        return "https://acme.slack.com/archives/C123/p1700000000000100";
+    it("rechecks routing consent after permalink lookup", async () => {
+      const destination = await seedInstallation(store, accountId, "T2", "UDEST");
+      await store.setDestination(accountId, destination.id, true);
+      slack.getPermalink = async () => {
+        await store.setDestination(accountId, null, false);
+        return PERMALINK;
       };
-      enqueue(f.store, f.source);
-      await f.worker.runOnce();
-      assert.equal(f.slack.callsTo("postMessage").length, 0);
-    } finally {
-      f.store.close();
-    }
-  });
+      await enqueue(store, source);
+      await worker.drain();
+      assert.equal(slack.callsTo("postMessage")[0]?.args[0], "xoxb-T1");
+    });
 
-  it("fails and revokes the source when permalink lookup reports revoked credentials", async () => {
-    const f = fixture();
-    try {
-      f.slack.getPermalink = async () => {
+    it("does not send an old account's event after its source identity moves", async () => {
+      slack.getPermalink = async () => {
+        const account = await createAccount(store);
+        await seedInstallation(store, account, "T1", "UAUTHOR");
+        return PERMALINK;
+      };
+      await enqueue(store, source);
+      await worker.drain();
+      assert.equal(slack.callsTo("postMessage").length, 0);
+    });
+
+    it("fails and revokes the source when permalink lookup reports revoked credentials", async () => {
+      slack.getPermalink = async () => {
         throw new SlackCallError("revoked", "token_revoked");
       };
-      enqueue(f.store, f.source);
-      await f.worker.runOnce();
-      assert.equal(f.store.getInstallation(f.source.id)?.status, "revoked");
-      assert.equal(f.slack.callsTo("postMessage").length, 0);
-      assert.equal(f.store.getDeliveryStatus(1)?.lastError, "token_revoked");
-    } finally {
-      f.store.close();
-    }
-  });
+      await enqueue(store, source);
+      await worker.drain();
+      assert.equal((await store.getInstallation(source.id))?.status, "revoked");
+      assert.equal(slack.callsTo("postMessage").length, 0);
+      assert.equal((await store.getDeliveryStatus(1))?.lastError, "token_revoked");
+    });
 
-  it("keeps the full permalink Retry-After and queue pause through a real database reopen", async () => {
-    const folder = mkdtempSync(join(tmpdir(), "reactping-retry-test-"));
-    const path = join(folder, "queue.sqlite");
-    const key = randomBytes(32);
-    const clock = new Clock();
-    let store = new Store(path, key, clock.now);
-    try {
-      const accountId = store.createAccountSession().session.accountId;
-      const source = seedInstallation(store, accountId, "T1", "UAUTHOR");
-      enqueue(store, source);
-      enqueue(store, source, "EvREVIEW2");
+    it("keeps the full permalink Retry-After and queue pause across serverless instances", async () => {
+      await enqueue(store, source);
+      await enqueue(store, source, "EvREVIEW2");
       const throttled = new FakeSlack();
       throttled.getPermalink = async () => {
         throw new SlackCallError("rate_limited", "ratelimited", 3600);
       };
-      await new DeliveryWorker(store, throttled, clock.now).runOnce();
+      await new DeliveryWorker(store, throttled, clock.now).drain();
       assert.equal(throttled.callsTo("postMessage").length, 0);
-      assert.equal(store.deliveryPausedUntil(), clock.t + 3_600_000);
-      store.close();
-      store = new Store(path, key, clock.now);
+      assert.equal(await store.deliveryPausedUntil(), clock.t + 3_600_000);
+      // Another instance: new Store and worker over the same database.
       const recovered = new FakeSlack();
-      const worker = new DeliveryWorker(store, recovered, clock.now);
+      const other = new DeliveryWorker(makeStore(db.pool(), clock, key), recovered, clock.now);
       clock.t += 16 * 60_000;
-      await worker.runOnce();
+      await other.drain();
       assert.equal(recovered.calls.length, 0);
       clock.t += 44 * 60_000;
-      await worker.runOnce();
+      await other.drain();
       assert.equal(recovered.callsTo("postMessage").length, 2);
-      assert.equal(store.getDeliveryStatus(1)?.status, "sent");
-      assert.equal(store.getDeliveryStatus(2)?.status, "sent");
-    } finally {
-      store.close();
-      rmSync(folder, { recursive: true, force: true });
-    }
+      assert.equal((await store.getDeliveryStatus(1))?.status, "sent");
+      assert.equal((await store.getDeliveryStatus(2))?.status, "sent");
+    });
   });
 
-  it("stop waits for the in-flight delivery and leaves the rest queued", async () => {
-    const f = fixture();
-    try {
-      let release!: (value: string) => void;
-      f.slack.getPermalink = () =>
-        new Promise<string>((resolve) => {
-          release = resolve;
-        });
-      enqueue(f.store, f.source);
-      enqueue(f.store, f.source, "EvREVIEW2");
-      const run = f.worker.runOnce();
-      let stopped = false;
-      const stop = f.worker.stop().then(() => {
-        stopped = true;
-      });
-      await Promise.resolve();
-      assert.equal(stopped, false);
-      release("https://acme.slack.com/archives/C123/p1700000000000100");
-      await Promise.all([run, stop]);
-      assert.equal(f.slack.callsTo("postMessage").length, 1);
-      assert.equal(f.store.dueDeliveries(10).length, 1);
-      await f.worker.runOnce();
-      assert.equal(f.slack.callsTo("postMessage").length, 1);
-    } finally {
-      f.store.close();
-    }
-  });
-});
-
-describe("local disconnect ordering", () => {
-  it("can revoke the retained bot grant after its user's authorization was revoked", async () => {
-    const app = await startApp();
-    try {
-      const b = new Browser(app);
-      await b.start();
+  describe("disconnect ordering", () => {
+    it("can revoke the retained bot grant after its user's authorization was revoked", async () => {
+      const app = startApp(db.pool());
+      const b = await Browser.signIn(app);
       await b.connect("T1", "UAUTHOR");
-      const source = app.store.listInstallations(b.accountId())[0]!;
-      app.store.markRevoked({ id: source.id }, "user");
-      assert.equal(app.store.getInstallation(source.id)?.botToken, "xoxb-T1");
-      const response = await b.post("/installations/disconnect", { csrf: await b.csrf(), installation: source.id });
-      assert.equal(response.headers.get("location"), "/settings?notice=disconnected");
+      const inst = (await app.store.listInstallations(b.accountId))[0]!;
+      await app.store.markRevoked({ id: inst.id }, "user");
+      assert.equal((await app.store.getInstallation(inst.id))?.botToken, "xoxb-T1");
+      const response = await b.post("/api/installations/disconnect", { installation: inst.id });
+      assert.deepEqual(await response.json(), { revoked: true });
       assert.deepEqual(
         app.slack.callsTo("revoke").map((call) => call.args[0]),
         ["xoxb-T1"],
       );
-    } finally {
-      await app.close();
-    }
-  });
+    });
 
-  it("does not revoke a shared bot grant when another active user's rejected install is cleaned up", async () => {
-    const app = await startApp();
-    try {
-      const existing = new Browser(app);
-      await existing.start();
+    it("does not revoke a shared bot grant when another active user's rejected install is cleaned up", async () => {
+      const app = startApp(db.pool());
+      const existing = await Browser.signIn(app);
       await existing.connect("T1", "UEXISTING");
-      const b = new Browser(app);
-      await b.start();
+      const b = await Browser.signIn(app);
       app.slack.oauthResults.set("missing-scope", oauthResult("T1", "UNEW", { userScopes: [] }));
       const response = await b.callback({ code: "missing-scope", state: await b.beginInstall() });
-      assert.equal(response.headers.get("location"), "/settings?notice=missing_scope");
+      assert.equal(response.headers.get("location"), "/app?slack=missing_scope");
       assert.deepEqual(
         app.slack.callsTo("revoke").map((call) => call.args[0]),
         ["xoxp-T1-UNEW"],
       );
-      assert.equal(app.store.findActiveInstallation("T1", "UEXISTING")?.botToken, "xoxb-T1");
-    } finally {
-      await app.close();
-    }
-  });
+      assert.equal((await app.store.findActiveInstallation("T1", "UEXISTING"))?.botToken, "xoxb-T1");
+    });
 
-  it("removes the local installation before asking Slack to revoke its tokens", async () => {
-    const app = await startApp();
-    try {
-      const b = new Browser(app);
-      await b.start();
+    it("removes the local installation before asking Slack to revoke its tokens", async () => {
+      const app = startApp(db.pool());
+      const b = await Browser.signIn(app);
       await b.connect("T1", "UAUTHOR");
-      const source = app.store.listInstallations(b.accountId())[0]!;
-      enqueue(app.store, source);
+      const inst = (await app.store.listInstallations(b.accountId))[0]!;
+      await enqueue(app.store, inst);
       app.slack.revoke = async () => {
-        assert.equal(app.store.getInstallation(source.id), undefined);
-        assert.equal(app.store.dueDeliveries(10).length, 0);
+        assert.equal(await app.store.getInstallation(inst.id), undefined);
+        assert.equal((await app.store.pendingDeliveries()).length, 0);
         throw new SlackCallError("transient", "request_failed");
       };
-      const response = await b.post("/installations/disconnect", { csrf: await b.csrf(), installation: source.id });
-      assert.equal(response.headers.get("location"), "/settings?notice=disconnected_local");
-    } finally {
-      await app.close();
-    }
-  });
+      const response = await b.post("/api/installations/disconnect", { installation: inst.id });
+      assert.deepEqual(await response.json(), { revoked: false });
+    });
 
-  it("deletes all local account data, including OAuth state, before remote revocation", async () => {
-    const app = await startApp();
-    try {
-      const b = new Browser(app);
-      await b.start();
+    it("deletes all local account data, including OAuth state, before remote revocation", async () => {
+      const app = startApp(db.pool());
+      const b = await Browser.signIn(app);
       await b.connect("T1", "UAUTHOR");
       await b.connect("T2", "UDEST");
       await b.beginInstall();
-      const accountId = b.accountId();
       app.slack.revoke = async () => {
-        assert.equal(app.store.getAccount(accountId), undefined);
-        assert.equal(app.store.listInstallations(accountId).length, 0);
-        assert.equal(app.store.db.prepare("SELECT * FROM oauth_states").all().length, 0);
+        assert.equal(await app.store.getAccount(b.accountId), undefined);
+        assert.equal((await app.store.listInstallations(b.accountId)).length, 0);
+        assert.equal((await app.store.pool.query("select 1 from reactping.oauth_states")).rowCount, 0);
       };
-      assert.equal((await b.post("/account/delete", { csrf: await b.csrf() })).status, 303);
-    } finally {
-      await app.close();
-    }
+      assert.equal((await b.post("/api/account/delete", { confirm: "delete" })).status, 200);
+    });
   });
 });

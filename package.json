@@ -2,28 +2,33 @@
   "name": "reactping",
   "version": "0.0.0",
   "private": true,
-  "description": "Slack bot DMs when someone reacts to your messages.",
+  "description": "Website and Slack bot that DMs you when someone reacts to your messages.",
   "type": "module",
   "engines": {
     "node": ">=24"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
-    "start": "node dist/index.js",
-    "dev": "node --env-file=.env src/index.ts",
+    "build": "node scripts/build.ts",
+    "dev": "node --env-file-if-exists=.env scripts/build.ts && node --env-file-if-exists=.env src/dev.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "test": "node --test --test-reporter=spec \"test/**/*.test.ts\"",
+    "db:test:start": "docker run -d --rm --name reactping-test-db -p 54329:5432 -e POSTGRES_PASSWORD=postgres postgres:17-alpine",
+    "db:test:stop": "docker stop reactping-test-db",
     "check": "npm run format:check && npm run typecheck && npm run lint && npm run build && npm test"
   },
   "dependencies": {
-    "@slack/web-api": "^8.2.0"
+    "@slack/web-api": "^8.2.0",
+    "@supabase/supabase-js": "2.118.0",
+    "pg": "8.23.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.2",
+    "@types/pg": "8.23.1",
+    "esbuild": "0.28.2",
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
     "typescript": "~6.0",

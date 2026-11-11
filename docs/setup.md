@@ -1,75 +1,85 @@
 # Setup and run
 
-ReactPing is one Node 24+ process with a SQLite file. Slack must reach it over public HTTPS.
+ReactPing is a static website plus one Node.js API function on Vercel, with Supabase Postgres and Supabase Auth. Superseded: the previous single `node:http` process with SQLite, a tunnel, and Docker. Step-by-step account connection lives in [the connection guide](connection-guide.md); this page is the technical contract it follows.
 
 ## 1. Install and verify locally
 
 ```sh
 npm ci
+npm run db:test:start
+export TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:54329/postgres
 npm run check   # format:check, typecheck, lint, build, test
+npm run db:test:stop
 ```
 
-## 2. Get a public HTTPS URL
+`npm run dev` builds the site and serves it with the API at `http://localhost:3000` (`PORT` to change). It reads `.env` when present. With no configuration the site works, `/app` reports "Setup not connected", and the API fails closed with `503 not_configured`. The dev server also calls the delivery endpoint every minute when `DELIVERY_CRON_SECRET` is set, standing in for pg_cron.
 
-Any TLS-terminating tunnel or host works. Examples (not installed by this repo):
+A full local sign-in needs a Supabase Auth endpoint: a hosted project, or the Supabase CLI local stack (`supabase start`, which captures sign-in emails locally). Apply `supabase/migrations/` to that database and point `DATABASE_URL` at it. `http://localhost` is accepted for `PUBLIC_SITE_URL`; Slack itself requires HTTPS for its redirect and event URLs.
 
-- `cloudflared tunnel --url http://localhost:3000`
-- `ngrok http 3000`
+## 2. Environment contract
 
-Copy the `https://…` origin. Quick tunnels change hostname on restart; when that happens, update `BASE_URL` and both URLs in the Slack app.
+All names are in [`.env.example`](../.env.example).
 
-If Cloudflare inherits an existing configuration and the quick tunnel returns an unexpected 404, use a dedicated YAML config containing only `url: http://localhost:3000`, then run `cloudflared tunnel --config <path-to-that-file> --no-autoupdate --url http://localhost:3000`. Preserve the user's global Cloudflare configuration.
+| Variable                          | Where                | Purpose                                                                                 |
+| --------------------------------- | -------------------- | --------------------------------------------------------------------------------------- |
+| `PUBLIC_SITE_URL`                 | build + API          | Canonical origin. OAuth redirect, install origin check, canonical links, sitemap.       |
+| `PUBLIC_SUPABASE_URL`             | build + API          | Supabase project URL. Browser sign-in; API token verification.                          |
+| `PUBLIC_SUPABASE_PUBLISHABLE_KEY` | build + API          | Publishable (or legacy anon) key. The build and API reject secret or service-role keys. |
+| `PUBLIC_INSTALL_ENABLED`          | build                | Website shows installs as open. Does not enable installs.                               |
+| `PUBLIC_SITE_INDEXABLE`           | build                | Allow indexing; needs `PUBLIC_SITE_URL`; ignored when `VERCEL_ENV` is not `production`. |
+| `PUBLIC_SUPPORT_EMAIL`            | build                | Optional support address; empty shows "Support contact not published yet".              |
+| `DATABASE_URL`                    | API (secret)         | Supabase Postgres, transaction pooler (port 6543).                                      |
+| `SLACK_CLIENT_ID`                 | API                  | Slack app client ID.                                                                    |
+| `SLACK_CLIENT_SECRET`             | API (secret)         | Slack OAuth code exchange.                                                              |
+| `SLACK_SIGNING_SECRET`            | API (secret)         | Verifies Slack event requests.                                                          |
+| `ENCRYPTION_KEY`                  | API (secret)         | 32 bytes, base64. Encrypts Slack tokens at rest.                                        |
+| `DELIVERY_CRON_SECRET`            | API (secret) + Vault | Bearer secret for `POST /api/internal/deliver`; at least 32 characters.                 |
+| `REACTPING_INSTALLS_ENABLED`      | API (operator flag)  | Allows new Slack installs. Default `false`.                                             |
+| `INCLUDE_SELF_REACTIONS`          | API (operator flag)  | Testing only. Default `false`.                                                          |
 
-## 3. Create the Slack app
+The build reads only `PUBLIC_*` and `VERCEL_ENV`; a test builds with secret-looking values set and checks none reach the output. If any API variable is missing or invalid, the API logs the variable names (never values) and fails closed.
 
-1. Open [api.slack.com/apps](https://api.slack.com/apps) → **Create New App** → **From a manifest**.
-2. Paste `slack-manifest.template.yaml` with `YOUR_PUBLIC_HOST` replaced by the tunnel host. This configures:
-   - Redirect URL: `https://YOUR_PUBLIC_HOST/slack/oauth/callback`
-   - Event Request URL: `https://YOUR_PUBLIC_HOST/slack/events`
-   - User scope `reactions:read`; bot scope `chat:write`
-   - User event `reaction_added`; bot events `app_uninstalled`, `tokens_revoked`
-   - Token rotation off (ReactPing does not implement refresh tokens)
-3. From **Basic Information**, copy the Client ID, Client Secret, and Signing Secret.
-4. To connect a second workspace, enable **Manage Distribution → Activate Public Distribution**. This only allows installs via your own link; it is not a Marketplace listing.
+URLs under `PUBLIC_SITE_URL`:
 
-Slack verifies the Request URL when you save it, so the service must be running (step 4) first. If manifest import rejects the event URL, create the app, start the service, then re-save the URL under **Event Subscriptions**.
+- Slack OAuth redirect URL: `/api/slack/oauth/callback`
+- Slack Events API request URL: `/api/slack/events`
+- Delivery endpoint for pg_cron: `/api/internal/deliver`
+- Health: `/api/health` → `{"ok":true,"ready":true|false,...}`
 
-## 4. Configure and run
+## 3. Supabase
 
-```sh
-cp .env.example .env    # then fill in values
-npm run dev             # runs src/ directly with .env
-# or: npm run build && node --env-file=.env dist/index.js
-```
+- Apply `supabase/migrations/20261110000000_reactping.sql` (SQL editor or `supabase db push`). It creates the private `reactping` schema; do not add it to the Data API's exposed schemas.
+- Auth: enable the Email provider. Change the "Magic Link" email template to send the code (`{{ .Token }}`) instead of a link; the app asks for a 6-digit code (it accepts 6 to 10 digits). Public users need **custom SMTP**; Supabase's built-in sender only reaches project team members at a low rate.
+- After deployment, run `supabase/cron.template.sql` in the SQL editor with the real URL and `DELIVERY_CRON_SECRET` typed into the editor only. Secrets go into Vault; the job calls the endpoint every minute.
+- Account deletion removes the Supabase Auth user with `delete from auth.users` over `DATABASE_URL`. This was tested against a local stand-in for `auth.users`, not hosted Supabase. If hosted Supabase refuses it, the ReactPing data is still deleted and the app tells the user the sign-in email was not removed.
 
-Health check: `GET /healthz` → `{"ok":true}`.
+## 4. Vercel
 
-Docker (persistent volume for the database):
+- Import the repository with framework preset "Other". `vercel.json` sets `npm ci` and `npm run build`; the build emits `.vercel/output` (Build Output API), so dashboard output-directory and function settings are not used. The function runs on `nodejs24.x` with a 30-second limit.
+- Set the variables above for Production. Preview deployments are noindex and cannot complete Slack OAuth (the redirect and cookie belong to the canonical host); leave installs off there.
+- Slack and pg_cron must reach the production URL without Vercel Deployment Protection challenges.
+- Hobby plans are for personal, non-commercial use. A public or commercial launch needs a plan that allows it.
+- Choose the domain before configuring Slack; changing `PUBLIC_SITE_URL` later means updating the Slack app URLs and rebuilding.
 
-```sh
-docker build -t reactping .
-docker run --env-file .env -e DATABASE_PATH=/data/reactping.sqlite -p 3000:3000 -v reactping-data:/data reactping
-```
+## 5. Slack app
 
-## 5. Use it
-
-1. Open `BASE_URL` in a browser → **Get started**. This creates a ReactPing account tied to that browser session (30 days). There is no email login; clearing cookies means starting over and reconnecting.
-2. **Connect a Slack workspace** for each workspace. Each authorization is separate and must be completed in the same browser session.
-3. Choose a destination. Default: notifications stay in the workspace where the reaction happened. Sending everything to one workspace requires ticking the cross-workspace consent box.
+Paste `slack-manifest.template.yaml` with `YOUR_SITE_HOST` replaced. It configures user scope `reactions:read`, bot scope `chat:write`, the user event `reaction_added`, bot events `app_uninstalled` and `tokens_revoked`, and token rotation off. Slack verifies the event URL when saved, so deploy first. To connect a second workspace, enable **Manage Distribution → Activate Public Distribution** (this is not a Marketplace listing).
 
 ## Behavior notes
 
-- **Routing:** an event is routed to the connected installation whose `team_id` matches the event and whose Slack user matches `item_user`. The `authorizations` array is not used for routing because Slack includes only one of the installations that can see the event.
-- **Filtering:** only `reaction_added` events on the connected user's own messages qualify. Self-reactions are excluded by default. For testing alone, set `INCLUDE_SELF_REACTIONS=true` in `.env` and restart the service; settings show a testing-mode notice. Set it back to `false` and restart to restore the normal behavior. Testing mode still excludes other people's messages and preserves workspace isolation. Messages without `item_user` (e.g. incoming webhooks) are ignored.
-- **Delivery:** events are written to SQLite before Slack gets the `200`. A worker drains the outbox every 2 seconds, deduplicated by `(event_id, recipient)`. Transient failures retry with exponential backoff (10 s doubling, capped at 15 min, 8 attempts max). Rate limits from message-link lookup or posting honor the full `Retry-After` and persist a worker pause across restarts. A timeout or network error is ambiguous, so a retry can produce a **duplicate DM**. There is no exactly-once guarantee. Routing and consent are checked again after link lookup; a request already sent to Slack cannot be cancelled.
-- **Message link:** fetched at delivery time with the source user's token via `chat.getPermalink`. If that fails, ReactPing falls back to `<workspace url>archives/<channel>/p<ts without dot>`, built from `auth.test`'s workspace URL captured at install. For thread replies the fallback may open the parent channel rather than the thread.
-- **Cross-workspace text** says "Someone reacted…" (no `users:read` scope, and the reactor's ID means nothing in another workspace). Same-workspace text mentions the reactor.
-- **Revocation:** `tokens_revoked` and `app_uninstalled` wipe the affected tokens and show the workspace as "Revoked — reconnect". Auth errors during message-link lookup or delivery do the same for the affected installation. **Disconnect** removes the local installation immediately, then calls `auth.revoke` on the user token and on the bot token when no other ReactPing user in that workspace still depends on it. If remote revocation fails, the notice explains how to remove the app in Slack.
-- **Data kept:** encrypted tokens (AES-256-GCM with a key derived from `ENCRYPTION_KEY`), Slack team/user IDs, workspace name and URL, routing choice, and for `RETENTION_HOURS` the emoji, reactor ID, channel ID, and message timestamp of each delivery. No message text, history, or raw payloads are stored or logged.
-- **Not supported in v1:** Enterprise Grid org-wide installs (rejected at OAuth) and token rotation.
+- **Routing:** an event goes to the connected installation whose `team_id` matches and whose Slack user matches `item_user`. The `authorizations` array is not used because Slack lists only one of the installations that can see the event.
+- **Filtering:** only `reaction_added` on the connected user's own messages. Self-reactions are skipped unless `INCLUDE_SELF_REACTIONS=true`, which still excludes other people's messages and keeps workspace isolation. Messages without `item_user` (for example incoming webhooks) are ignored.
+- **Delivery:** the event is committed to Postgres before Slack gets the `200`; a database failure returns `500` so Slack retries. Delivery is attempted immediately after the response and recovered by the every-minute cron call. Rows are deduplicated by `(event_id, recipient)`, claimed with `for update skip locked` and a 60-second lease, and the attempt count rises at claim time. Transient failures retry with backoff (10 s doubling, capped at 15 min, 8 attempts; retries after the first run on the cron's one-minute cadence). Slack rate limits honor the full `Retry-After` through a pause stored in Postgres. A timeout, network error, or crash mid-send is ambiguous, so a retry can produce a **duplicate DM**; there is no exactly-once guarantee. Routing, authorization, and consent are rechecked after the message-link lookup.
+- **Message link:** `chat.getPermalink` with the source user's token, falling back to `<workspace url>archives/<channel>/p<ts without dot>`. For thread replies the fallback may open the parent channel.
+- **Cross-workspace text** says "Someone reacted…"; same-workspace text mentions the reactor.
+- **Connection test DM:** labelled as connectivity only, at most once a minute per workspace.
+- **Revocation:** `tokens_revoked` and `app_uninstalled` wipe the affected tokens and show the workspace as Revoked with a Reconnect button. Auth errors during delivery or a test DM do the same. **Disconnect** deletes the installation first, then revokes the user token and, when no other ReactPing user in that workspace depends on it, the bot token.
+- **Account deletion** requires typing `delete`, removes all ReactPing rows, revokes tokens, then deletes the Supabase Auth user.
+- **Data kept:** see the privacy page. Delivery records and expired OAuth state are purged by the cron call after 48 hours (`RETENTION_HOURS` in `src/config.ts`, shown on the privacy page; the old `RETENTION_HOURS` environment variable is superseded).
+- **Not supported:** Enterprise Grid organization-wide installs (rejected at OAuth) and token rotation.
 
 ## Recovery
 
-- **Restart:** pending deliveries persist in SQLite and resume on boot.
-- **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the database and reconnect every workspace.
-- **Changed tunnel host:** update `BASE_URL`, restart the service, and update both the Redirect URL and Event Request URL in Slack. Verify the Event Request URL shows **Verified** with events **On**, then add a fresh reaction and confirm both a queued delivery and its bot DM before testing with others. A healthy `/healthz` alone does not prove Slack is sending to the current host. Reactions missed during downtime are not backfilled by ReactPing.
+- **Missed deliveries:** pending rows stay in Postgres and are retried by the next cron call. Check `cron.job_run_details` and `net._http_response` if nothing is being sent.
+- **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the `reactping.installations` rows and have every workspace reconnect.
+- **Changed domain:** update `PUBLIC_SITE_URL`, redeploy, update both Slack URLs and the Vault `reactping_delivery_url`, then verify a fresh reaction end to end. Reactions missed during downtime are not backfilled.

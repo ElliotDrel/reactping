@@ -1,4 +1,6 @@
 dist
 node_modules
 data
+.vercel
+local-evidence
 package-lock.json

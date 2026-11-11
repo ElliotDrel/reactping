@@ -1,70 +1,15 @@
-import { mkdirSync } from "node:fs";
-import { dirname } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { decrypt, encrypt, randomToken, sha256 } from "./crypto.ts";
-
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS accounts (
-  id TEXT PRIMARY KEY,
-  destination_installation_id TEXT REFERENCES installations(id) ON DELETE SET NULL,
-  cross_workspace_consent_at INTEGER,
-  created_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sessions (
-  id_hash TEXT PRIMARY KEY,
-  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  csrf_token TEXT NOT NULL,
-  expires_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS oauth_states (
-  nonce_hash TEXT PRIMARY KEY,
-  session_hash TEXT NOT NULL,
-  expires_at INTEGER NOT NULL
-);
-CREATE TABLE IF NOT EXISTS installations (
-  id TEXT PRIMARY KEY,
-  account_id TEXT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-  team_id TEXT NOT NULL,
-  team_name TEXT NOT NULL,
-  team_url TEXT,
-  user_id TEXT NOT NULL,
-  bot_user_id TEXT,
-  user_token TEXT,
-  bot_token TEXT,
-  status TEXT NOT NULL CHECK (status IN ('active', 'revoked')),
-  created_at INTEGER NOT NULL,
-  updated_at INTEGER NOT NULL,
-  UNIQUE (team_id, user_id)
-);
-CREATE TABLE IF NOT EXISTS deliveries (
-  id INTEGER PRIMARY KEY,
-  event_id TEXT NOT NULL,
-  source_installation_id TEXT NOT NULL REFERENCES installations(id) ON DELETE CASCADE,
-  reactor_id TEXT NOT NULL,
-  reaction TEXT NOT NULL,
-  channel_id TEXT NOT NULL,
-  message_ts TEXT NOT NULL,
-  status TEXT NOT NULL CHECK (status IN ('pending', 'sent', 'failed')),
-  attempts INTEGER NOT NULL DEFAULT 0,
-  next_attempt_at INTEGER NOT NULL,
-  last_error TEXT,
-  created_at INTEGER NOT NULL,
-  UNIQUE (event_id, source_installation_id)
-);
-CREATE INDEX IF NOT EXISTS deliveries_due ON deliveries (status, next_attempt_at);
-CREATE TABLE IF NOT EXISTS delivery_control (
-  id INTEGER PRIMARY KEY CHECK (id = 1),
-  paused_until INTEGER NOT NULL
-);
-INSERT OR IGNORE INTO delivery_control (id, paused_until) VALUES (1, 0);
-`;
+import { randomUUID } from "node:crypto";
+import pg from "pg";
+import { decrypt, encrypt, sha256 } from "./crypto.ts";
 
 export interface Installation {
   id: string;
+  /** Supabase Auth user ID that owns this installation. */
   accountId: string;
   teamId: string;
   teamName: string;
   teamUrl: string | null;
+  /** Slack user ID of the person who authorized it. */
   userId: string;
   botUserId: string | null;
   status: "active" | "revoked";
@@ -75,13 +20,7 @@ export interface Installation {
 export interface Account {
   id: string;
   destinationInstallationId: string | null;
-  crossWorkspaceConsentAt: number | null;
-}
-
-export interface Session {
-  idHash: string;
-  accountId: string;
-  csrfToken: string;
+  crossWorkspaceConsentAt: Date | null;
 }
 
 export interface Delivery {
@@ -92,7 +31,9 @@ export interface Delivery {
   reaction: string;
   channelId: string;
   messageTs: string;
+  /** Attempts including the one this claim started. */
   attempts: number;
+  leaseToken: string;
 }
 
 export interface NewInstallation {
@@ -106,113 +47,127 @@ export interface NewInstallation {
 }
 
 type Row = Record<string, unknown>;
+type Queryable = Pick<pg.Pool, "query">;
 
-const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
-const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+/** Longer than two Slack calls with their 10 s timeouts. An expired lease lets another worker retry. */
+export const LEASE_MS = 60_000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function createPool(connectionString: string): pg.Pool {
+  // Serverless instances keep a tiny pool; use Supabase's transaction pooler URL in production.
+  return new pg.Pool({ connectionString, max: 3, idleTimeoutMillis: 5_000, connectionTimeoutMillis: 5_000 });
+}
 
 export class Store {
-  readonly db: DatabaseSync;
+  readonly pool: pg.Pool;
   private readonly tokenKey: Buffer;
   private readonly now: () => number;
 
-  constructor(path: string, tokenKey: Buffer, now: () => number = Date.now) {
-    if (path !== ":memory:") mkdirSync(dirname(path), { recursive: true });
-    this.db = new DatabaseSync(path);
-    this.db.exec("PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;");
-    this.db.exec(SCHEMA);
+  constructor(pool: pg.Pool, tokenKey: Buffer, now: () => number = Date.now) {
+    this.pool = pool;
     this.tokenKey = tokenKey;
     this.now = now;
   }
 
-  close(): void {
-    this.db.close();
+  private date(offsetMs = 0): Date {
+    return new Date(this.now() + offsetMs);
   }
 
-  transaction<T>(fn: () => T): T {
-    this.db.exec("BEGIN IMMEDIATE");
+  private async rows(sql: string, params: unknown[] = [], db: Queryable = this.pool): Promise<Row[]> {
+    return (await db.query(sql, params)).rows as Row[];
+  }
+
+  async transaction<T>(fn: (client: pg.PoolClient) => Promise<T>): Promise<T> {
+    const client = await this.pool.connect();
     try {
-      const result = fn();
-      this.db.exec("COMMIT");
+      await client.query("begin");
+      const result = await fn(client);
+      await client.query("commit");
       return result;
     } catch (error) {
-      this.db.exec("ROLLBACK");
+      await client.query("rollback").catch(() => {});
       throw error;
+    } finally {
+      client.release();
     }
   }
 
-  // Accounts and sessions
-
-  createAccountSession(): { sessionId: string; session: Session } {
-    const accountId = randomToken(16);
-    const sessionId = randomToken();
-    const session = { idHash: sha256(sessionId), accountId, csrfToken: randomToken() };
-    this.transaction(() => {
-      this.db.prepare("INSERT INTO accounts (id, created_at) VALUES (?, ?)").run(accountId, this.now());
-      this.db
-        .prepare("INSERT INTO sessions (id_hash, account_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)")
-        .run(session.idHash, accountId, session.csrfToken, this.now() + SESSION_TTL_MS);
-    });
-    return { sessionId, session };
+  async ping(): Promise<void> {
+    await this.pool.query("select 1");
   }
 
-  getSession(sessionId: string): Session | undefined {
-    const row = this.db
-      .prepare("SELECT id_hash, account_id, csrf_token FROM sessions WHERE id_hash = ? AND expires_at > ?")
-      .get(sha256(sessionId), this.now()) as Row | undefined;
-    return row && { idHash: String(row.id_hash), accountId: String(row.account_id), csrfToken: String(row.csrf_token) };
+  // Accounts
+
+  /** Creates the ReactPing account for a verified Supabase user on first use. */
+  async ensureAccount(accountId: string): Promise<Account> {
+    await this.pool.query(
+      "insert into reactping.accounts (user_id, created_at) values ($1, $2) on conflict (user_id) do nothing",
+      [accountId, this.date()],
+    );
+    return (await this.getAccount(accountId))!;
   }
 
-  getAccount(accountId: string): Account | undefined {
-    const row = this.db.prepare("SELECT * FROM accounts WHERE id = ?").get(accountId) as Row | undefined;
+  async getAccount(accountId: string): Promise<Account | undefined> {
+    const [row] = await this.rows("select * from reactping.accounts where user_id = $1", [accountId]);
     return (
       row && {
-        id: String(row.id),
+        id: String(row.user_id),
         destinationInstallationId: (row.destination_installation_id as string | null) ?? null,
-        crossWorkspaceConsentAt: (row.cross_workspace_consent_at as number | null) ?? null,
+        crossWorkspaceConsentAt: (row.cross_workspace_consent_at as Date | null) ?? null,
       }
     );
   }
 
-  setDestination(accountId: string, installationId: string | null, crossWorkspaceConsent: boolean): void {
-    this.db
-      .prepare("UPDATE accounts SET destination_installation_id = ?, cross_workspace_consent_at = ? WHERE id = ?")
-      .run(installationId, crossWorkspaceConsent ? this.now() : null, accountId);
+  async setDestination(
+    accountId: string,
+    installationId: string | null,
+    crossWorkspaceConsent: boolean,
+  ): Promise<void> {
+    await this.pool.query(
+      "update reactping.accounts set destination_installation_id = $2, cross_workspace_consent_at = $3 where user_id = $1",
+      [accountId, installationId, crossWorkspaceConsent ? this.date() : null],
+    );
   }
 
-  deleteAccount(accountId: string): void {
-    this.transaction(() => {
-      this.db
-        .prepare("DELETE FROM oauth_states WHERE session_hash IN (SELECT id_hash FROM sessions WHERE account_id = ?)")
-        .run(accountId);
-      this.db.prepare("DELETE FROM accounts WHERE id = ?").run(accountId);
-    });
+  /** Removes the account and, by cascade, its installations, deliveries, and OAuth state. */
+  async deleteAccount(accountId: string): Promise<void> {
+    await this.pool.query("delete from reactping.accounts where user_id = $1", [accountId]);
   }
 
-  // OAuth state: single use, bound to the session that started the install.
-
-  createOAuthState(nonce: string, sessionHash: string): void {
-    this.db
-      .prepare("INSERT INTO oauth_states (nonce_hash, session_hash, expires_at) VALUES (?, ?, ?)")
-      .run(sha256(nonce), sessionHash, this.now() + OAUTH_STATE_TTL_MS);
+  /** Deletes the Supabase Auth identity (email) as well. Requires the owner connection, never a user JWT. */
+  async deleteAuthUser(accountId: string): Promise<void> {
+    await this.pool.query("delete from auth.users where id = $1", [accountId]);
   }
 
-  consumeOAuthState(nonce: string, sessionHash: string): boolean {
-    const row = this.db
-      .prepare(
-        "DELETE FROM oauth_states WHERE nonce_hash = ? AND session_hash = ? AND expires_at > ? RETURNING nonce_hash",
-      )
-      .get(sha256(nonce), sessionHash, this.now());
-    return row !== undefined;
+  // OAuth state: single use, expiring, and bound to both the account and the starting browser.
+
+  async createOAuthState(accountId: string, nonce: string, browserSecret: string): Promise<void> {
+    await this.pool.query(
+      "insert into reactping.oauth_states (nonce_hash, user_id, browser_hash, expires_at) values ($1, $2, $3, $4)",
+      [sha256(nonce), accountId, sha256(browserSecret), this.date(OAUTH_STATE_TTL_MS)],
+    );
+  }
+
+  /** Returns the account that started the install, or undefined for unknown, expired, used, or foreign state. */
+  async consumeOAuthState(nonce: string, browserSecret: string): Promise<string | undefined> {
+    const [row] = await this.rows(
+      `delete from reactping.oauth_states
+       where nonce_hash = $1 and browser_hash = $2 and expires_at > $3
+       returning user_id`,
+      [sha256(nonce), sha256(browserSecret), this.date()],
+    );
+    return row ? String(row.user_id) : undefined;
   }
 
   // Installations
 
   private toInstallation(row: Row): Installation {
     const teamId = String(row.team_id);
-    const userId = String(row.user_id);
+    const userId = String(row.slack_user_id);
     return {
       id: String(row.id),
-      accountId: String(row.account_id),
+      accountId: String(row.user_id),
       teamId,
       teamName: String(row.team_name),
       teamUrl: (row.team_url as string | null) ?? null,
@@ -228,187 +183,229 @@ export class Store {
    * Links a Slack identity to an account. Completing OAuth proves control of the Slack user,
    * so an identity previously linked elsewhere moves to the account that just authorized it.
    */
-  upsertInstallation(accountId: string, install: NewInstallation): Installation {
+  async upsertInstallation(accountId: string, install: NewInstallation): Promise<Installation> {
     const { teamId, userId } = install;
     const userToken = encrypt(this.tokenKey, install.userToken, `${teamId}:${userId}:user`);
     const botToken = encrypt(this.tokenKey, install.botToken, `${teamId}:${userId}:bot`);
-    const now = this.now();
-    return this.transaction(() => {
-      const previous = this.db
-        .prepare("SELECT id, account_id FROM installations WHERE team_id = ? AND user_id = ?")
-        .get(teamId, userId) as Row | undefined;
-      if (previous && previous.account_id !== accountId) {
-        this.clearDestination(String(previous.id));
-        this.db.prepare("DELETE FROM deliveries WHERE source_installation_id = ?").run(String(previous.id));
+    const now = this.date();
+    return this.transaction(async (client) => {
+      const [previous] = await this.rows(
+        "select id, user_id from reactping.installations where team_id = $1 and slack_user_id = $2 for update",
+        [teamId, userId],
+        client,
+      );
+      if (previous && previous.user_id !== accountId) {
+        await this.clearDestination(String(previous.id), client);
+        await client.query("delete from reactping.deliveries where source_installation_id = $1", [previous.id]);
       }
-      const row = this.db
-        .prepare(
-          `INSERT INTO installations
-             (id, account_id, team_id, team_name, team_url, user_id, bot_user_id, user_token, bot_token, status, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
-           ON CONFLICT (team_id, user_id) DO UPDATE SET
-             account_id = excluded.account_id, team_name = excluded.team_name, team_url = excluded.team_url,
-             bot_user_id = excluded.bot_user_id, user_token = excluded.user_token, bot_token = excluded.bot_token,
-             status = 'active', updated_at = excluded.updated_at
-           RETURNING *`,
-        )
-        .get(
-          randomToken(16),
-          accountId,
-          teamId,
-          install.teamName,
-          install.teamUrl,
-          userId,
-          install.botUserId,
-          userToken,
-          botToken,
-          now,
-          now,
-        ) as Row;
-      return this.toInstallation(row);
+      const [row] = await this.rows(
+        `insert into reactping.installations
+           (user_id, team_id, team_name, team_url, slack_user_id, bot_user_id, user_token, bot_token, status, created_at, updated_at)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9, $9)
+         on conflict (team_id, slack_user_id) do update set
+           user_id = excluded.user_id, team_name = excluded.team_name, team_url = excluded.team_url,
+           bot_user_id = excluded.bot_user_id, user_token = excluded.user_token, bot_token = excluded.bot_token,
+           status = 'active', updated_at = excluded.updated_at
+         returning *`,
+        [accountId, teamId, install.teamName, install.teamUrl, userId, install.botUserId, userToken, botToken, now],
+        client,
+      );
+      return this.toInstallation(row!);
     });
   }
 
-  getInstallation(id: string): Installation | undefined {
-    const row = this.db.prepare("SELECT * FROM installations WHERE id = ?").get(id) as Row | undefined;
+  async getInstallation(id: string): Promise<Installation | undefined> {
+    if (!UUID.test(id)) return undefined;
+    const [row] = await this.rows("select * from reactping.installations where id = $1", [id]);
     return row && this.toInstallation(row);
   }
 
-  listInstallations(accountId: string): Installation[] {
-    const rows = this.db.prepare("SELECT * FROM installations WHERE account_id = ? ORDER BY created_at").all(accountId);
-    return rows.map((row) => this.toInstallation(row as Row));
+  async listInstallations(accountId: string): Promise<Installation[]> {
+    const rows = await this.rows("select * from reactping.installations where user_id = $1 order by created_at, id", [
+      accountId,
+    ]);
+    return rows.map((row) => this.toInstallation(row));
   }
 
-  findActiveInstallation(teamId: string, userId: string): Installation | undefined {
-    const row = this.db
-      .prepare("SELECT * FROM installations WHERE team_id = ? AND user_id = ? AND status = 'active'")
-      .get(teamId, userId) as Row | undefined;
+  async findActiveInstallation(teamId: string, userId: string): Promise<Installation | undefined> {
+    const [row] = await this.rows(
+      "select * from reactping.installations where team_id = $1 and slack_user_id = $2 and status = 'active'",
+      [teamId, userId],
+    );
     return row && this.toInstallation(row);
   }
 
-  countActiveInTeam(teamId: string, excludeId: string): number {
-    const row = this.db
-      .prepare("SELECT COUNT(*) AS n FROM installations WHERE team_id = ? AND id != ? AND status = 'active'")
-      .get(teamId, excludeId) as Row;
-    return Number(row.n);
+  async countActiveInTeam(teamId: string, excludeId: string | null): Promise<number> {
+    const [row] = await this.rows(
+      `select count(*)::int as n from reactping.installations
+       where team_id = $1 and status = 'active' and ($2::uuid is null or id <> $2::uuid)`,
+      [teamId, excludeId],
+    );
+    return Number(row!.n);
   }
 
   /** Wipes affected tokens; retain the other grant so disconnect can still revoke it. */
-  markRevoked(
+  async markRevoked(
     where: { id: string } | { teamId: string; userIds?: string[] },
     kind: "user" | "bot" | "all" = "all",
-  ): number {
+  ): Promise<number> {
     const cleared =
       kind === "user"
-        ? "user_token = NULL"
+        ? "user_token = null"
         : kind === "bot"
-          ? "bot_token = NULL"
-          : "user_token = NULL, bot_token = NULL";
-    let sql = `UPDATE installations SET status = 'revoked', ${cleared}, updated_at = ?`;
-    const params: (string | number)[] = [this.now()];
+          ? "bot_token = null"
+          : "user_token = null, bot_token = null";
+    const set = `update reactping.installations set status = 'revoked', ${cleared}, updated_at = $1`;
+    const now = this.date();
+    let result;
     if ("id" in where) {
-      sql += " WHERE id = ?";
-      params.push(where.id);
+      if (!UUID.test(where.id)) return 0;
+      result = await this.pool.query(`${set} where id = $2`, [now, where.id]);
+    } else if (where.userIds) {
+      if (where.userIds.length === 0) return 0;
+      result = await this.pool.query(`${set} where team_id = $2 and slack_user_id = any($3::text[])`, [
+        now,
+        where.teamId,
+        where.userIds,
+      ]);
     } else {
-      sql += " WHERE team_id = ?";
-      params.push(where.teamId);
-      if (where.userIds) {
-        if (where.userIds.length === 0) return 0;
-        sql += ` AND user_id IN (${where.userIds.map(() => "?").join(", ")})`;
-        params.push(...where.userIds);
-      }
+      result = await this.pool.query(`${set} where team_id = $2`, [now, where.teamId]);
     }
-    return Number(this.db.prepare(sql).run(...params).changes);
+    return result.rowCount ?? 0;
   }
 
-  deleteInstallation(id: string): void {
-    this.transaction(() => {
-      this.clearDestination(id);
-      this.db.prepare("DELETE FROM installations WHERE id = ?").run(id);
+  /** Deletes the installation and its queued deliveries, and clears any destination pointing at it. */
+  async deleteInstallation(id: string): Promise<void> {
+    await this.transaction(async (client) => {
+      await this.clearDestination(id, client);
+      await client.query("delete from reactping.installations where id = $1", [id]);
     });
   }
 
-  private clearDestination(installationId: string): void {
-    this.db
-      .prepare(
-        "UPDATE accounts SET destination_installation_id = NULL, cross_workspace_consent_at = NULL WHERE destination_installation_id = ?",
-      )
-      .run(installationId);
+  private async clearDestination(installationId: string, db: Queryable): Promise<void> {
+    await db.query(
+      `update reactping.accounts set destination_installation_id = null, cross_workspace_consent_at = null
+       where destination_installation_id = $1`,
+      [installationId],
+    );
+  }
+
+  /** Records a connection-test DM; false if one was sent within `minIntervalMs`. */
+  async markTested(id: string, minIntervalMs: number): Promise<boolean> {
+    const result = await this.pool.query(
+      `update reactping.installations set last_test_at = $2
+       where id = $1 and (last_test_at is null or last_test_at <= $3)`,
+      [id, this.date(), this.date(-minIntervalMs)],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
   // Deliveries (durable outbox)
 
-  deliveryPausedUntil(): number {
-    return Number(
-      (this.db.prepare("SELECT paused_until FROM delivery_control WHERE id = 1").get() as Row).paused_until,
+  async deliveryPausedUntil(): Promise<number> {
+    const [row] = await this.rows("select paused_until from reactping.delivery_control where id = 1");
+    const value = row!.paused_until as Date | number;
+    return value instanceof Date ? value.getTime() : -Infinity;
+  }
+
+  async pauseDeliveriesUntil(timestamp: number): Promise<void> {
+    await this.pool.query(
+      "update reactping.delivery_control set paused_until = greatest(paused_until, $1) where id = 1",
+      [new Date(timestamp)],
     );
   }
 
-  pauseDeliveriesUntil(timestamp: number): void {
-    this.db.prepare("UPDATE delivery_control SET paused_until = max(paused_until, ?) WHERE id = 1").run(timestamp);
-  }
-
   /** Returns false when this event was already recorded for this recipient. */
-  enqueueDelivery(d: Omit<Delivery, "id" | "attempts">): boolean {
-    const now = this.now();
-    const result = this.db
-      .prepare(
-        `INSERT OR IGNORE INTO deliveries
-           (event_id, source_installation_id, reactor_id, reaction, channel_id, message_ts, status, next_attempt_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
-      )
-      .run(d.eventId, d.sourceInstallationId, d.reactorId, d.reaction, d.channelId, d.messageTs, now, now);
-    return result.changes > 0;
+  async enqueueDelivery(
+    d: Pick<Delivery, "eventId" | "sourceInstallationId" | "reactorId" | "reaction" | "channelId" | "messageTs">,
+  ): Promise<boolean> {
+    const now = this.date();
+    const result = await this.pool.query(
+      `insert into reactping.deliveries
+         (event_id, source_installation_id, reactor_id, reaction, channel_id, message_ts, next_attempt_at, created_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $7)
+       on conflict (event_id, source_installation_id) do nothing`,
+      [d.eventId, d.sourceInstallationId, d.reactorId, d.reaction, d.channelId, d.messageTs, now],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
-  dueDeliveries(limit: number): Delivery[] {
-    const rows = this.db
-      .prepare(
-        `SELECT id, event_id, source_installation_id, reactor_id, reaction, channel_id, message_ts, attempts
-         FROM deliveries WHERE status = 'pending' AND next_attempt_at <= ? ORDER BY next_attempt_at LIMIT ?`,
-      )
-      .all(this.now(), limit) as Row[];
-    return rows.map((row) => ({
-      id: Number(row.id),
-      eventId: String(row.event_id),
-      sourceInstallationId: String(row.source_installation_id),
-      reactorId: String(row.reactor_id),
-      reaction: String(row.reaction),
-      channelId: String(row.channel_id),
-      messageTs: String(row.message_ts),
-      attempts: Number(row.attempts),
-    }));
-  }
-
-  getDeliveryStatus(id: number): { status: string; attempts: number; lastError: string | null } | undefined {
-    const row = this.db.prepare("SELECT status, attempts, last_error FROM deliveries WHERE id = ?").get(id) as
-      Row | undefined;
+  /**
+   * Atomically leases one due delivery. `for update skip locked` plus the lease means two workers never
+   * hold the same row; a crashed worker's lease expires and the row becomes claimable again. The attempt
+   * counter increases at claim time so crash loops still hit the attempt limit.
+   */
+  async claimDelivery(): Promise<Delivery | undefined> {
+    const now = this.date();
+    const [row] = await this.rows(
+      `update reactping.deliveries d
+       set attempts = d.attempts + 1, lease_token = $2, lease_until = $3
+       where d.id = (
+         select id from reactping.deliveries
+         where status = 'pending' and next_attempt_at <= $1 and (lease_until is null or lease_until <= $1)
+           and (select paused_until from reactping.delivery_control where id = 1) <= $1
+         order by next_attempt_at, id
+         for update skip locked
+         limit 1
+       )
+       returning d.*`,
+      [now, randomUUID(), this.date(LEASE_MS)],
+    );
     return (
       row && {
-        status: String(row.status),
+        id: Number(row.id),
+        eventId: String(row.event_id),
+        sourceInstallationId: String(row.source_installation_id),
+        reactorId: String(row.reactor_id),
+        reaction: String(row.reaction),
+        channelId: String(row.channel_id),
+        messageTs: String(row.message_ts),
         attempts: Number(row.attempts),
-        lastError: (row.last_error as string) ?? null,
+        leaseToken: String(row.lease_token),
       }
     );
   }
 
-  finishDelivery(id: number, status: "sent" | "failed", error: string | null = null): void {
-    this.db
-      .prepare("UPDATE deliveries SET status = ?, attempts = attempts + 1, last_error = ? WHERE id = ?")
-      .run(status, error, id);
+  /** Completes a leased delivery. Returns false if the lease was lost (another worker took over). */
+  async finishDelivery(d: Delivery, status: "sent" | "failed", error: string | null = null): Promise<boolean> {
+    const result = await this.pool.query(
+      `update reactping.deliveries set status = $3, last_error = $4, lease_token = null, lease_until = null
+       where id = $1 and lease_token = $2`,
+      [d.id, d.leaseToken, status, error],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
-  retryDelivery(id: number, nextAttemptAt: number, error: string): void {
-    this.db
-      .prepare("UPDATE deliveries SET attempts = attempts + 1, next_attempt_at = ?, last_error = ? WHERE id = ?")
-      .run(nextAttemptAt, error, id);
+  async retryDelivery(d: Delivery, nextAttemptAt: number, error: string): Promise<boolean> {
+    const result = await this.pool.query(
+      `update reactping.deliveries set next_attempt_at = $3, last_error = $4, lease_token = null, lease_until = null
+       where id = $1 and lease_token = $2`,
+      [d.id, d.leaseToken, new Date(nextAttemptAt), error],
+    );
+    return (result.rowCount ?? 0) > 0;
   }
 
-  /** Drops minimal event data, expired sessions, and expired OAuth state. */
-  purgeExpired(retentionMs: number): void {
-    const now = this.now();
-    this.db.prepare("DELETE FROM deliveries WHERE created_at < ?").run(now - retentionMs);
-    this.db.prepare("DELETE FROM sessions WHERE expires_at <= ?").run(now);
-    this.db.prepare("DELETE FROM oauth_states WHERE expires_at <= ?").run(now);
+  async getDeliveryStatus(
+    id: number,
+  ): Promise<{ status: string; attempts: number; lastError: string | null } | undefined> {
+    const [row] = await this.rows("select status, attempts, last_error from reactping.deliveries where id = $1", [id]);
+    return (
+      row && {
+        status: String(row.status),
+        attempts: Number(row.attempts),
+        lastError: (row.last_error as string | null) ?? null,
+      }
+    );
+  }
+
+  /** Pending deliveries that are due now (used by tests and diagnostics). */
+  async pendingDeliveries(): Promise<Row[]> {
+    return this.rows("select * from reactping.deliveries where status = 'pending' order by id");
+  }
+
+  /** Drops minimal event data past retention and expired OAuth state. */
+  async purgeExpired(retentionMs: number): Promise<void> {
+    await this.pool.query("delete from reactping.deliveries where created_at < $1", [this.date(-retentionMs)]);
+    await this.pool.query("delete from reactping.oauth_states where expires_at <= $1", [this.date()]);
   }
 }

@@ -38,14 +38,14 @@ export function fallbackPermalink(teamUrl: string | null, channelId: string, mes
  * Picks where to DM the source user. Defaults to the source workspace; a cross-workspace
  * destination is used only with explicit consent and while it is still active and owned.
  */
-export function resolveDestination(
+export async function resolveDestination(
   store: Store,
   source: Installation,
-): { dest: Installation; crossWorkspace: boolean } {
-  const account = store.getAccount(source.accountId);
+): Promise<{ dest: Installation; crossWorkspace: boolean }> {
+  const account = await store.getAccount(source.accountId);
   const destId = account?.destinationInstallationId;
-  if (destId && destId !== source.id) {
-    const dest = store.getInstallation(destId);
+  if (account && destId && destId !== source.id) {
+    const dest = await store.getInstallation(destId);
     if (dest && dest.status === "active" && dest.accountId === source.accountId) {
       if (dest.teamId === source.teamId) return { dest, crossWorkspace: false };
       if (account.crossWorkspaceConsentAt) return { dest, crossWorkspace: true };
@@ -66,9 +66,12 @@ export function formatNotification(
   return `${actor} reacted :${escapeMrkdwn(d.reaction)}: to your message in *${escapeMrkdwn(source.teamName)}*.${link}`;
 }
 
+/**
+ * Drains the Postgres outbox. Stateless, so any number of serverless invocations can run it at once:
+ * each delivery is leased atomically before Slack is called, and results are written only by the
+ * lease holder.
+ */
 export class DeliveryWorker {
-  private running: Promise<void> | null = null;
-  private stopped = false;
   private readonly store: Store;
   private readonly slack: SlackApi;
   private readonly now: () => number;
@@ -79,32 +82,29 @@ export class DeliveryWorker {
     this.now = now;
   }
 
-  /** Drains due deliveries once. Safe to call on a timer; overlapping calls are skipped. */
-  runOnce(batchSize = 20): Promise<void> {
-    if (this.stopped || this.running || this.now() < this.store.deliveryPausedUntil()) return Promise.resolve();
-    const drain = async () => {
-      for (const delivery of this.store.dueDeliveries(batchSize)) {
-        if (this.stopped) break;
-        if (!(await this.deliver(delivery))) break;
-      }
-    };
-    this.running = drain().finally(() => {
-      this.running = null;
-    });
-    return this.running;
+  /** Delivers up to `maxItems` due rows, stopping early on a rate limit or after `budgetMs` of wall time. */
+  async drain(maxItems = 20, budgetMs = 20_000): Promise<number> {
+    const stopAt = Date.now() + budgetMs;
+    let processed = 0;
+    while (processed < maxItems && Date.now() < stopAt) {
+      const delivery = await this.store.claimDelivery();
+      if (!delivery) break;
+      processed++;
+      if (!(await this.deliver(delivery))) break;
+    }
+    return processed;
   }
 
-  /** Stop starting deliveries and finish the in-flight request before closing SQLite. */
-  async stop(): Promise<void> {
-    this.stopped = true;
-    await this.running;
-  }
-
-  /** Returns false when the worker should stop this batch (rate limited). */
+  /** Returns false when draining should stop (rate limited). */
   private async deliver(d: Delivery): Promise<boolean> {
-    const source = this.store.getInstallation(d.sourceInstallationId);
+    if (d.attempts > MAX_ATTEMPTS) {
+      // Earlier attempts ended without a recorded outcome (for example, the function was killed mid-send).
+      await this.store.finishDelivery(d, "failed", "attempts_exhausted");
+      return true;
+    }
+    const source = await this.store.getInstallation(d.sourceInstallationId);
     if (!source || source.status !== "active" || !source.userToken) {
-      this.store.finishDelivery(d.id, "failed", "source_revoked");
+      await this.store.finishDelivery(d, "failed", "source_revoked");
       return true;
     }
     let credentialOwner = source;
@@ -112,19 +112,19 @@ export class DeliveryWorker {
     try {
       const permalink = await this.permalink(source, d);
       // OAuth, disconnect, revocation, or destination changes can happen while Slack is awaited.
-      const currentSource = this.store.getInstallation(source.id);
+      const currentSource = await this.store.getInstallation(source.id);
       if (
         !currentSource ||
         currentSource.status !== "active" ||
         currentSource.accountId !== source.accountId ||
         currentSource.userToken !== source.userToken
       ) {
-        this.store.finishDelivery(d.id, "failed", "source_changed");
+        await this.store.finishDelivery(d, "failed", "source_changed");
         return true;
       }
-      const { dest, crossWorkspace } = resolveDestination(this.store, currentSource);
+      const { dest, crossWorkspace } = await resolveDestination(this.store, currentSource);
       if (!dest.botToken) {
-        this.store.finishDelivery(d.id, "failed", "destination_revoked");
+        await this.store.finishDelivery(d, "failed", "destination_revoked");
         return true;
       }
       credentialOwner = dest;
@@ -134,37 +134,34 @@ export class DeliveryWorker {
         dest.userId,
         formatNotification(d, currentSource, crossWorkspace, permalink),
       );
-      this.store.finishDelivery(d.id, "sent");
+      if (!(await this.store.finishDelivery(d, "sent"))) log("warn", "delivery_lease_lost", { deliveryId: d.id });
       return true;
     } catch (error) {
       const failure = classifySlackError(error);
-      const fields = { deliveryId: d.id, attempt: d.attempts + 1, error: failure.message };
+      const fields = { deliveryId: d.id, attempt: d.attempts, error: failure.message };
       if (failure.kind === "revoked") {
-        const current = this.store.getInstallation(credentialOwner.id);
+        const current = await this.store.getInstallation(credentialOwner.id);
         // A failed old request must not wipe a fresh OAuth grant.
         if (current?.userToken === credentialOwner.userToken && current?.botToken === credentialOwner.botToken) {
-          this.store.markRevoked({ id: credentialOwner.id }, credentialKind);
+          await this.store.markRevoked({ id: credentialOwner.id }, credentialKind);
         }
-        this.store.finishDelivery(d.id, "failed", failure.message);
+        await this.store.finishDelivery(d, "failed", failure.message);
         log("warn", "delivery_credentials_revoked", fields);
         return true;
       }
       const retryAfterMs = Number.isFinite(failure.retryAfterSec) ? Math.max(0, failure.retryAfterSec! * 1000) : 0;
-      // Cap exponential backoff, never Slack's Retry-After. Persist the pause for restarts.
-      const delay = Math.max(backoffMs(d.attempts), retryAfterMs);
-      if (failure.kind === "rate_limited") this.store.pauseDeliveriesUntil(this.now() + delay);
-      if (failure.kind === "permanent" || d.attempts + 1 >= MAX_ATTEMPTS) {
-        this.store.finishDelivery(d.id, "failed", failure.message);
+      // Cap exponential backoff, never Slack's Retry-After. The pause is persisted for every instance.
+      const delay = Math.max(backoffMs(d.attempts - 1), retryAfterMs);
+      if (failure.kind === "rate_limited") await this.store.pauseDeliveriesUntil(this.now() + delay);
+      if (failure.kind === "permanent" || d.attempts >= MAX_ATTEMPTS) {
+        await this.store.finishDelivery(d, "failed", failure.message);
         log("warn", "delivery_failed", fields);
         return failure.kind !== "rate_limited";
       }
       // Transient failures may already have posted; retrying favors delivery over exactly-once.
-      this.store.retryDelivery(d.id, this.now() + delay, failure.message);
+      await this.store.retryDelivery(d, this.now() + delay, failure.message);
       log("warn", "delivery_retry", { ...fields, delayMs: delay });
-      if (failure.kind === "rate_limited") {
-        return false;
-      }
-      return true;
+      return failure.kind !== "rate_limited";
     }
   }
 

@@ -1,33 +1,78 @@
-import { randomBytes } from "node:crypto";
-import { createServer, type Server } from "node:http";
-import type { AddressInfo } from "node:net";
+import { randomBytes, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { after, before, beforeEach } from "node:test";
+import pg from "pg";
+import { createApi, type Handler } from "../src/api.ts";
+import type { AuthUser } from "../src/auth.ts";
 import type { Config } from "../src/config.ts";
 import { hmacHex } from "../src/crypto.ts";
 import { Store, type Installation } from "../src/db.ts";
 import type { OAuthResult, SlackApi } from "../src/slack.ts";
-import { createHandler } from "../src/web.ts";
 
 process.env.NODE_ENV = "test";
 
 export const SIGNING_SECRET = "test-signing-secret";
+export const CRON_SECRET = "test-cron-secret-that-is-at-least-32-chars";
 
-export function makeConfig(baseUrl: string): Config {
-  return {
-    baseUrl,
-    port: 0,
-    databasePath: ":memory:",
-    slackClientId: "123.456",
-    slackClientSecret: "client-secret",
-    slackSigningSecret: SIGNING_SECRET,
-    encryptionKey: randomBytes(32),
-    retentionHours: 48,
-    includeSelfReactions: false,
-  };
-}
+/** Postgres-backed suites are skipped (visibly) without a disposable database. */
+export const dbSkip = process.env.TEST_DATABASE_URL
+  ? false
+  : "set TEST_DATABASE_URL (see README: npm run db:test:start) to run Postgres tests";
+
+const MIGRATION = readFileSync(new URL("../supabase/migrations/20261110000000_reactping.sql", import.meta.url), "utf8");
+const SHIM = readFileSync(new URL("./supabase-shim.sql", import.meta.url), "utf8");
 
 export class Clock {
   t = 1_800_000_000_000;
   now = () => this.t;
+}
+
+/**
+ * Creates a fresh database for one test file (Supabase shim + the real migration), truncates it before
+ * each test, and drops it afterwards. Call inside a `describe(..., { skip: dbSkip })`.
+ */
+export function useDatabase(): { pool: () => pg.Pool } {
+  const name = `reactping_test_${randomBytes(6).toString("hex")}`;
+  const adminUrl = process.env.TEST_DATABASE_URL!;
+  let pool: pg.Pool;
+  before(async () => {
+    const admin = new pg.Client(adminUrl);
+    await admin.connect();
+    await admin.query(`create database ${name}`);
+    await admin.end();
+    const url = new URL(adminUrl);
+    url.pathname = `/${name}`;
+    pool = new pg.Pool({ connectionString: url.href, max: 10 });
+    await pool.query(SHIM);
+    await pool.query(MIGRATION);
+  });
+  beforeEach(async () => {
+    await pool.query(
+      `truncate reactping.deliveries, reactping.oauth_states, reactping.installations, reactping.accounts, auth.users
+       restart identity cascade;
+       update reactping.delivery_control set paused_until = '-infinity'`,
+    );
+  });
+  after(async () => {
+    await pool?.end();
+    const admin = new pg.Client(adminUrl);
+    await admin.connect();
+    await admin.query(`drop database if exists ${name} with (force)`);
+    await admin.end();
+  });
+  return { pool: () => pool };
+}
+
+export function makeStore(pool: pg.Pool, clock: Clock, key = randomBytes(32)): Store {
+  return new Store(pool, key, clock.now);
+}
+
+/** Inserts a Supabase Auth user and its ReactPing account. */
+export async function createAccount(store: Store, email = `${randomUUID()}@example.test`): Promise<string> {
+  const id = randomUUID();
+  await store.pool.query("insert into auth.users (id, email) values ($1, $2)", [id, email]);
+  await store.ensureAccount(id);
+  return id;
 }
 
 type Call = { method: string; args: unknown[] };
@@ -81,115 +126,156 @@ export function oauthResult(teamId: string, userId: string, overrides: Partial<O
   };
 }
 
-export function seedInstallation(store: Store, accountId: string, teamId: string, userId: string): Installation {
+export function seedInstallation(
+  store: Store,
+  accountId: string,
+  teamId: string,
+  userId: string,
+): Promise<Installation> {
   const r = oauthResult(teamId, userId);
   return store.upsertInstallation(accountId, { ...r, teamUrl: "https://acme.slack.com/" });
 }
 
+export function makeConfig(siteUrl = "http://localhost:3000"): Config {
+  return {
+    siteUrl,
+    databaseUrl: "postgres://unused",
+    supabaseUrl: "https://project.supabase.test",
+    supabasePublishableKey: "sb_publishable_test",
+    slackClientId: "123.456",
+    slackClientSecret: "client-secret",
+    slackSigningSecret: SIGNING_SECRET,
+    encryptionKey: randomBytes(32),
+    deliveryCronSecret: CRON_SECRET,
+    installsEnabled: true,
+    includeSelfReactions: false,
+  };
+}
+
 export interface TestApp {
-  baseUrl: string;
+  api: Handler;
   store: Store;
   slack: FakeSlack;
   clock: Clock;
   config: Config;
-  close: () => Promise<void>;
+  /** Access token -> Supabase user, standing in for Supabase Auth. */
+  sessions: Map<string, AuthUser>;
+  /** Work handed to waitUntil; run it with settle(). */
+  background: (() => Promise<unknown>)[];
+  settle: () => Promise<void>;
 }
 
-export async function startApp(): Promise<TestApp> {
-  const slack = new FakeSlack();
+export function startApp(pool: pg.Pool, siteUrl?: string): TestApp {
   const clock = new Clock();
-  let config = makeConfig("http://localhost");
-  const store = new Store(":memory:", randomBytes(32), clock.now);
-  let handler: ReturnType<typeof createHandler> = () => {};
-  const server: Server = createServer((req, res) => handler(req, res));
-  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
-  const baseUrl = `http://localhost:${(server.address() as AddressInfo).port}`;
-  config = { ...config, baseUrl };
-  handler = createHandler({ config, store, slack, now: clock.now });
+  const store = makeStore(pool, clock);
+  const slack = new FakeSlack();
+  const config = makeConfig(siteUrl);
+  const sessions = new Map<string, AuthUser>();
+  const background: (() => Promise<unknown>)[] = [];
+  const api = createApi({
+    config,
+    store,
+    slack,
+    now: clock.now,
+    verifyUser: async (token) => sessions.get(token) ?? null,
+    background: (task) => background.push(task),
+  });
   return {
-    baseUrl,
+    api,
     store,
     slack,
     clock,
     config,
-    close: async () => {
-      await new Promise<void>((resolve) => server.close(() => resolve()));
-      store.close();
+    sessions,
+    background,
+    settle: async () => {
+      for (const task of background.splice(0)) await task();
     },
   };
 }
 
-/** Minimal browser: keeps one session cookie and never follows redirects. */
+/** One browser with one signed-in Supabase user. Keeps the OAuth binding cookie like a real browser. */
 export class Browser {
+  readonly app: TestApp;
+  token = "";
+  accountId = "";
   cookie = "";
-  private readonly app: TestApp;
+
   constructor(app: TestApp) {
     this.app = app;
   }
 
+  static async signIn(app: TestApp): Promise<Browser> {
+    const browser = new Browser(app);
+    browser.accountId = randomUUID();
+    browser.token = `token-${browser.accountId}`;
+    await app.store.pool.query("insert into auth.users (id, email) values ($1, $2)", [
+      browser.accountId,
+      `${browser.accountId}@example.test`,
+    ]);
+    app.sessions.set(browser.token, { id: browser.accountId, email: `${browser.accountId}@example.test` });
+    return browser;
+  }
+
   async request(path: string, init: RequestInit = {}): Promise<Response> {
-    const res = await fetch(new URL(path, this.app.baseUrl), {
-      ...init,
-      redirect: "manual",
-      headers: { ...(this.cookie ? { cookie: this.cookie } : {}), ...(init.headers as Record<string, string>) },
-    });
+    const headers = new Headers(init.headers);
+    if (this.token && !headers.has("authorization")) headers.set("authorization", `Bearer ${this.token}`);
+    if (this.cookie) headers.set("cookie", this.cookie);
+    if (!headers.has("origin")) headers.set("origin", this.app.config.siteUrl);
+    const res = await this.app.api(new Request(new URL(path, this.app.config.siteUrl), { ...init, headers }));
     const setCookie = res.headers.get("set-cookie");
-    if (setCookie) this.cookie = setCookie.split(";")[0]!;
+    if (setCookie) this.cookie = /Max-Age=0\b/.test(setCookie) ? "" : setCookie.split(";")[0]!;
     return res;
   }
 
-  post(path: string, form: Record<string, string>, headers: Record<string, string> = {}): Promise<Response> {
+  post(path: string, body: unknown = {}, headers: Record<string, string> = {}): Promise<Response> {
     return this.request(path, {
       method: "POST",
-      body: new URLSearchParams(form).toString(),
-      headers: { "content-type": "application/x-www-form-urlencoded", ...headers },
+      body: JSON.stringify(body),
+      headers: { "content-type": "application/json", ...headers },
     });
   }
 
-  async start(): Promise<void> {
-    await this.post("/start", {});
-  }
-
-  async csrf(): Promise<string> {
-    const body = await (await this.request("/settings")).text();
-    return /name="csrf" value="([^"]+)"/.exec(body)![1]!;
+  async json<T = Record<string, unknown>>(path: string): Promise<T> {
+    return (await (await this.request(path)).json()) as T;
   }
 
   /** Starts an install and returns the state Slack would echo back. */
   async beginInstall(): Promise<string> {
-    const res = await this.post("/slack/install", { csrf: await this.csrf() });
-    return new URL(res.headers.get("location")!).searchParams.get("state")!;
+    const res = await this.post("/api/slack/install");
+    if (res.status !== 200) throw new Error(`install failed: ${res.status}`);
+    const { url } = (await res.json()) as { url: string };
+    return new URL(url).searchParams.get("state")!;
   }
 
   callback(params: Record<string, string>): Promise<Response> {
-    return this.request(`/slack/oauth/callback?${new URLSearchParams(params)}`);
+    return this.request(`/api/slack/oauth/callback?${new URLSearchParams(params)}`, {
+      headers: { authorization: "" },
+    });
   }
 
   async connect(teamId: string, userId: string): Promise<void> {
     const code = `code-${teamId}-${userId}`;
     this.app.slack.oauthResults.set(code, oauthResult(teamId, userId));
     const res = await this.callback({ code, state: await this.beginInstall() });
-    if (res.headers.get("location") !== "/settings?notice=connected") throw new Error("connect failed");
-  }
-
-  accountId(): string {
-    const id = this.cookie.split("=")[1]!;
-    return this.app.store.getSession(id)!.accountId;
+    if (res.headers.get("location") !== "/app?slack=connected") throw new Error("connect failed");
   }
 }
 
 export function signedEvent(app: TestApp, body: unknown, opts: { secret?: string; timestamp?: number } = {}) {
   const raw = JSON.stringify(body);
   const ts = String(opts.timestamp ?? Math.floor(app.clock.t / 1000));
-  return fetch(`${app.baseUrl}/slack/events`, {
-    method: "POST",
-    body: raw,
-    headers: {
-      "content-type": "application/json",
-      "x-slack-request-timestamp": ts,
-      "x-slack-signature": `v0=${hmacHex(opts.secret ?? SIGNING_SECRET, `v0:${ts}:${raw}`)}`,
-    },
-  });
+  return app.api(
+    new Request(`${app.config.siteUrl}/api/slack/events`, {
+      method: "POST",
+      body: raw,
+      headers: {
+        "content-type": "application/json",
+        "x-slack-request-timestamp": ts,
+        "x-slack-signature": `v0=${hmacHex(opts.secret ?? SIGNING_SECRET, `v0:${ts}:${raw}`)}`,
+      },
+    }),
+  );
 }
 
 let eventCounter = 0;

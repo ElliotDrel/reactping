@@ -1,5 +1,6 @@
-# Replace YOUR_PUBLIC_HOST with the host from BASE_URL, then paste into
-# https://api.slack.com/apps -> Create New App -> From a manifest.
+# Replace YOUR_SITE_HOST with the host of PUBLIC_SITE_URL (for example reactping.example.com), then paste into
+# https://api.slack.com/apps -> Create New App -> From a manifest. Superseded: earlier versions used
+# /slack/oauth/callback and /slack/events on the old always-on server.
 display_information:
   name: ReactPing
   description: Bot DMs when someone reacts to your messages.
@@ -13,7 +14,7 @@ features:
     messages_tab_read_only_enabled: true
 oauth_config:
   redirect_urls:
-    - https://YOUR_PUBLIC_HOST/slack/oauth/callback
+    - https://YOUR_SITE_HOST/api/slack/oauth/callback
   scopes:
     user:
       - reactions:read
@@ -21,7 +22,7 @@ oauth_config:
       - chat:write
 settings:
   event_subscriptions:
-    request_url: https://YOUR_PUBLIC_HOST/slack/events
+    request_url: https://YOUR_SITE_HOST/api/slack/events
     user_events:
       - reaction_added
     bot_events:
