@@ -3,12 +3,12 @@ export interface AuthUser {
   email: string | null;
 }
 
-/** Resolves a Supabase access token to its user, or null when the token is invalid, expired, or signed out. */
+/** Resolves a Supabase access token to its user, or null when Supabase Auth rejects the token. */
 export type VerifyUser = (accessToken: string) => Promise<AuthUser | null>;
 
 /**
  * Asks Supabase Auth who the token belongs to. This works with both asymmetric and legacy JWT signing
- * keys and rejects sessions that were signed out server-side. Only the publishable key is needed.
+ * keys. Access tokens can remain valid until expiry after sign-out; this does not promise immediate session revocation. Only the publishable key is needed.
  */
 export function supabaseUserVerifier(supabaseUrl: string, publishableKey: string, fetchImpl = fetch): VerifyUser {
   return async (accessToken) => {

@@ -58,7 +58,7 @@ URLs under `PUBLIC_SITE_URL`:
 - Import the repository with framework preset "Other". `vercel.json` sets `npm ci` and `npm run build`; the build emits `.vercel/output` (Build Output API), so dashboard output-directory and function settings are not used. The function runs on `nodejs24.x` with a 30-second limit.
 - Set the variables above for Production. Preview deployments are noindex and cannot complete Slack OAuth (the redirect and cookie belong to the canonical host); leave installs off there.
 - Slack and pg_cron must reach the production URL without Vercel Deployment Protection challenges.
-- Hobby plans are for personal, non-commercial use. A public or commercial launch needs a plan that allows it.
+- Hobby plans are for personal, non-commercial use. Commercial use needs a plan that allows it; public availability alone does not determine whether a project qualifies.
 - Choose the domain before configuring Slack; changing `PUBLIC_SITE_URL` later means updating the Slack app URLs and rebuilding.
 
 ## 5. Slack app
