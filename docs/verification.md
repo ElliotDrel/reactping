@@ -4,7 +4,7 @@
 
 Integrated the Opus implementation and Sonnet connection guide in `feat/v1`. Independent checks pass: formatting, typecheck, lint, production build, and **85/85 tests**, including real SQL against disposable local Postgres 17. Production dependency audit reports zero vulnerabilities. Superseded: the initial builder suite below had 80 tests.
 
-Sonnet review round 1 found no blockers and identified hardening issues. Fixed verified database TLS with optional provider CA, idle pool errors, runtime budgets, concurrent deletion cleanup, callback notice lookup, effective destination settings, and policy wording. Provider verification is still pending. No real Slack events, provider accounts, deployments, or credentials were used.
+Sonnet review round 1 found no blockers and identified hardening issues. Fixed verified database TLS with optional provider CA, idle pool errors, runtime budgets, concurrent deletion cleanup, callback notice lookup, effective destination settings, and policy wording. Sonnet review round 2 checked the fixes and returned **ready to connect**, with no blockers or further required code fixes. The optional provider-CA documentation note was incorporated. The optional account-deletion heading suggestion was left as-is: the screen already signs out the local session and explicitly reports incomplete identity or token cleanup. Exactly two code-review rounds were used. Provider verification is still pending. No real Slack events, provider accounts, deployments, or credentials were used.
 
 ## November 10, 2026: website and Vercel + Supabase migration (local only)
 

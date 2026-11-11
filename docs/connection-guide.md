@@ -40,7 +40,7 @@ Secret values belong in provider secret settings, never in Git or chat logs. The
 | `DELIVERY_CRON_SECRET` (at least 32 characters)                                                  | Vercel env and Supabase Vault, used by the `pg_net` call                |
 | SMTP provider, host, port, credentials, sender address and name                                  | Supabase Auth custom SMTP                                               |
 
-`DATABASE_CA` is an optional server-only PEM CA certificate. Remote Postgres uses verified TLS; omit SSL query parameters in `DATABASE_URL` and never disable certificate verification.
+`DATABASE_CA` is an optional server-only PEM CA certificate. Obtain the current project CA certificate from the Supabase dashboard connection/SSL settings before the first hosted connection, so it is available if needed. Set `DATABASE_CA` to the complete PEM when required. Remote Postgres uses verified TLS; omit SSL query parameters in `DATABASE_URL` and never disable certificate verification.
 
 ## 4. Connection order (after Elliot authorizes)
 
