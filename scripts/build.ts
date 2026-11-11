@@ -9,6 +9,7 @@ import { build } from "esbuild";
 import { cpSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { FUNCTION_MAX_DURATION_SECONDS } from "../src/runtime.ts";
 import { securityHeaders } from "../site/headers.ts";
 import { PAGES } from "../site/pages.ts";
 import { loadPublicConfig, type PublicConfig } from "../site/public-config.ts";
@@ -75,7 +76,7 @@ export async function buildSite(outDir: string, env: NodeJS.ProcessEnv): Promise
     runtime: "nodejs24.x",
     handler: "index.mjs",
     launcherType: "Nodejs",
-    maxDuration: 30,
+    maxDuration: FUNCTION_MAX_DURATION_SECONDS,
     shouldAddHelpers: false,
   });
   writeJson(join(funcDir, "package.json"), { type: "module" });

@@ -1,3 +1,4 @@
+import { SLACK_TIMEOUT_MS } from "./runtime.ts";
 import { ErrorCode, LogLevel, WebClient, type Logger, type WebClientOptions } from "@slack/web-api";
 
 export const BOT_SCOPES = ["chat:write"];
@@ -82,7 +83,7 @@ export function createSlackApi(options: {
     logger: silentLogger,
     retryConfig: { retries: 0 },
     rejectRateLimitedCalls: true,
-    timeout: 10_000,
+    timeout: SLACK_TIMEOUT_MS,
     fetch: options.fetch,
   });
 

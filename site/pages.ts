@@ -187,8 +187,9 @@ const FAQ: { q: string; a: (config: PublicConfig) => SafeHtml; home?: boolean }[
     a: () =>
       html`<p>
         In the <a href="/app">ReactPing app</a>, disconnect a workspace to revoke its Slack tokens and delete its stored
-        data immediately. "Delete my account" removes every workspace, all stored records, and your sign-in email.
-        Removing the app inside Slack also stops ReactPing.
+        data immediately. "Delete my account" removes your ReactPing records and attempts to remove your sign-in email
+        and revoke Slack credentials. The app reports any cleanup that needs support. Removing the app inside Slack also
+        stops ReactPing.
       </p>`,
   },
   {
@@ -427,11 +428,13 @@ const features: Page = {
                 <p class="eyebrow">Control and privacy</p>
                 <h2>Easy to leave, careful while you stay</h2>
                 <ul class="checks">
-                  <li>Disconnect a workspace: tokens are revoked with Slack and its data is deleted</li>
-                  <li>Delete your account: everything goes, including your sign-in email</li>
+                  <li>Disconnect a workspace: stored data is deleted and Slack token revocation is attempted</li>
+                  <li>
+                    Delete your account: records are removed; any incomplete credential or login cleanup is reported
+                  </li>
                   <li>Revoked or uninstalled in Slack? ReactPing notices and stops</li>
                   <li>Slack tokens are encrypted at rest</li>
-                  <li>Reaction details are deleted after ${RETENTION_HOURS} hours</li>
+                  <li>Reaction details are normally cleared after ${RETENTION_HOURS} hours by the cleanup job</li>
                   <li>A connection test DM checks setup without waiting for a reaction</li>
                 </ul>
               </div>
@@ -672,9 +675,18 @@ const privacy: Page = {
             </p>
             <h2>Retention and deletion</h2>
             <ul>
-              <li>Delivery records are deleted ${RETENTION_HOURS} hours after the reaction.</li>
-              <li>Disconnecting a workspace revokes its tokens with Slack and deletes its data immediately.</li>
-              <li>Deleting your account removes all workspaces, records, and your sign-in email.</li>
+              <li>
+                Delivery records older than ${RETENTION_HOURS} hours are purged by our scheduled cleanup job. If that
+                job is unavailable, deletion is delayed until it resumes.
+              </li>
+              <li>
+                Disconnecting a workspace deletes its ReactPing data immediately and attempts to revoke its Slack
+                tokens. Any incomplete revocation is reported.
+              </li>
+              <li>
+                Deleting your account removes all ReactPing workspaces and records and attempts to delete your sign-in
+                identity. If identity deletion fails, the app reports it and asks you to contact support.
+              </li>
               <li>If you remove the app or revoke access in Slack, ReactPing wipes the affected tokens.</li>
             </ul>
             <h2>Contact</h2>

@@ -281,6 +281,56 @@ describe("API", { skip: dbSkip }, () => {
       assert.equal((await b.request("/api/me")).status, 401);
     });
 
+    it("shows the effective same-workspace destination after revocation or adding a workspace without consent", async () => {
+      const b = await Browser.signIn(app);
+      await b.connect("T1", "UAUTHOR");
+      const first = (await app.store.listInstallations(b.accountId))[0]!;
+      await b.post("/api/destination", { destination: first.id });
+      assert.equal((await b.json("/api/me")).destination, first.id);
+      await b.connect("T2", "UOTHER");
+      assert.equal((await b.json("/api/me")).destination, "same");
+      await b.post("/api/destination", { destination: first.id, crossWorkspaceConsent: true });
+      assert.equal((await b.json("/api/me")).destination, first.id);
+      await app.store.markRevoked({ id: first.id });
+      assert.equal((await b.json("/api/me")).destination, "same");
+    });
+
+    it(
+      "deletes the login before slow revocations and cleans up different workspaces concurrently",
+      { timeout: 5000 },
+      async () => {
+        const b = await Browser.signIn(app);
+        await b.connect("T1", "UAUTHOR");
+        await b.connect("T2", "UOTHER");
+        let release!: () => void;
+        const gate = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        let allStarted!: () => void;
+        const started = new Promise<void>((resolve) => {
+          allStarted = resolve;
+        });
+        let calls = 0;
+        app.slack.revoke = async () => {
+          const user = await app.store.pool.query("select 1 from auth.users where id = $1", [b.accountId]);
+          assert.equal(user.rowCount, 0, "identity removed before waiting for Slack");
+          if (++calls === 4) allStarted();
+          await gate;
+          throw new SlackCallError("transient", "request_failed");
+        };
+        const deletion = b.post("/api/account/delete", { confirm: "delete" });
+        try {
+          await started;
+          assert.equal(calls, 4);
+          assert.equal(await app.store.getAccount(b.accountId), undefined);
+        } finally {
+          release();
+        }
+        const response = await deletion;
+        assert.deepEqual(await response.json(), { deleted: true, revoked: false, authUserDeleted: true });
+      },
+    );
+
     it("returns untrusted workspace names only as JSON data", async () => {
       const b = await Browser.signIn(app);
       app.slack.oauthResults.set("x", oauthResult("T9", "UX", { teamName: "<script>alert(1)</script>" }));

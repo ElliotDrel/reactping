@@ -40,10 +40,12 @@ Secret values belong in provider secret settings, never in Git or chat logs. The
 | `DELIVERY_CRON_SECRET` (at least 32 characters)                                                  | Vercel env and Supabase Vault, used by the `pg_net` call                |
 | SMTP provider, host, port, credentials, sender address and name                                  | Supabase Auth custom SMTP                                               |
 
+`DATABASE_CA` is an optional server-only PEM CA certificate. Remote Postgres uses verified TLS; omit SSL query parameters in `DATABASE_URL` and never disable certificate verification.
+
 ## 4. Connection order (after Elliot authorizes)
 
 1. **Supabase project:** create or select it; apply the migration; confirm tables have RLS/grants as designed; set Auth Site URL and redirect allow-list to the exact production host. Add preview URLs only if needed, kept separate.
-2. **Custom SMTP:** Supabase's built-in email is only for team/testing and is heavily limited; email OTP for general users requires custom SMTP with a verified sender domain (SPF/DKIM per the provider). Test with one owner-controlled address.
+2. **Custom SMTP and signup controls:** Before exposing sign-in publicly, configure Supabase Auth CAPTCHA and its matching browser integration, or restrict signups to invited pilot accounts. Closing Slack installs alone does not close Supabase signups. **Custom SMTP:** Supabase's built-in email is only for team/testing and is heavily limited; email OTP for general users requires custom SMTP with a verified sender domain (SPF/DKIM per the provider). Test with one owner-controlled address.
 3. **Vercel:** import the repository, set env vars (server secrets server-only; only publishable values exposed to the browser), keep the install **disabled** and previews `noindex`, deploy a preview.
 4. **Preview vs production URLs:** Slack and Supabase Auth must use the exact production origin for Redirect URL (OAuth callback) and Event Request URL. Preview URLs change per deployment and must not be registered as production Slack URLs.
 5. **Cron:** store the cron secret in Vault, create the `pg_cron` job that uses `pg_net` to call the delivery endpoint every minute with the secret. Check `cron.job_run_details` and the response status.

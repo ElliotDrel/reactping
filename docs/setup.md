@@ -20,22 +20,22 @@ A full local sign-in needs a Supabase Auth endpoint: a hosted project, or the Su
 
 All names are in [`.env.example`](../.env.example).
 
-| Variable                          | Where                | Purpose                                                                                 |
-| --------------------------------- | -------------------- | --------------------------------------------------------------------------------------- |
-| `PUBLIC_SITE_URL`                 | build + API          | Canonical origin. OAuth redirect, install origin check, canonical links, sitemap.       |
-| `PUBLIC_SUPABASE_URL`             | build + API          | Supabase project URL. Browser sign-in; API token verification.                          |
-| `PUBLIC_SUPABASE_PUBLISHABLE_KEY` | build + API          | Publishable (or legacy anon) key. The build and API reject secret or service-role keys. |
-| `PUBLIC_INSTALL_ENABLED`          | build                | Website shows installs as open. Does not enable installs.                               |
-| `PUBLIC_SITE_INDEXABLE`           | build                | Allow indexing; needs `PUBLIC_SITE_URL`; ignored when `VERCEL_ENV` is not `production`. |
-| `PUBLIC_SUPPORT_EMAIL`            | build                | Optional support address; empty shows "Support contact not published yet".              |
-| `DATABASE_URL`                    | API (secret)         | Supabase Postgres, transaction pooler (port 6543).                                      |
-| `SLACK_CLIENT_ID`                 | API                  | Slack app client ID.                                                                    |
-| `SLACK_CLIENT_SECRET`             | API (secret)         | Slack OAuth code exchange.                                                              |
-| `SLACK_SIGNING_SECRET`            | API (secret)         | Verifies Slack event requests.                                                          |
-| `ENCRYPTION_KEY`                  | API (secret)         | 32 bytes, base64. Encrypts Slack tokens at rest.                                        |
-| `DELIVERY_CRON_SECRET`            | API (secret) + Vault | Bearer secret for `POST /api/internal/deliver`; at least 32 characters.                 |
-| `REACTPING_INSTALLS_ENABLED`      | API (operator flag)  | Allows new Slack installs. Default `false`.                                             |
-| `INCLUDE_SELF_REACTIONS`          | API (operator flag)  | Testing only. Default `false`.                                                          |
+| Variable                          | Where                | Purpose                                                                                     |
+| --------------------------------- | -------------------- | ------------------------------------------------------------------------------------------- |
+| `PUBLIC_SITE_URL`                 | build + API          | Canonical origin. OAuth redirect, install origin check, canonical links, sitemap.           |
+| `PUBLIC_SUPABASE_URL`             | build + API          | Supabase project URL. Browser sign-in; API token verification.                              |
+| `PUBLIC_SUPABASE_PUBLISHABLE_KEY` | build + API          | Publishable (or legacy anon) key. The build and API reject secret or service-role keys.     |
+| `PUBLIC_INSTALL_ENABLED`          | build                | Website shows installs as open. Does not enable installs.                                   |
+| `PUBLIC_SITE_INDEXABLE`           | build                | Allow indexing; needs `PUBLIC_SITE_URL`; ignored when `VERCEL_ENV` is not `production`.     |
+| `PUBLIC_SUPPORT_EMAIL`            | build                | Optional support address; empty shows "Support contact not published yet".                  |
+| `DATABASE_URL`                    | API (secret)         | Supabase Postgres, transaction pooler (port 6543), verified TLS. Omit SSL query parameters. |
+| `SLACK_CLIENT_ID`                 | API                  | Slack app client ID.                                                                        |
+| `SLACK_CLIENT_SECRET`             | API (secret)         | Slack OAuth code exchange.                                                                  |
+| `SLACK_SIGNING_SECRET`            | API (secret)         | Verifies Slack event requests.                                                              |
+| `ENCRYPTION_KEY`                  | API (secret)         | 32 bytes, base64. Encrypts Slack tokens at rest.                                            |
+| `DELIVERY_CRON_SECRET`            | API (secret) + Vault | Bearer secret for `POST /api/internal/deliver`; at least 32 characters.                     |
+| `REACTPING_INSTALLS_ENABLED`      | API (operator flag)  | Allows new Slack installs. Default `false`.                                                 |
+| `INCLUDE_SELF_REACTIONS`          | API (operator flag)  | Testing only. Default `false`.                                                              |
 
 The build reads only `PUBLIC_*` and `VERCEL_ENV`; a test builds with secret-looking values set and checks none reach the output. If any API variable is missing or invalid, the API logs the variable names (never values) and fails closed.
 
@@ -45,6 +45,8 @@ URLs under `PUBLIC_SITE_URL`:
 - Slack Events API request URL: `/api/slack/events`
 - Delivery endpoint for pg_cron: `/api/internal/deliver`
 - Health: `/api/health` → `{"ok":true,"ready":true|false,...}`
+
+Remote database connections always use TLS with certificate verification. If system trust does not validate the provider certificate, set server-only `DATABASE_CA` to the provider's PEM CA certificate. Do not put `ssl`, `sslmode`, `sslcert`, `sslkey`, or `sslrootcert` in `DATABASE_URL`: those parameters override node-postgres TLS options. Local loopback Postgres uses no TLS. Idle connection errors are logged without connection details.
 
 ## 3. Supabase
 
@@ -74,8 +76,8 @@ Paste `slack-manifest.template.yaml` with `YOUR_SITE_HOST` replaced. It configur
 - **Cross-workspace text** says "Someone reacted…"; same-workspace text mentions the reactor.
 - **Connection test DM:** labelled as connectivity only, at most once a minute per workspace.
 - **Revocation:** `tokens_revoked` and `app_uninstalled` wipe the affected tokens and show the workspace as Revoked with a Reconnect button. Auth errors during delivery or a test DM do the same. **Disconnect** deletes the installation first, then revokes the user token and, when no other ReactPing user in that workspace depends on it, the bot token.
-- **Account deletion** requires typing `delete`, removes all ReactPing rows, revokes tokens, then deletes the Supabase Auth user.
-- **Data kept:** see the privacy page. Delivery records and expired OAuth state are purged by the cron call after 48 hours (`RETENTION_HOURS` in `src/config.ts`, shown on the privacy page; the old `RETENTION_HOURS` environment variable is superseded).
+- **Account deletion** requires typing `delete`, removes all ReactPing rows, attempts to delete the Supabase Auth user before concurrently revoking the Slack credentials. Incomplete remote revocation or identity deletion is reported explicitly.
+- **Data kept:** see the privacy page. Delivery records older than 48 hours and expired OAuth state are purged by the cron call; deletion can be delayed if that job is unavailable (`RETENTION_HOURS` in `src/config.ts`, shown on the privacy page; the old `RETENTION_HOURS` environment variable is superseded).
 - **Not supported:** Enterprise Grid organization-wide installs (rejected at OAuth) and token rotation.
 
 ## Recovery

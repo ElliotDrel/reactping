@@ -522,7 +522,7 @@ async function start(): Promise<void> {
 
   const params = new URLSearchParams(window.location.search);
   const outcome = params.get("slack") as ConnectOutcome | null;
-  if (outcome && outcome in CONNECT_MESSAGES) flash = CONNECT_MESSAGES[outcome];
+  if (outcome && Object.hasOwn(CONNECT_MESSAGES, outcome)) flash = CONNECT_MESSAGES[outcome];
   if (params.has("slack")) history.replaceState(null, "", "/app");
 
   supabase = createClient(config.supabaseUrl, config.supabasePublishableKey, {

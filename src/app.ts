@@ -17,7 +17,7 @@ export function createApiFromEnv(env: NodeJS.ProcessEnv, background: (task: () =
   const { config } = loaded;
   return createApi({
     config,
-    store: new Store(createPool(config.databaseUrl), deriveKey(config.encryptionKey, "tokens")),
+    store: new Store(createPool(config.databaseUrl, config.databaseCa), deriveKey(config.encryptionKey, "tokens")),
     slack: createSlackApi({ clientId: config.slackClientId, clientSecret: config.slackClientSecret }),
     verifyUser: supabaseUserVerifier(config.supabaseUrl, config.supabasePublishableKey),
     background,

@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { decrypt, encrypt, sha256 } from "./crypto.ts";
+import { parseDatabaseUrl } from "./config.ts";
+import { log } from "./log.ts";
 
 export interface Installation {
   id: string;
@@ -50,13 +52,24 @@ type Row = Record<string, unknown>;
 type Queryable = Pick<pg.Pool, "query">;
 
 export const OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
-/** Longer than two Slack calls with their 10 s timeouts. An expired lease lets another worker retry. */
+/** Longer than the bounded Slack calls. An expired lease lets another worker retry. */
 export const LEASE_MS = 60_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function createPool(connectionString: string): pg.Pool {
-  // Serverless instances keep a tiny pool; use Supabase's transaction pooler URL in production.
-  return new pg.Pool({ connectionString, max: 3, idleTimeoutMillis: 5_000, connectionTimeoutMillis: 5_000 });
+export function createPool(connectionString: string, ca?: string): pg.Pool {
+  const url = new URL(parseDatabaseUrl(connectionString));
+  const local = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  // Remote connections always verify certificates. Use the provider's CA when system trust is insufficient.
+  const pool = new pg.Pool({
+    connectionString,
+    ssl: local ? false : { rejectUnauthorized: true, ...(ca ? { ca } : {}) },
+    max: 3,
+    idleTimeoutMillis: 5_000,
+    connectionTimeoutMillis: 5_000,
+    query_timeout: 5_000,
+  });
+  pool.on("error", (error: Error) => log("warn", "pool_idle_error", { error: error.name }));
+  return pool;
 }
 
 export class Store {

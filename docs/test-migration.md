@@ -2,7 +2,7 @@
 
 November 10, 2026. The 57 tests on `main` at `96e9dc5` exercised the SQLite store, the `node:http` cookie-session web app, and a long-lived worker. They were ported to Postgres (a fresh database per test file with the real migration and a small Supabase stand-in, `test/supabase-shim.sql`), the Web `Request`/`Response` API, and the lease-based worker. Real SQL runs in every database test; nothing about the database is mocked. Slack and Supabase Auth are still test doubles.
 
-Totals with `TEST_DATABASE_URL` set: 80 tests: 54 ported and 26 new. Three v1 tests were replaced by new ones (below). Without it, 18 run and the 4 Postgres suites are reported as skipped.
+Updated November 11: totals with `TEST_DATABASE_URL` set: 85 tests: 54 ported and 31 new. Superseded: the initial builder result was 80 tests. Three v1 tests were replaced by new ones (below). Without it, 21 run and the 4 Postgres suites are reported as skipped.
 
 ## Disposition of the 57 v1 tests
 
@@ -24,3 +24,11 @@ Totals with `TEST_DATABASE_URL` set: 80 tests: 54 ported and 26 new. Three v1 te
 - **Database privileges:** the `anon` and `authenticated` roles get `permission denied` on ReactPing tables, and every table has RLS enabled.
 - **Configuration and launch:** installs stay off unless the operator flag is set (the public flag has no effect); invalid values are reported by name without values; secret or service-role keys are refused as publishable keys; the unconfigured API fails closed; the Supabase verifier sends only the publishable key.
 - **Build:** all routes, Vercel routing, and function config are emitted; default output is noindex with installs shown as unavailable; indexing only with a site URL in production and never on previews; secrets and operator flags never reach public output; the public launch flag changes only the site; the bundled function starts without configuration and fails closed.
+
+## November 11 review regressions (5 additional tests)
+
+- Verified remote Postgres TLS, optional provider CA, refusal of SSL URL overrides, and loopback development configuration.
+- Dropped idle connections are handled without an unhandled pool error.
+- Shared function and Slack timeouts leave room for a delivery already in progress.
+- Settings report the effective same-workspace route after destination revocation or adding a workspace without routing consent.
+- Account identity deletion happens before waiting on concurrent Slack revocations across workspaces; failed revocations are reported.

@@ -1,5 +1,11 @@
 # V1 verification
 
+## November 11, 2026: integration verification (local only)
+
+Integrated the Opus implementation and Sonnet connection guide in `feat/v1`. Independent checks pass: formatting, typecheck, lint, production build, and **85/85 tests**, including real SQL against disposable local Postgres 17. Production dependency audit reports zero vulnerabilities. Superseded: the initial builder suite below had 80 tests.
+
+Sonnet review round 1 found no blockers and identified hardening issues. Fixed verified database TLS with optional provider CA, idle pool errors, runtime budgets, concurrent deletion cleanup, callback notice lookup, effective destination settings, and policy wording. Provider verification is still pending. No real Slack events, provider accounts, deployments, or credentials were used.
+
 ## November 10, 2026: website and Vercel + Supabase migration (local only)
 
 Built in worktree branch `t3/fd07a5d9`; not pushed, deployed, or live-tested.

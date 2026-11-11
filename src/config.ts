@@ -5,6 +5,7 @@ export interface Config {
   /** Canonical public origin (no trailing slash). Slack OAuth and event URLs live under it. */
   siteUrl: string;
   databaseUrl: string;
+  databaseCa?: string;
   supabaseUrl: string;
   supabasePublishableKey: string;
   slackClientId: string;
@@ -48,6 +49,17 @@ export function assertPublishableKey(key: string): void {
   }
 }
 
+/** TLS is configured explicitly, so URL parameters must not override certificate verification. */
+export function parseDatabaseUrl(value: string): string {
+  const url = new URL(value);
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") throw new Error("must be a Postgres URL");
+  for (const option of ["ssl", "sslmode", "sslcert", "sslkey", "sslrootcert"]) {
+    if (url.searchParams.has(option))
+      throw new Error("must omit SSL query parameters; use DATABASE_CA for a custom CA");
+  }
+  return value;
+}
+
 export function parseFlag(env: NodeJS.ProcessEnv, name: string): boolean {
   const value = env[name]?.trim() || "false";
   if (value !== "true" && value !== "false") throw new Error(`${name} must be true or false`);
@@ -88,7 +100,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConfigResult {
   );
   const config: Config = {
     siteUrl: read("PUBLIC_SITE_URL", parseOrigin),
-    databaseUrl: read("DATABASE_URL"),
+    databaseUrl: read("DATABASE_URL", parseDatabaseUrl),
+    databaseCa: env.DATABASE_CA?.trim() || undefined,
     supabaseUrl: read("PUBLIC_SUPABASE_URL", parseOrigin),
     supabasePublishableKey: read("PUBLIC_SUPABASE_PUBLISHABLE_KEY", assertPublishableKey),
     slackClientId: read("SLACK_CLIENT_ID"),

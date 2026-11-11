@@ -5,6 +5,7 @@ import type { Installation, Store } from "./db.ts";
 import { DeliveryWorker, escapeMrkdwn } from "./delivery.ts";
 import { handleEventCallback, verifySlackSignature } from "./events.ts";
 import { log } from "./log.ts";
+import { CRON_DRAIN_BUDGET_MS, EVENT_DRAIN_BUDGET_MS } from "./runtime.ts";
 import { BOT_SCOPES, classifySlackError, USER_SCOPES, type SlackApi } from "./slack.ts";
 
 export interface ApiDeps {
@@ -139,11 +140,11 @@ export function createApi(deps: ApiDeps | null): Handler {
   async function disconnect(installation: Installation): Promise<boolean> {
     // Disable local collection/delivery immediately, even if Slack is slow or unavailable.
     await store.deleteInstallation(installation.id);
-    const userOk = await revokeQuietly(installation.userToken);
-    const botOk =
-      (await store.countActiveInTeam(installation.teamId, installation.id)) === 0
-        ? installation.botToken !== null && (await revokeQuietly(installation.botToken))
-        : true;
+    const revokeBot = (await store.countActiveInTeam(installation.teamId, installation.id)) === 0;
+    const [userOk, botOk] = await Promise.all([
+      revokeQuietly(installation.userToken),
+      revokeBot ? installation.botToken !== null && revokeQuietly(installation.botToken) : true,
+    ]);
     return userOk && botOk;
   }
 
@@ -174,20 +175,27 @@ export function createApi(deps: ApiDeps | null): Handler {
         const match = /^Bearer (.+)$/.exec(request.headers.get("authorization") ?? "");
         if (!match || !safeEqual(match[1]!, config.deliveryCronSecret)) throw new HttpError(401, "unauthorized");
         await store.purgeExpired(RETENTION_HOURS * 60 * 60 * 1000);
-        return json(200, { processed: await worker.drain(50, 15_000) });
+        return json(200, { processed: await worker.drain(50, CRON_DRAIN_BUDGET_MS) });
       }
 
       case "GET /api/me": {
         const user = await authenticate(request);
         const account = (await store.getAccount(user.id))!;
         const installations = await store.listInstallations(user.id);
+        const destination = installations.find(
+          (i) => i.id === account.destinationInstallationId && i.status === "active",
+        );
+        const crossesWorkspaces =
+          destination && installations.some((i) => i.status === "active" && i.teamId !== destination.teamId);
+        const effectiveDestination =
+          destination && (!crossesWorkspaces || account.crossWorkspaceConsentAt) ? destination.id : "same";
         return json(200, {
           email: user.email,
           installsEnabled: config.installsEnabled,
           testingMode: config.includeSelfReactions,
           retentionHours: RETENTION_HOURS,
-          destination: account.destinationInstallationId ?? "same",
-          crossWorkspaceConsent: account.crossWorkspaceConsentAt !== null,
+          destination: effectiveDestination,
+          crossWorkspaceConsent: effectiveDestination !== "same" && account.crossWorkspaceConsentAt !== null,
           installations: installations.map((i) => ({
             id: i.id,
             teamId: i.teamId,
@@ -267,8 +275,6 @@ export function createApi(deps: ApiDeps | null): Handler {
         if ((await readJson(request)).confirm !== "delete") throw new HttpError(400, "confirmation_required");
         const installations = await store.listInstallations(user.id);
         await store.deleteAccount(user.id);
-        let revoked = true;
-        for (const installation of installations) revoked = (await disconnect(installation)) && revoked;
         let authUserDeleted = true;
         try {
           await store.deleteAuthUser(user.id);
@@ -276,6 +282,9 @@ export function createApi(deps: ApiDeps | null): Handler {
           authUserDeleted = false;
           log("error", "auth_user_delete_failed", { error: (error as Error)?.name });
         }
+        // Remove the login before remote work: a slow Slack revoke must not prevent identity deletion.
+        const outcomes = await Promise.allSettled(installations.map(disconnect));
+        const revoked = outcomes.every((outcome) => outcome.status === "fulfilled" && outcome.value);
         return json(200, { deleted: true, revoked, authUserDeleted });
       }
 
@@ -356,7 +365,7 @@ export function createApi(deps: ApiDeps | null): Handler {
       );
       log("info", "event_processed", { outcome });
       // Try right away; the every-minute cron call recovers anything this misses.
-      if (outcome === "enqueued") background(() => worker.drain(5, 10_000));
+      if (outcome === "enqueued") background(() => worker.drain(5, EVENT_DRAIN_BUDGET_MS));
     }
     return new Response("", { headers: NO_STORE });
   }
