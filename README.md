@@ -2,7 +2,7 @@
 
 Bot DMs when someone reacts to your Slack messages, with an optional single inbox across connected workspaces.
 
-Status (November 10, 2026): the launch website and the Vercel + Supabase backend are implemented and pass the automated checks locally, against mocked Slack and Supabase Auth and a disposable local Postgres. **This hosted version has not been deployed or live-tested.** Vercel, Supabase, and the Slack app still need to be connected by the owner; see [the connection guide](docs/connection-guide.md) and [setup](docs/setup.md). Superseded: v1 ran as one always-on Node process with SQLite; its live Slack results are kept as history in [verification](docs/verification.md) and [the live checklist](docs/live-checklist.md) and do not cover this code.
+Status (November 13, 2026): the website and Node.js API are deployed at [reactping.vercel.app](https://reactping.vercel.app), connected to Supabase Postgres. Hosted health, API routing, TLS certificate verification, private-table RLS/grants, and empty-queue delivery checks pass. Public signups, Slack installs, and indexing remain disabled. **Email-code sign-in is blocked on custom SMTP:** this free project rejects changes to the default magic-link template. No Slack behavior has been tested on this hosted version. See [the connection guide](docs/connection-guide.md), [setup](docs/setup.md), and [verification](docs/verification.md). Superseded: the previous locally checked, not-deployed status; historical SQLite Slack results do not cover this code.
 
 ## V1
 
@@ -35,8 +35,8 @@ Start with user `reactions:read` and bot `chat:write`. Resolve original-message 
 
 1. Superseded (done on the v1 SQLite service, October 2026): real reaction DMs in a public channel, from Elliot and from a second person. Private channels, threads, DMs, group DMs, Slack Connect, and cross-workspace routing remain unverified.
 2. Done locally: website, Supabase-backed accounts, workspace linking, destination choice, connection test DM, disconnect, account deletion, Postgres outbox with leases, and secret-safe build.
-3. Next (owner): connect Supabase and Vercel, apply the migration, configure the cron template, point the Slack app at the deployed URLs, and repeat the live checklist against the hosted version.
-4. Deploy with installs off, verify with a pilot workspace, then turn on `REACTPING_INSTALLS_ENABLED` and `PUBLIC_INSTALL_ENABLED`. Tag v0.1.0 after the hosted pilot passes.
+3. Connected: Supabase schema/Auth configuration and Vercel production runtime; Vault-backed delivery recovery is configured. Next: configure custom SMTP and verify email-code sign-in, settle the final domain/support contact, then configure Slack URLs only when live Slack testing is authorized.
+4. Keep the deployed app closed until the hosted pilot is authorized and verified, then turn on `REACTPING_INSTALLS_ENABLED` and `PUBLIC_INSTALL_ENABLED`. Tag v0.1.0 after the hosted pilot passes.
 
 Ship criterion: a hosted pilot works end to end for Elliot across two workspaces with documented coverage and no message-content collection. Public distribution and Marketplace submission are subsequent releases; this repository stays private until Elliot requests otherwise.
 

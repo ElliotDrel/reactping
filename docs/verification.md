@@ -1,5 +1,21 @@
 # V1 verification
 
+## November 13, 2026: hosted connection, Slack testing withheld
+
+Superseded: the November 11 locally checked, not-deployed status. Deployed implementation `1a07de3ad8e6c12a39641af13fb610ece2e6498c` to [Vercel production](https://reactping.vercel.app), deployment `dpl_5H7NMrxou21S6FRZbG3nSAjZ2M8T` ([deployment details](https://vercel.com/elliot-drels-projects/reactping/5H7NMrxou21S6FRZbG3nSAjZ2M8T)). The Vercel project uses Node 24 and the generated Build Output API function. The private repository remains private.
+
+- Applied migration `20261110000000_reactping.sql` to the new [Supabase project](https://supabase.com/dashboard/project/ykrdmgewztwzksgwbjue). All five private tables have RLS enabled, with zero table grants to `anon`, `authenticated`, or `PUBLIC`. The client-to-pooler TLS connection verifies successfully using the Supabase CA in server-only `DATABASE_CA`; certificate verification was never disabled.
+- Configured production environment variables, Supabase Auth site URL, six-digit OTP length, and closed public signups. `REACTPING_INSTALLS_ENABLED`, `PUBLIC_INSTALL_ENABLED`, `PUBLIC_SITE_INDEXABLE`, and `INCLUDE_SELF_REACTIONS` are all `false`. No old SQLite records or Slack grants were imported or revoked.
+- All eight website routes return 200; an unknown route returns 404. The site sends `X-Robots-Tag: noindex` and robots.txt disallows crawling. `/api/health` returns 200 with `ready: true`, installs disabled, and testing mode off; anonymous `/api/me` returns 401.
+- Confirmed zero installations and zero deliveries before the delivery smoke check. The internal delivery endpoint returns 401 without its secret and 200 with `processed: 0` when authorized. Vault and an active every-minute `pg_cron`/`pg_net` job are configured; two scheduled calls returned HTTP 200 with `processed: 0` at 03:19 and 03:20 UTC on November 14 (November 13 local time).
+- Hosted `postgres` has DELETE privilege on `auth.users`; actual deletion of a hosted identity remains untested. No OTP email, Slack OAuth, Slack API call, reaction, or DM was sent.
+
+**Email blocker:** the Auth configuration API returned HTTP 400 with `entitlement_required` when setting the code email template: email-template modification is unavailable on free projects with the default sender unless custom SMTP is configured or the plan upgraded. The existing default template contains `ConfirmationURL`, not `Token`. Supabase Auth remains the identity provider; a custom SMTP sender is still required for this code-entry UI. Public signups stay closed. No provider subscription or domain was purchased.
+
+The local recheck exposed a test-only race when parallel suites create cluster-wide mock roles. The shim now tolerates both duplicate-role error forms, preserving parallel coverage. Application code is unchanged. Formatting, typecheck, lint, production build, and all 85 tests pass. The full check after dropping the disposable cluster roles passes 85/85, exercising fresh concurrent role creation.
+
+Remaining: custom SMTP and owner-code sign-in; final domain/support contact and policy approval; an actual idle-week availability check; hosted account cleanup; and the full hosted Slack checklist only after separate authorization.
+
 ## November 11, 2026: integration verification (local only)
 
 Integrated the Opus implementation and Sonnet connection guide in `feat/v1`. Independent checks pass: formatting, typecheck, lint, production build, and **85/85 tests**, including real SQL against disposable local Postgres 17. Production dependency audit reports zero vulnerabilities. Superseded: the initial builder suite below had 80 tests.

@@ -51,9 +51,9 @@ Remote database connections always use TLS with certificate verification. If sys
 ## 3. Supabase
 
 - Apply `supabase/migrations/20261110000000_reactping.sql` (SQL editor or `supabase db push`). It creates the private `reactping` schema; do not add it to the Data API's exposed schemas.
-- Auth: enable the Email provider. Change the "Magic Link" email template to send the code (`{{ .Token }}`) instead of a link; the app asks for a 6-digit code (it accepts 6 to 10 digits). Public users need **custom SMTP**; Supabase's built-in sender only reaches project team members at a low rate.
+- Auth: enable the Email provider. Change the "Magic Link" email template to send the code (`{{ .Token }}`) instead of a link; the app asks for a 6-digit code (it accepts 6 to 10 digits). Public users need **custom SMTP**; Supabase's built-in sender only reaches project team members at a low rate. The connected free project also rejects email-template changes without custom SMTP or an upgrade, and its default template contains a magic link rather than a code. Configure SMTP before testing this app's code-entry flow; do not assume the built-in sender is sufficient.
 - After deployment, run `supabase/cron.template.sql` in the SQL editor with the real URL and `DELIVERY_CRON_SECRET` typed into the editor only. Secrets go into Vault; the job calls the endpoint every minute.
-- Account deletion removes the Supabase Auth user with `delete from auth.users` over `DATABASE_URL`. This was tested against a local stand-in for `auth.users`, not hosted Supabase. If hosted Supabase refuses it, the ReactPing data is still deleted and the app tells the user the sign-in email was not removed.
+- Account deletion removes the Supabase Auth user with `delete from auth.users` over `DATABASE_URL`. Actual deletion was tested against a local stand-in for `auth.users`. On November 13, hosted `postgres` was confirmed to have DELETE privilege on `auth.users`, but no real hosted identity has been deleted. If hosted Supabase refuses it, the ReactPing data is still deleted and the app tells the user the sign-in email was not removed.
 
 ## 4. Vercel
 
