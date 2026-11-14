@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import { Store } from "../src/db.ts";
 import { Clock, dbSkip, useDatabase } from "./helpers.ts";
@@ -41,14 +42,23 @@ describe("installations table", { skip: dbSkip }, () => {
     }
   });
 
-  it("is additive: the original schema remains until the separate cleanup migration", async () => {
-    const { rows } = await db
-      .pool()
-      .query("select table_name from information_schema.tables where table_schema = 'reactping' order by table_name");
-    assert.deepEqual(
-      rows.map((r) => r.table_name),
-      ["accounts", "deliveries", "delivery_control", "installations", "oauth_states"],
+  it("cleanup removes the legacy schema and preserves encrypted Slack installations", async () => {
+    const pool = db.pool();
+    const store = new Store(pool, randomBytes(32));
+    await store.upsert(install("T1", "U1"));
+    // Recreate the legacy objects alongside a connected Slack user, as during a rolling deployment.
+    await pool.query(
+      readFileSync(new URL("../supabase/migrations/20261110000000_reactping.sql", import.meta.url), "utf8"),
     );
+    await pool.query(
+      readFileSync(
+        new URL("../supabase/migrations/20261114000000_remove_account_backend.sql", import.meta.url),
+        "utf8",
+      ),
+    );
+    const { rows } = await pool.query("select to_regnamespace('reactping') as legacy");
+    assert.deepEqual(rows, [{ legacy: null }]);
+    assert.equal((await store.get("T1", "U1"))?.userToken, "xoxp-T1-U1");
   });
 
   it("stores tokens only as ciphertext bound to their row and field", async () => {

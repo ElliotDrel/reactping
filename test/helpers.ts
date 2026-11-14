@@ -21,10 +21,11 @@ export const dbSkip = process.env.TEST_DATABASE_URL
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
 const SHIM = read("./supabase-shim.sql");
-/** Applied in production order: the original (immutable) migration, then the additive Slack-only one. */
+/** Applied in production order: original, additive Slack table, then post-deploy legacy cleanup. */
 const MIGRATIONS = [
   read("../supabase/migrations/20261110000000_reactping.sql"),
   read("../supabase/migrations/20261113000000_reactping_slack_installations.sql"),
+  read("../supabase/migrations/20261114000000_remove_account_backend.sql"),
 ];
 
 export class Clock {

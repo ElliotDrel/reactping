@@ -1,5 +1,21 @@
 # V1 verification
 
+## November 13, 2026: Slack-only production and provider cleanup
+
+Deployed `70b62e664656cf6a7ea70e9ca6c28f93d2d5f674` to [production](https://reactping.vercel.app) as [deployment `dpl_2ZvWj1DaHky59cCKtF1BogjLtimw`](https://vercel.com/elliot-drels-projects/reactping/2ZvWj1DaHky59cCKtF1BogjLtimw). Vercel built four standard Node 24 functions. Before cleanup, hosted checks passed: `/` and `/privacy` 200 with security headers/noindex; removed pages, old API routes, and an unknown path 404; install 302 to Slack with a Secure/HttpOnly cookie (redirect not followed); callback with no state cookie 400; events/interactions with missing or invalid signatures 401. No request went to Slack.
+
+Only after these checks:
+
+- Inspected legacy objects: five `reactping` tables, their indexes/owned sequence, and no functions. Account, installation, OAuth state, delivery, and Auth user counts were all zero. The one cron job and both Vault values matched this ReactPing deployment.
+- Unscheduled `reactping-deliver`, removed its run history, and deleted Vault secrets `reactping_delivery_url` and `reactping_delivery_secret`.
+- Applied new migration `20261114000000_remove_account_backend.sql`, explicitly dropping the old tables and schema without `CASCADE`. Read-back confirms no old schema/job/secrets and an intact `reactping_slack.installations` table. Original migration unchanged. Supabase-managed schemas/extensions were not dropped.
+- Deleted six unused Vercel production variables: `DELIVERY_CRON_SECRET`, `PUBLIC_INSTALL_ENABLED`, `REACTPING_INSTALLS_ENABLED`, `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `PUBLIC_SITE_INDEXABLE`. Retained the eight Slack/Postgres settings in `.env.example`.
+- Disabled the Supabase email provider; kept signups closed; reset Auth Site URL to `http://localhost:3000`, cleared the redirect allow-list, and restored OTP length to its prior 8. No custom SMTP or email template had been successfully configured, and no Auth identities needed deletion.
+
+Independent local checks pass: format, typecheck, lint, build, **66/66 tests** against disposable Postgres, including cleanup with an encrypted Slack installation preserved. Production dependency audit: zero vulnerabilities. Corrected pilot copy to say installs are limited to the app's own workspace; confirmed the distribution policy and `app_redirect` syntax in [Slack's distribution](https://docs.slack.dev/app-management/distribution/) and [deep-link documentation](https://docs.slack.dev/interactivity/deep-linking/).
+
+Remaining: apply the Slack manifest and run the live checklist only after authorization. No real OAuth, welcome/reaction DM, Home interaction, Disconnect, or lifecycle event has been tested on the simplified version. The following local-only and account-backed sections are superseded history.
+
 ## November 13, 2026: Slack-only simplification (local only)
 
 Committed on `main`; not pushed or deployed. Removed Supabase Auth and email codes, the `/app` dashboard and browser client, cross-workspace routing and consent, the Postgres outbox (leases, backoff, persisted rate-limit pauses, retention purge), `/api/internal/deliver`, `/api/health`, the cron template, the install flags, and the Build Output API generator with its multi-page site. Added Slack OAuth identity, a signed stateless OAuth state cookie, App Home with Disconnect, welcome DM, lifecycle-event cleanup, and one additive table `reactping_slack.installations`.

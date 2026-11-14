@@ -29,7 +29,7 @@ All names are in [`.env.example`](../.env.example). Every variable is server-onl
 | `ENCRYPTION_KEY`         | 32 bytes, base64. Separate keys are derived for token encryption (`installation-tokens`) and `oauth-state`. |
 | `INCLUDE_SELF_REACTIONS` | Testing only. Default `false`.                                                                              |
 
-Removed: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `PUBLIC_INSTALL_ENABLED`, `REACTPING_INSTALLS_ENABLED`, `PUBLIC_SITE_INDEXABLE`, `PUBLIC_SUPPORT_EMAIL`, and `DELIVERY_CRON_SECRET`. They are ignored if still set and can be deleted from Vercel after deployment.
+Removed from the contract: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `PUBLIC_INSTALL_ENABLED`, `REACTPING_INSTALLS_ENABLED`, `PUBLIC_SITE_INDEXABLE`, `PUBLIC_SUPPORT_EMAIL`, and `DELIVERY_CRON_SECRET`. All six that existed in the connected Vercel project were deleted after the Slack-only deployment passed hosted checks; `PUBLIC_SUPPORT_EMAIL` was never set.
 
 If any variable is missing or invalid, the function logs the variable names (never values) and every route returns `503 not_configured`.
 
@@ -46,9 +46,10 @@ Each file in `api/` exports only its route's method, and the shared handler retu
 
 ## 3. Supabase
 
-- Apply `supabase/migrations/20261113000000_reactping_slack_installations.sql` (for example `supabase db push`). It only adds the private `reactping_slack` schema and its `installations` table; do not expose that schema to the Data API.
-- The original `20261110000000_reactping.sql` stays unchanged. Its `reactping` schema is no longer read and is removed by a separate cleanup migration after this version is deployed and checked. Existing rows there are not imported.
-- Supabase Auth, SMTP, Vault, `pg_cron`, and `pg_net` are no longer used by ReactPing.
+- For a new, empty project, `supabase db push --remote --yes` applies the migration history and leaves only `reactping_slack.installations`. Do not expose that private schema to the Data API.
+- For an existing account-backed deployment, apply only additive `20261113000000_reactping_slack_installations.sql` first. Deploy and check the Slack-only version before applying cleanup `20261114000000_remove_account_backend.sql`; follow [the ordered connection guide](connection-guide.md). Do not apply all pending migrations while the old version is running.
+- The original `20261110000000_reactping.sql` stays unchanged. Its schema was inspected and removed after deployment; existing rows were not imported (there were none).
+- Supabase Auth, SMTP, Vault, `pg_cron`, and `pg_net` are no longer used by ReactPing. Its job and Vault secrets were deleted and email Auth disabled. Supabase-managed schemas and extensions were retained; no unrelated or platform-owned objects were dropped.
 
 ## 4. Vercel
 

@@ -1,6 +1,6 @@
 # Connection guide: Slack-only version
 
-Current state (November 13, 2026): the Slack-only version is committed locally and checked against mocks and disposable local Postgres. Production still runs the previous version (Supabase Auth, outbox, cron) with installs off and zero installations or queued deliveries. Superseded: the email/SMTP launch blocker and the account, consent, and cron steps of the previous guide. The technical contract is in [setup](setup.md) and [`.env.example`](../.env.example); dated evidence is in [verification](verification.md).
+Current state (November 13, 2026): the Slack-only version is deployed and its non-Slack hosted checks pass. Post-deploy cleanup removed the old schema, cron job and history, two Vault secrets, and six unused Vercel settings. Supabase email Auth is disabled/reset. No real Slack testing occurred, and Slack app configuration is still pending. Superseded: the previous not-deployed status and the email/SMTP launch blocker. The technical contract is in [setup](setup.md) and [`.env.example`](../.env.example); dated evidence is in [verification](verification.md).
 
 ## 1. What changes for providers
 
@@ -10,7 +10,7 @@ Current state (November 13, 2026): the Slack-only version is committed locally a
 
 ## 2. Deployment order (migration safety)
 
-The old migration `20261110000000_reactping.sql` must stay unchanged. The new migration is additive, so it is safe to apply before or with the deploy; the destructive cleanup comes last, as its own migration.
+The sequence below was completed for the connected project. Keep it for upgrades of an existing account-backed deployment. The old migration `20261110000000_reactping.sql` remains unchanged. Apply the additive migration first; the destructive cleanup comes last. Do not run an unrestricted `supabase db push` against an old running version now that the cleanup migration is also in the repository.
 
 1. **Apply the additive migration** `20261113000000_reactping_slack_installations.sql`. The running old version ignores the new schema.
 2. **Deploy this commit.** Keep `PUBLIC_SITE_URL`, `DATABASE_URL`, `DATABASE_CA`, the three Slack values, `ENCRYPTION_KEY`, and `INCLUDE_SELF_REACTIONS=false`. Delete the removed variables (listed in [setup](setup.md)) after deploying; they are ignored meanwhile.
@@ -19,14 +19,14 @@ The old migration `20261110000000_reactping.sql` must stay unchanged. The new mi
    - `GET /api/slack/install` returns 302 to `slack.com/oauth/v2/authorize` with a `__Host-` HttpOnly Secure Lax cookie. Do not follow it.
    - `GET /api/slack/oauth/callback?state=x&code=y` without the cookie returns 400 "This link expired" and makes no Slack call.
    - `POST /api/slack/events` and `/api/slack/interactions` without a signature, or with an invalid one, return 401.
-4. **Post-deploy cleanup migration** (separate, added after step 3 passes): drop the old `reactping` schema. Stop the old Supabase `pg_cron` job and delete its Vault secrets first, since that job calls the now-removed `/api/internal/deliver`. Never apply the cleanup before the new version is live.
-5. **Supabase Auth:** with no app use left, its settings can be left closed (public signups off) or tidied; ReactPing does not depend on them.
+4. **Post-deploy cleanup:** after step 3 passes, unschedule `reactping-deliver`, delete its two verified Vault secrets, and apply `20261114000000_remove_account_backend.sql`. It explicitly drops the five legacy tables and their schema without `CASCADE`. Never apply it before the new version is live. Then remove unused Vercel variables and redeploy.
+5. **Supabase Auth:** email provider disabled, public signups closed, Auth Site URL reset to `http://localhost:3000`, redirect allow-list cleared, OTP length restored to 8. No email templates or custom SMTP had been successfully changed. ReactPing no longer uses Auth.
 
 ## 3. Slack app configuration (after Elliot authorizes live Slack work)
 
-1. Paste the manifest with the production host. Slack verifies the event URL on save, so do this after step 2.
-2. Keep **Manage Distribution** off.
-3. Follow the [live checklist](live-checklist.md) and record dated results in [verification](verification.md).
+1. Open [the ReactPing Slack app](https://api.slack.com/apps/A0CBVN3467K) → **App Manifest**. Replace `YOUR_SITE_HOST` in [the template](../slack-manifest.template.yaml) with `reactping.vercel.app`, then save it when Slack configuration/testing is authorized. Slack verifies the event URL on save. This enables Home, interactivity, and the lifecycle events on the hosted app; it does not need more OAuth scopes.
+2. In the same app, **Manage Distribution** → **Share Your App with Other Workspaces**: leave **Activate Public Distribution** off. [Slack documents that undistributed apps stay in their associated workspace](https://docs.slack.dev/app-management/distribution/).
+3. After Elliot authorizes real Slack testing, use **Add to Slack** and follow the [live checklist](live-checklist.md). Record dated results in [verification](verification.md). Welcome DM, Home, reaction DM, Disconnect, and lifecycle cleanup are still unverified live.
 
 ## 4. Inputs
 

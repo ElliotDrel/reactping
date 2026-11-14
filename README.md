@@ -2,7 +2,7 @@
 
 A Slack app that DMs you when someone reacts to your messages.
 
-Status (November 13, 2026): simplified to a Slack-only app and checked locally; not yet deployed. The production deployment at [reactping.vercel.app](https://reactping.vercel.app) still runs the previous Supabase Auth version until this one is deployed. No Slack behavior has been tested on either hosted version. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the email sign-in, `/app` dashboard, cross-workspace inbox, and Postgres delivery outbox, and the custom-SMTP launch blocker they carried.
+Status (November 13, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 66 tests against disposable Postgres. **Slack configuration and end-to-end testing remain pending authorization.** See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
 
 ## V1
 
@@ -31,13 +31,13 @@ TypeScript on Node 24, deployed to Vercel with Supabase Postgres. Superseded: th
 - **Events:** the signature is checked over the raw body (5-minute timestamp window, 256 KB limit). `reaction_added` and `app_home_opened` are acknowledged with `200` first and processed with Vercel `waitUntil`; requests carrying `X-Slack-Retry-Num` are acknowledged and ignored. `app_uninstalled` and `tokens_revoked` delete rows before the `200` (idempotent, so Slack retries are accepted for them).
 - **Links:** `auth.test` at install provides the workspace URL, which must be `https://<name>.slack.com/`. Message links are `<workspace>/archives/<channel>/p<seconds><microseconds>`, built from validated text with no float conversion and no `chat.getPermalink` call.
 - **Disconnect:** identity comes only from the signed payload's `team.id` and `user.id`, never the button. Exactly that row is deleted before the response; then the user's own token is revoked and the Home tab shows Not connected. The workspace's bot token is shared, so it is never revoked by Disconnect; removing the app in Slack does that.
-- **Database:** one private table, `reactping_slack.installations`, keyed by `(team_id, user_id)`: workspace URL, AES-256-GCM bot and user tokens (associated data binds each to its table, row, and field), and timestamps. RLS on, no policies, no `anon`/`authenticated` privileges. Remote connections require verified TLS (optional `DATABASE_CA`); SSL URL overrides are refused. The original `reactping` schema is left in place until a separate cleanup migration after deployment.
+- **Database:** one private table, `reactping_slack.installations`, keyed by `(team_id, user_id)`: workspace URL, AES-256-GCM bot and user tokens (associated data binds each to its table, row, and field), and timestamps. RLS on, no policies, no `anon`/`authenticated` privileges. Remote connections require verified TLS (optional `DATABASE_CA`); SSL URL overrides are refused. The original `reactping` schema was removed by a new post-deploy cleanup migration; the old migration remains unchanged.
 - **Slack client:** `@slack/web-api` with retries off, 5-second timeouts, unfurls off, and a silent logger. Logs are structured, allowlisted fields only: never tokens, codes, or message content.
 
 ## Ship criteria
 
-1. Deploy this version; hosted checks without Slack calls pass (static pages and headers, malformed callback, unsigned and invalid-signature requests rejected).
-2. Apply the post-deploy cleanup migration for the old `reactping` schema.
+1. Done: deploy the Slack-only version; hosted checks without Slack calls pass (static pages and headers, malformed callback, unsigned and invalid-signature requests rejected).
+2. Done: apply the post-deploy cleanup migration for the old `reactping` schema and remove unused provider configuration.
 3. With Elliot's authorization, configure the Slack app from [the manifest](slack-manifest.template.yaml) and complete the [live checklist](docs/live-checklist.md) in Elliot's workspace: install, welcome DM, Home, a real reaction DM from another person, Disconnect, and uninstall.
 
 Ship criterion: Elliot's workspace works end to end on the hosted app with documented coverage and no message-content collection. Then tag v0.1.0. Public distribution and Marketplace submission are later releases; this repository stays private until Elliot requests otherwise.
