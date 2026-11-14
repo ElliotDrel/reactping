@@ -1,5 +1,11 @@
 # V1 verification
 
+## November 14, 2026: another person's reaction, normal mode
+
+After `INCLUDE_SELF_REACTIONS=false` was redeployed, Tester B reacted to Elliot's [public-channel test message](https://example-workspace.slack.com/archives/C0000000000/p1794673987429139). Read two real ReactPing DMs in Elliot's Slack: [eyes at 16:50:01](https://example-workspace.slack.com/archives/D0000000000/p1794693001935549) and [white check mark at 16:50:18](https://example-workspace.slack.com/archives/D0000000000/p1794693018454269). Both mention Tester B and link to the same correct source message. The default public-channel reaction-to-author notification path is verified.
+
+App Home still shows Connected without the testing-mode notice. No installation was removed. Automatic approval review blocked the attempted Disconnect test because removing/revoking the working production installation was not clearly authorized. Disconnect/reconnect and lifecycle coverage remain pending explicit approval. Superseded: the earlier pending-second-person statements below.
+
 ## November 14, 2026: live Slack install and self-reaction test
 
 Configured the existing Slack app with the production callback, events, and interactivity URLs, Home enabled, and distribution still off. Slack verified the event URL. Completed real OAuth; an expired approval flow was rejected first, then a fresh flow succeeded. Read the [welcome DM](https://example-workspace.slack.com/archives/D0000000000/p1794673880859179) in Slack and confirmed Home shows Connected with Disconnect.

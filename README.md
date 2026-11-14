@@ -2,7 +2,7 @@
 
 A Slack app that DMs you when someone reacts to your messages.
 
-Status (November 13, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 66 tests against disposable Postgres. Slack configuration, installation, welcome DM, App Home, and a real self-reaction round trip are verified. A second person's reaction in normal mode and lifecycle checks remain pending; see the dated evidence below. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
+Status (November 13, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 66 tests against disposable Postgres. Slack configuration, installation, welcome DM, App Home, and a real self-reaction round trip are verified. Tester B's real public-channel reactions also delivered DMs in normal mode. Disconnect/reconnect and lifecycle checks remain pending; see the dated evidence below. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
 
 ## V1
 

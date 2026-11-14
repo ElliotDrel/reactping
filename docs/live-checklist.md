@@ -2,34 +2,34 @@
 
 Automated tests use a mocked Slack API. Record the date, workspace, and observed result for each row; change **Unverified** only after seeing the behavior yourself. Hosted Slack testing was authorized on November 14, 2026. Observed results below distinguish self-reaction testing from normal mode.
 
-Live self-reaction round trip verified in the public channel with `INCLUDE_SELF_REACTIONS=true`: [source message](https://example-workspace.slack.com/archives/C0000000000/p1794673987429139), [notification DM](https://example-workspace.slack.com/archives/D0000000000/p1794674234639119). The link opened the original message. Another person's reaction and Disconnect remain pending.
+Live self-reaction round trip verified in the public channel with `INCLUDE_SELF_REACTIONS=true`: [source message](https://example-workspace.slack.com/archives/C0000000000/p1794673987429139), [notification DM](https://example-workspace.slack.com/archives/D0000000000/p1794674234639119). The link opened the original message. Normal mode is also verified: Tester B's eyes and white-check-mark reactions each produced a DM to Elliot on November 14, 2026 ([eyes DM](https://example-workspace.slack.com/archives/D0000000000/p1794693001935549), [check-mark DM](https://example-workspace.slack.com/archives/D0000000000/p1794693018454269)). Both point to the source message. Disconnect remains pending explicit approval.
 
 Setup: the Slack-only version deployed at `PUBLIC_SITE_URL`, the manifest applied, Manage Distribution off, and a second Slack user (the "reactor") in Elliot's workspace.
 
 ## Install and Home (Slack-only version)
 
-| Check                                                                           | Status     | Notes |
-| ------------------------------------------------------------------------------- | ---------- | ----- |
-| Event and interactivity Request URLs verify on save                             | Verified   |       | November 14, 2026; live hosted app. |
-| Add to Slack completes; result page says connected                              | Verified   |       | November 14, 2026; live hosted app. |
-| Welcome DM arrives from ReactPing                                               | Verified   |       | November 14, 2026; live hosted app. |
-| Home tab shows Connected with Disconnect                                        | Verified   |       | November 14, 2026; live hosted app. |
-| Callback opened in another browser/profile shows "This link expired"            | Unverified |       |
-| Reloading a used callback URL fails without creating a second installation      | Unverified |       |
-| Install from a workspace other than the app's own is refused (distribution off) | Unverified |       |
+| Check                                                                           | Status     | Notes                               |
+| ------------------------------------------------------------------------------- | ---------- | ----------------------------------- |
+| Event and interactivity Request URLs verify on save                             | Verified   | November 14, 2026; live hosted app. |
+| Add to Slack completes; result page says connected                              | Verified   | November 14, 2026; live hosted app. |
+| Welcome DM arrives from ReactPing                                               | Verified   | November 14, 2026; live hosted app. |
+| Home tab shows Connected with Disconnect                                        | Verified   | November 14, 2026; live hosted app. |
+| Callback opened in another browser/profile shows "This link expired"            | Unverified |                                     |
+| Reloading a used callback URL fails without creating a second installation      | Unverified |                                     |
+| Install from a workspace other than the app's own is refused (distribution off) | Unverified |                                     |
 
 ## Reaction coverage
 
 React as the reactor to a message authored by the connected user. Expect one bot DM with `<@reactor>`, the emoji, and a working link, with no unfurl.
 
-| Conversation                         | Status     | DM received | Link opens message |
-| ------------------------------------ | ---------- | ----------- | ------------------ |
-| Public channel                       | Unverified |             |                    |
-| Private channel (author is a member) | Unverified |             |                    |
-| Thread reply                         | Unverified |             |                    |
-| 1:1 DM between reactor and author    | Unverified |             |                    |
-| Group DM (MPIM)                      | Unverified |             |                    |
-| Slack Connect shared channel         | Unverified |             |                    |
+| Conversation                         | Status     | DM received           | Link opens message  |
+| ------------------------------------ | ---------- | --------------------- | ------------------- |
+| Public channel                       | Verified   | Yes (Tester B, Nov 14) | Correct source link |
+| Private channel (author is a member) | Unverified |                       |                     |
+| Thread reply                         | Unverified |                       |                     |
+| 1:1 DM between reactor and author    | Unverified |                       |                     |
+| Group DM (MPIM)                      | Unverified |                       |                     |
+| Slack Connect shared channel         | Unverified |                       |                     |
 
 ## Filtering
 
