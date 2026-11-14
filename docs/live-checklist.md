@@ -1,65 +1,60 @@
 # Live Slack coverage checklist
 
-> **Historical (v1 SQLite service, October 2026).** Every result below was observed on the old single-process build reached through a temporary tunnel. None of it has been rerun on the Vercel + Supabase version, which was deployed on November 13, 2026 with installs disabled. No hosted Slack testing is authorized yet. When live testing is authorized, copy these tables into a new dated section, use the `/api/slack/...` URLs from [setup](setup.md), and record results only from live observation. Rows about stopping or killing "the process" map to a failed function invocation and lease recovery in the hosted design.
+Automated tests use a mocked Slack API. Record the date, workspace, and observed result for each row; change **Unverified** only after seeing the behavior yourself. No hosted Slack testing has been authorized yet.
 
-Automated tests use a mocked Slack API. The endpoint verification below was also observed in the real Slack app settings. Record the date, workspace, and observed result for each row; change **Unverified** only after you see the behavior yourself.
+Setup: the Slack-only version deployed at `PUBLIC_SITE_URL`, the manifest applied, Manage Distribution off, and a second Slack user (the "reactor") in Elliot's workspace.
 
-Setup: two workspaces (A, B), both connected from one ReactPing session. A second Slack user (the "reactor") in each workspace.
+## Install and Home (Slack-only version)
 
-## Install and linking
+| Check                                                                           | Status     | Notes |
+| ------------------------------------------------------------------------------- | ---------- | ----- |
+| Event and interactivity Request URLs verify on save                             | Unverified |       |
+| Add to Slack completes; result page says connected                              | Unverified |       |
+| Welcome DM arrives from ReactPing                                               | Unverified |       |
+| Home tab shows Connected with Disconnect                                        | Unverified |       |
+| Callback opened in another browser/profile shows "This link expired"            | Unverified |       |
+| Reloading a used callback URL fails without creating a second installation      | Unverified |       |
+| Install from a workspace other than the app's own is refused (distribution off) | Unverified |       |
 
-| Check                                                        | Status     | Notes                                                                    |
-| ------------------------------------------------------------ | ---------- | ------------------------------------------------------------------------ |
-| Request URL verifies on save in Slack                        | Verified   | October 23, 2026; Test Workspace; Slack shows Verified and events On. |
-| Workspace A OAuth completes; settings show Active            | Verified   | October 23, 2026; approved by Elliot; workspace Active for U0000000001.  |
-| Workspace B OAuth completes (public distribution on)         | Unverified |                                                                          |
-| OAuth callback opened in another browser/profile is rejected | Unverified |                                                                          |
-| Reloading a used callback URL is rejected                    | Unverified |                                                                          |
+## Reaction coverage
 
-## Reaction coverage (same-workspace destination)
+React as the reactor to a message authored by the connected user. Expect one bot DM with `<@reactor>`, the emoji, and a working link, with no unfurl.
 
-October 24: public-channel positive result used Elliot as reactor with `INCLUDE_SELF_REACTIONS=true`; Tester A's real white-check-mark reaction also delivered successfully with the test flag enabled. The flag changes only self-reaction filtering; normal-mode exclusion was verified separately. React as the reactor to a message authored by the connected user. Expect one bot DM with emoji, `<@reactor>`, workspace name, and a working link.
-
-| Conversation                         | Status                | DM received | Link opens message                     |
-| ------------------------------------ | --------------------- | ----------- | -------------------------------------- |
-| Public channel                       | Verified in test mode | Yes         | Correct original-message URL read back |
-| Private channel (author is a member) | Unverified            |             |                                        |
-| Thread reply                         | Unverified            |             |                                        |
-| 1:1 DM between reactor and author    | Unverified            |             |                                        |
-| Group DM (MPIM)                      | Unverified            |             |                                        |
-| Slack Connect shared channel         | Unverified            |             |                                        |
+| Conversation                         | Status     | DM received | Link opens message |
+| ------------------------------------ | ---------- | ----------- | ------------------ |
+| Public channel                       | Unverified |             |                    |
+| Private channel (author is a member) | Unverified |             |                    |
+| Thread reply                         | Unverified |             |                    |
+| 1:1 DM between reactor and author    | Unverified |             |                    |
+| Group DM (MPIM)                      | Unverified |             |                    |
+| Slack Connect shared channel         | Unverified |             |                    |
 
 ## Filtering
 
-| Check                                                       | Status     | Notes                                                                                              |
-| ----------------------------------------------------------- | ---------- | -------------------------------------------------------------------------------------------------- |
-| Author reacting to own message sends nothing (default mode) | Verified   | October 23, 2026; real white-check-mark reaction; signed callback ignored; zero queued deliveries. |
-| Reaction on a file (not a message) sends nothing            | Unverified |                                                                                                    |
-| Reaction on another user's message sends nothing to you     | Unverified |                                                                                                    |
-| `reaction_removed` sends nothing                            | Unverified |                                                                                                    |
-| DM has no link/media unfurl                                 | Unverified |                                                                                                    |
+| Check                                                       | Status     | Notes |
+| ----------------------------------------------------------- | ---------- | ----- |
+| Author reacting to own message sends nothing (default mode) | Unverified |       |
+| Reaction on a file sends nothing                            | Unverified |       |
+| Reaction on another user's message sends nothing to you     | Unverified |       |
+| `reaction_removed` sends nothing                            | Unverified |       |
 
-## Component smoke checks
+## Disconnect and lifecycle
 
-- Real connection-test bot DM delivered and read back in Slack.
-- Explicitly labeled synthetic reaction passed filtering, deduplication, real permalink lookup, and real DM delivery. Duplicate submission produced one notification. This does not verify a second person's actual reaction.
-- October 24: real self-reaction with the explicit test override delivered one bot DM; live queue shows `sent`, one attempt, no error. Tester A has joined, but his earlier reaction did not reach the queue while Slack pointed at the expired tunnel URL. Subsequently, Tester A's real white-check-mark event delivered successfully in one attempt, and its DM was read back in Chrome. Another real self-reaction (tada) also delivered once.
+| Check                                                                          | Status     | Notes |
+| ------------------------------------------------------------------------------ | ---------- | ----- |
+| Disconnect: Home shows Not connected; row deleted; user token revoked in Slack | Unverified |       |
+| After Disconnect, a new reaction sends nothing                                 | Unverified |       |
+| Reinstall after Disconnect works and sends a new welcome DM                    | Unverified |       |
+| Revoke the user grant in Slack settings: row deleted (`tokens_revoked`)        | Unverified |       |
+| Remove the app from the workspace: all rows deleted (`app_uninstalled`)        | Unverified |       |
+| Function logs contain no tokens, codes, or message content                     | Unverified |       |
 
-## Cross-workspace routing
+Not tested by design: Slack retries (ignored), and outage recovery (no backfill).
 
-| Check                                                                                 | Status     | Notes |
-| ------------------------------------------------------------------------------------- | ---------- | ----- |
-| Destination B without consent box: save rejected                                      | Unverified |       |
-| Destination B with consent: reaction in A arrives in B's bot DM as "Someone reacted…" | Unverified |       |
-| Reaction in B still arrives in B with reactor mention                                 | Unverified |       |
+## Historical (superseded): v1 SQLite service, October 2026
 
-## Reliability and revocation
+Observed on the old single-process build through a temporary tunnel; not coverage for the current code.
 
-| Check                                                                     | Status     | Notes |
-| ------------------------------------------------------------------------- | ---------- | ----- |
-| Stop the service, react, restart within ~5 min: Slack retry delivers once | Unverified |       |
-| Kill the process between receipt and send: delivery resumes after restart | Unverified |       |
-| Remove the app from workspace A in Slack: settings show A revoked         | Unverified |       |
-| Revoke from Slack account settings (user token): settings show revoked    | Unverified |       |
-| Disconnect in ReactPing: app's user token revoked in Slack                | Unverified |       |
-| Logs contain no tokens, codes, or message content                         | Unverified |       |
+- October 23: Events Request URL verified; OAuth completed in Test Workspace for `U0000000001`; a real self-reaction was ignored in default mode.
+- October 24: a real public-channel reaction from Tester A and real self-reactions (testing flag on) each delivered one DM with a working link.
+- Private channels, threads, DMs, group DMs, Slack Connect, and cross-workspace routing were never verified. Cross-workspace routing has since been removed from v1.

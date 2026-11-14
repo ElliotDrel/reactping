@@ -1,65 +1,69 @@
-import { SLACK_TIMEOUT_MS } from "./runtime.ts";
-import { ErrorCode, LogLevel, WebClient, type Logger, type WebClientOptions } from "@slack/web-api";
+import { ErrorCode, LogLevel, WebClient, type Logger, type View, type WebClientOptions } from "@slack/web-api";
 
 export const BOT_SCOPES = ["chat:write"];
 export const USER_SCOPES = ["reactions:read"];
+export const SLACK_TIMEOUT_MS = 5_000;
 
-export type SlackErrorKind = "rate_limited" | "revoked" | "permanent" | "transient";
+export type SlackErrorKind = "rate_limited" | "revoked" | "failed";
 
-/** A Slack failure reduced to a code that is safe to log and store (never a token or payload). */
+/** A Slack failure reduced to a code that is safe to log (never a token or payload). */
 export class SlackCallError extends Error {
   readonly kind: SlackErrorKind;
-  readonly retryAfterSec?: number;
 
-  constructor(kind: SlackErrorKind, code: string, retryAfterSec?: number) {
+  constructor(kind: SlackErrorKind, code: string) {
     super(code);
     this.kind = kind;
-    this.retryAfterSec = retryAfterSec;
   }
 }
 
+/** The fields of an oauth.v2.access response ReactPing uses, before any policy checks. */
 export interface OAuthResult {
-  teamId: string;
-  teamName: string;
+  appId: string | null;
+  teamId: string | null;
+  enterpriseId: string | null;
   isEnterpriseInstall: boolean;
-  userId: string;
-  userToken: string;
+  botToken: string | null;
+  botScopes: string[];
+  userId: string | null;
+  userToken: string | null;
   userScopes: string[];
-  botToken: string;
-  botUserId: string | null;
+  userTokenType: string | null;
 }
 
 export interface SlackApi {
   oauthAccess(code: string, redirectUri: string): Promise<OAuthResult>;
-  teamUrl(botToken: string): Promise<string | null>;
-  getPermalink(userToken: string, channel: string, messageTs: string): Promise<string>;
+  /** Workspace ID and URL that a bot token belongs to. */
+  authTest(botToken: string): Promise<{ teamId: string | null; url: string | null }>;
   postMessage(botToken: string, channel: string, text: string): Promise<void>;
+  publishHome(botToken: string, userId: string, view: View): Promise<void>;
   revoke(token: string): Promise<void>;
 }
 
-const REVOKED_ERRORS = new Set(["invalid_auth", "account_inactive", "token_revoked", "token_expired", "not_authed"]);
-const TRANSIENT_ERRORS = new Set(["internal_error", "fatal_error", "service_unavailable", "request_timeout"]);
+const REVOKED_ERRORS = new Set([
+  "invalid_auth",
+  "account_inactive",
+  "token_revoked",
+  "token_expired",
+  "not_authed",
+  "user_disabled",
+]);
 
 export function classifySlackError(error: unknown): SlackCallError {
   if (error instanceof SlackCallError) return error;
-  const e = error as { code?: string; retryAfter?: number; statusCode?: number; data?: { error?: string } };
+  const e = error as { code?: string; statusCode?: number; data?: { error?: string } };
   switch (e?.code) {
     case ErrorCode.RateLimitedError:
-      return new SlackCallError("rate_limited", "ratelimited", e.retryAfter);
+      return new SlackCallError("rate_limited", "ratelimited");
     case ErrorCode.PlatformError: {
       const code = String(e.data?.error ?? "unknown_error").replace(/[^a-z0-9_]/gi, "");
       if (code === "ratelimited" || code === "rate_limited") return new SlackCallError("rate_limited", code);
-      if (REVOKED_ERRORS.has(code)) return new SlackCallError("revoked", code);
-      return new SlackCallError(TRANSIENT_ERRORS.has(code) ? "transient" : "permanent", code);
+      return new SlackCallError(REVOKED_ERRORS.has(code) ? "revoked" : "failed", code);
     }
     case ErrorCode.HTTPError:
-      return new SlackCallError(
-        Number(e.statusCode) >= 500 ? "transient" : "permanent",
-        `http_${Number(e.statusCode)}`,
-      );
+      return new SlackCallError(e.statusCode === 429 ? "rate_limited" : "failed", `http_${Number(e.statusCode)}`);
     default:
-      // Network failures and timeouts are ambiguous: Slack may or may not have acted on the request.
-      return new SlackCallError("transient", "request_failed");
+      // Network failures and timeouts: Slack may or may not have acted. Never retried.
+      return new SlackCallError("failed", "request_failed");
   }
 }
 
@@ -73,12 +77,21 @@ const silentLogger: Logger = {
   setName: () => {},
 };
 
+const scopes = (value: unknown): string[] =>
+  typeof value === "string"
+    ? value
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+    : [];
+const text = (value: unknown): string | null => (typeof value === "string" && value ? value : null);
+
 export function createSlackApi(options: {
   clientId: string;
   clientSecret: string;
   fetch?: WebClientOptions["fetch"];
 }): SlackApi {
-  // Retries are handled by the durable outbox, so the client fails fast and never logs payloads.
+  // Best effort by design: no retries, fail fast, and never log request or response payloads.
   const client = new WebClient(undefined, {
     logger: silentLogger,
     retryConfig: { retries: 0 },
@@ -105,37 +118,33 @@ export function createSlackApi(options: {
           redirect_uri: redirectUri,
         }),
       );
-      const team = res.team ?? res.enterprise;
-      if (!res.access_token || !team?.id || !res.authed_user?.id || !res.authed_user.access_token) {
-        throw new SlackCallError("permanent", "incomplete_oauth_response");
-      }
       return {
-        teamId: team.id,
-        teamName: team.name ?? team.id,
-        isEnterpriseInstall: Boolean(res.is_enterprise_install),
-        userId: res.authed_user.id,
-        userToken: res.authed_user.access_token,
-        userScopes: (res.authed_user.scope ?? "").split(",").filter(Boolean),
-        botToken: res.access_token,
-        botUserId: res.bot_user_id ?? null,
+        appId: text(res.app_id),
+        teamId: text(res.team?.id),
+        enterpriseId: text(res.enterprise?.id),
+        isEnterpriseInstall: res.is_enterprise_install === true,
+        botToken: res.token_type === "bot" ? text(res.access_token) : null,
+        botScopes: scopes(res.scope),
+        userId: text(res.authed_user?.id),
+        userToken: text(res.authed_user?.access_token),
+        userScopes: scopes(res.authed_user?.scope),
+        userTokenType: text(res.authed_user?.token_type),
       };
     },
 
-    async teamUrl(botToken) {
+    async authTest(botToken) {
       const res = await call(() => client.auth.test({ token: botToken }));
-      return res.url ?? null;
+      return { teamId: text(res.team_id), url: text(res.url) };
     },
 
-    async getPermalink(userToken, channel, messageTs) {
-      const res = await call(() => client.chat.getPermalink({ token: userToken, channel, message_ts: messageTs }));
-      if (!res.permalink) throw new SlackCallError("permanent", "missing_permalink");
-      return res.permalink;
-    },
-
-    async postMessage(botToken, channel, text) {
+    async postMessage(botToken, channel, message) {
       await call(() =>
-        client.chat.postMessage({ token: botToken, channel, text, unfurl_links: false, unfurl_media: false }),
+        client.chat.postMessage({ token: botToken, channel, text: message, unfurl_links: false, unfurl_media: false }),
       );
+    },
+
+    async publishHome(botToken, userId, view) {
+      await call(() => client.views.publish({ token: botToken, user_id: userId, view }));
     },
 
     async revoke(token) {

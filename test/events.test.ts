@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import { beforeEach, describe, it } from "node:test";
+import { SlackCallError } from "../src/slack.ts";
 import {
-  createAccount,
   dbSkip,
+  eventEnvelope,
   reactionEvent,
-  seedInstallation,
+  seed,
   signedEvent,
+  signedPost,
+  SITE,
   startApp,
   useDatabase,
   type TestApp,
@@ -14,159 +17,191 @@ import {
 describe("Slack events", { skip: dbSkip }, () => {
   const db = useDatabase();
   let app: TestApp;
-  let accountId: string;
   beforeEach(async () => {
     app = startApp(db.pool());
-    accountId = await createAccount(app.store);
-    await seedInstallation(app.store, accountId, "T1", "UAUTHOR");
+    await seed(app, "T1", "UAUTHOR");
   });
 
-  const pending = () => app.store.pendingDeliveries();
+  const dms = () => app.slack.callsTo("postMessage").map((c) => c.args);
 
-  describe("request verification", () => {
-    it("answers the URL verification challenge", async () => {
+  describe("request checks", () => {
+    it("answers Slack's URL verification challenge", async () => {
       const res = await signedEvent(app, { type: "url_verification", challenge: "abc123" });
-      assert.equal(res.status, 200);
-      assert.equal(await res.text(), "abc123");
+      assert.deepEqual([res.status, await res.text()], [200, "abc123"]);
     });
 
-    it("rejects bad signatures and stale timestamps", async () => {
-      assert.equal((await signedEvent(app, reactionEvent("T1"), { secret: "wrong" })).status, 401);
-      const stale = Math.floor(app.clock.t / 1000) - 6 * 60;
-      assert.equal((await signedEvent(app, reactionEvent("T1"), { timestamp: stale })).status, 401);
-      const unsigned = await app.api(
-        new Request(`${app.config.siteUrl}/api/slack/events`, { method: "POST", body: "{}" }),
-      );
-      assert.equal(unsigned.status, 401);
-      assert.equal((await pending()).length, 0);
-    });
-  });
-
-  describe("reaction filtering and routing", () => {
-    it("enqueues a reaction on a connected author's message, routed by item_user not authorizations", async () => {
-      const res = await signedEvent(app, reactionEvent("T1"));
-      assert.equal(res.status, 200);
-      const [d] = await pending();
-      assert.equal(d!.reactor_id, "UREACTOR");
-      assert.equal(d!.source_installation_id, (await app.store.findActiveInstallation("T1", "UAUTHOR"))!.id);
-    });
-
-    it("acknowledges only after the delivery is durable, then tries delivery in the background", async () => {
-      const res = await signedEvent(app, reactionEvent("T1"));
-      assert.equal(res.status, 200);
-      assert.equal((await pending()).length, 1);
-      assert.equal(app.slack.callsTo("postMessage").length, 0);
+    it("rejects missing, invalid, and stale signatures before reading the event", async () => {
+      const body = JSON.stringify(reactionEvent("T1"));
+      const unsigned = await app.handler(new Request(`${SITE}/api/slack/events`, { method: "POST", body }));
+      const wrong = await signedPost(app, "/api/slack/events", body, { secret: "wrong" });
+      const stale = await signedPost(app, "/api/slack/events", body, { timestamp: app.clock.t / 1000 - 600 });
+      for (const res of [unsigned, wrong, stale]) assert.equal(res.status, 401);
       await app.settle();
-      assert.equal(app.slack.callsTo("postMessage").length, 1);
+      assert.equal(dms().length, 0);
     });
 
-    it("stores only minimal metadata", async () => {
-      await signedEvent(app, reactionEvent("T1"));
-      const [row] = await pending();
-      assert.deepEqual(Object.keys(row!).sort(), [
-        "attempts",
-        "channel_id",
-        "created_at",
-        "event_id",
-        "id",
-        "last_error",
-        "lease_token",
-        "lease_until",
-        "message_ts",
-        "next_attempt_at",
-        "reaction",
-        "reactor_id",
-        "source_installation_id",
-        "status",
-      ]);
+    it("rejects oversized bodies and invalid JSON", async () => {
+      const big = await signedPost(app, "/api/slack/events", "x".repeat(300 * 1024));
+      assert.equal(big.status, 413);
+      assert.equal((await signedPost(app, "/api/slack/events", "{not json")).status, 400);
     });
 
-    it("ignores self reactions, non-message items, unknown authors, and wrong-team authors", async () => {
-      await signedEvent(app, reactionEvent("T1", { user: "UAUTHOR" }));
-      await signedEvent(app, reactionEvent("T1", { item: { type: "file", file: "F1" } }));
-      await signedEvent(app, reactionEvent("T1", { item_user: "USOMEONEELSE" }));
-      await signedEvent(app, reactionEvent("T2"));
-      const webhookMessage = reactionEvent("T1") as { event: Record<string, unknown> };
-      delete webhookMessage.event.item_user;
-      await signedEvent(app, webhookMessage);
-      assert.equal((await pending()).length, 0);
-    });
-
-    it("deduplicates Slack retries by event and recipient", async () => {
-      const event = reactionEvent("T1", { event_id: "EvDUPLICATE1" });
-      assert.equal((await signedEvent(app, event)).status, 200);
-      assert.equal((await signedEvent(app, event)).status, 200);
-      assert.equal((await pending()).length, 1);
-      assert.equal(app.background.length, 1);
-    });
-
-    it("includes self-reactions only in testing mode and still deduplicates retries", async () => {
-      app.config.includeSelfReactions = true;
-      const event = reactionEvent("T1", { user: "UAUTHOR", event_id: "EvSELFTEST1" });
-      assert.equal((await signedEvent(app, event)).status, 200);
-      assert.equal((await signedEvent(app, event)).status, 200);
-      const rows = await pending();
-      assert.equal(rows.length, 1);
-      assert.equal(rows[0]!.reactor_id, "UAUTHOR");
-      const health = (await (await app.api(new Request(`${app.config.siteUrl}/api/health`))).json()) as {
-        testingMode: boolean;
-      };
-      assert.equal(health.testingMode, true);
-    });
-
-    it("keeps testing mode limited to connected authors in the matching workspace", async () => {
-      app.config.includeSelfReactions = true;
-      await signedEvent(app, reactionEvent("T1", { item_user: "UOTHER", user: "UOTHER" }));
-      await signedEvent(app, reactionEvent("T2", { user: "UAUTHOR" }));
-      assert.equal((await pending()).length, 0);
-    });
-
-    it("routes a reaction only to the author's own installation", async () => {
-      const other = await createAccount(app.store);
-      await seedInstallation(app.store, other, "T1", "UREACTOR");
-      await signedEvent(app, reactionEvent("T1"));
-      const rows = await pending();
-      assert.equal(rows.length, 1);
-      assert.equal((await app.store.getInstallation(String(rows[0]!.source_installation_id)))!.accountId, accountId);
-    });
-
-    it("returns 500 when it cannot record the event so Slack retries", async () => {
-      await app.store.pool.query("alter table reactping.deliveries rename to deliveries_moved");
-      try {
-        assert.equal((await signedEvent(app, reactionEvent("T1"))).status, 500);
-      } finally {
-        await app.store.pool.query("alter table reactping.deliveries_moved rename to deliveries");
-      }
+    it("returns 404 for unknown routes and methods", async () => {
+      assert.equal((await app.handler(new Request(`${SITE}/api/slack/events`))).status, 404);
+      assert.equal((await app.handler(new Request(`${SITE}/api/health`))).status, 404);
     });
   });
 
-  describe("revocation events", () => {
-    it("tokens_revoked marks the user's installation revoked, wipes tokens, and stops routing", async () => {
-      await signedEvent(app, {
-        type: "event_callback",
-        team_id: "T1",
-        event_id: "EvREVOKE1",
-        event: { type: "tokens_revoked", tokens: { oauth: ["UAUTHOR"], bot: [] } },
-      });
-      const [inst] = await app.store.listInstallations(accountId);
-      assert.equal(inst!.status, "revoked");
-      assert.equal(inst!.userToken, null);
-      assert.equal(inst!.botToken, "xoxb-T1");
-      await signedEvent(app, reactionEvent("T1"));
-      assert.equal((await pending()).length, 0);
+  describe("reaction notifications", () => {
+    it("acknowledges before doing the work, then DMs the author in the same workspace", async () => {
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => (release = resolve));
+      const post = app.slack.postMessage.bind(app.slack);
+      app.slack.postMessage = async (...args) => {
+        await gate;
+        return post(...args);
+      };
+      const res = await signedEvent(app, reactionEvent("T1", { reaction: "tada" }));
+      assert.equal(res.status, 200, "acknowledged while the DM is still blocked");
+      assert.equal(app.pending.length, 1);
+      release();
+      await app.settle();
+      assert.deepEqual(dms(), [
+        [
+          "xoxb-T1",
+          "UAUTHOR",
+          "<@UREACTOR> reacted :tada: to your message. <https://acme.slack.com/archives/C123ABC/p1700000000000100|View message>",
+        ],
+      ]);
+      assert.equal(app.slack.callsTo("revoke").length, 0);
     });
 
-    it("app_uninstalled revokes every installation in that workspace only", async () => {
-      await seedInstallation(app.store, accountId, "T2", "UAUTHOR2");
-      await signedEvent(app, {
-        type: "event_callback",
-        team_id: "T1",
-        event_id: "EvUNINST1",
-        event: { type: "app_uninstalled" },
+    it("ignores Slack retries without doing the work again", async () => {
+      const res = await signedEvent(app, reactionEvent("T1"), {
+        "x-slack-retry-num": "1",
+        "x-slack-retry-reason": "http_timeout",
       });
-      const installs = await app.store.listInstallations(accountId);
-      const byTeam = Object.fromEntries(installs.map((i) => [i.teamId, i.status]));
-      assert.deepEqual(byTeam, { T1: "revoked", T2: "active" });
+      assert.equal(res.status, 200);
+      assert.equal(app.pending.length, 0);
+      await app.settle();
+      assert.equal(dms().length, 0);
+    });
+
+    it("notifies only for other people's reactions to a connected author's messages", async () => {
+      await signedEvent(app, reactionEvent("T1", { user: "UAUTHOR" })); // own reaction
+      await signedEvent(app, reactionEvent("T1", { item_user: "UNOBODY" })); // author not connected
+      await signedEvent(app, reactionEvent("T1", { item: { type: "file", file: "F1" } })); // not a message
+      await signedEvent(app, reactionEvent("T1", { reaction: "<!channel>" })); // malformed
+      await signedEvent(app, reactionEvent("T1", { item: { type: "message", channel: "C1", ts: "1.5" } }));
+      await signedEvent(app, eventEnvelope("T1", { type: "reaction_removed", user: "U2", item_user: "UAUTHOR" }));
+      await app.settle();
+      assert.equal(dms().length, 0);
+    });
+
+    it("never crosses workspaces: the same user ID in another workspace is a different person", async () => {
+      await signedEvent(app, reactionEvent("T2"));
+      await app.settle();
+      assert.equal(dms().length, 0);
+      await seed(app, "T2", "UAUTHOR");
+      await signedEvent(app, reactionEvent("T2"));
+      await app.settle();
+      assert.deepEqual(
+        dms().map((args) => args.slice(0, 2)),
+        [["xoxb-T2", "UAUTHOR"]],
+      );
+    });
+
+    it("includes self-reactions only in testing mode", async () => {
+      const testing = startApp(db.pool(), { includeSelfReactions: true });
+      await seed(testing, "T1", "UAUTHOR");
+      await signedEvent(testing, reactionEvent("T1", { user: "UAUTHOR" }));
+      await testing.settle();
+      assert.equal(testing.slack.callsTo("postMessage").length, 1);
+    });
+
+    it("drops the installation when Slack says its credentials are dead, and otherwise just logs", async () => {
+      app.slack.postMessage = async () => {
+        throw new SlackCallError("failed", "channel_not_found");
+      };
+      await signedEvent(app, reactionEvent("T1"));
+      await app.settle();
+      assert.ok(await app.store.get("T1", "UAUTHOR"));
+      app.slack.postMessage = async () => {
+        throw new SlackCallError("revoked", "token_revoked");
+      };
+      await signedEvent(app, reactionEvent("T1"));
+      await app.settle();
+      assert.equal(await app.store.get("T1", "UAUTHOR"), undefined);
+    });
+
+    it("keeps a fresh reinstall when an older request's DM fails as revoked", async () => {
+      app.slack.postMessage = async () => {
+        app.clock.t += 1000;
+        await seed(app, "T1", "UAUTHOR"); // reinstalled while the DM was in flight
+        throw new SlackCallError("revoked", "token_revoked");
+      };
+      await signedEvent(app, reactionEvent("T1"));
+      await app.settle();
+      assert.ok(await app.store.get("T1", "UAUTHOR"));
+    });
+  });
+
+  describe("App Home", () => {
+    it("publishes the connected Home view for a connected user, after responding", async () => {
+      const res = await signedEvent(
+        app,
+        eventEnvelope("T1", { type: "app_home_opened", user: "UAUTHOR", tab: "home" }),
+      );
+      assert.equal(res.status, 200);
+      await app.settle();
+      const [call] = app.slack.callsTo("publishHome");
+      assert.deepEqual(call!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
+      assert.match(JSON.stringify(call!.args[2]), /"action_id":"disconnect"/);
+    });
+
+    it("does nothing for the Messages tab or users who are not connected", async () => {
+      await signedEvent(app, eventEnvelope("T1", { type: "app_home_opened", user: "UAUTHOR", tab: "messages" }));
+      await signedEvent(app, eventEnvelope("T1", { type: "app_home_opened", user: "UOTHER", tab: "home" }));
+      await app.settle();
+      assert.equal(app.slack.callsTo("publishHome").length, 0);
+    });
+  });
+
+  describe("lifecycle events", () => {
+    beforeEach(async () => {
+      await seed(app, "T1", "UOTHER");
+      await seed(app, "T2", "UAUTHOR");
+    });
+
+    it("app_uninstalled deletes that workspace's installations only, before acknowledging, even on retries", async () => {
+      const res = await signedEvent(app, eventEnvelope("T1", { type: "app_uninstalled" }), {
+        "x-slack-retry-num": "2",
+      });
+      assert.equal(res.status, 200);
+      assert.equal(await app.store.get("T1", "UAUTHOR"), undefined);
+      assert.equal(await app.store.get("T1", "UOTHER"), undefined);
+      assert.ok(await app.store.get("T2", "UAUTHOR"));
+    });
+
+    it("tokens_revoked for user tokens deletes only those users in that workspace", async () => {
+      await signedEvent(app, eventEnvelope("T1", { type: "tokens_revoked", tokens: { oauth: ["UAUTHOR"], bot: [] } }));
+      assert.equal(await app.store.get("T1", "UAUTHOR"), undefined);
+      assert.ok(await app.store.get("T1", "UOTHER"));
+      assert.ok(await app.store.get("T2", "UAUTHOR"));
+    });
+
+    it("tokens_revoked for the bot token deletes the whole workspace (nobody can be DMed)", async () => {
+      await signedEvent(app, eventEnvelope("T1", { type: "tokens_revoked", tokens: { bot: ["UBOT"] } }));
+      assert.equal(await app.store.get("T1", "UOTHER"), undefined);
+      assert.ok(await app.store.get("T2", "UAUTHOR"));
+    });
+
+    it("returns an error (so Slack retries) when lifecycle cleanup cannot reach the database", async () => {
+      app.store.deleteTeam = async () => {
+        throw new Error("connection lost");
+      };
+      const res = await signedEvent(app, eventEnvelope("T1", { type: "app_uninstalled" }));
+      assert.equal(res.status, 500);
     });
   });
 });

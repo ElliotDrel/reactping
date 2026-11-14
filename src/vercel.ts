@@ -1,24 +1,35 @@
-import type { IncomingMessage, ServerResponse } from "node:http";
-import type { Handler } from "./api.ts";
-import { createApiFromEnv } from "./app.ts";
-import { nodeHandler } from "./node-adapter.ts";
+import { attachDatabasePool, waitUntil } from "@vercel/functions";
+import { loadConfig } from "./config.ts";
+import { deriveKey } from "./crypto.ts";
+import { createPool, Store } from "./db.ts";
+import { createHandler, type Handler } from "./handler.ts";
+import { log } from "./log.ts";
+import { createSlackApi } from "./slack.ts";
 
-// Vercel exposes waitUntil through this request-context symbol (what @vercel/functions reads).
-const REQUEST_CONTEXT = Symbol.for("@vercel/request-context");
-type RequestContext = { get?: () => { waitUntil?: (task: Promise<unknown>) => void } | undefined };
+let handler: Handler | undefined;
 
-function waitUntil(task: () => Promise<unknown>): void {
-  const context = (globalThis as Record<symbol, RequestContext | undefined>)[REQUEST_CONTEXT]?.get?.();
-  const promise = task();
-  context?.waitUntil?.(promise);
+/** Builds the shared handler once per function instance from environment variables. */
+function getHandler(): Handler {
+  if (handler) return handler;
+  const loaded = loadConfig(process.env);
+  if (!loaded.ok) {
+    // Names and reasons only; values are never logged.
+    log("error", "not_configured", { problems: loaded.problems.join("; ") });
+    return (handler = createHandler(null));
+  }
+  const { config } = loaded;
+  const pool = createPool(config.databaseUrl, config.databaseCa);
+  // Lets Fluid compute release idle clients before an instance suspends.
+  attachDatabasePool(pool);
+  return (handler = createHandler({
+    config,
+    store: new Store(pool, deriveKey(config.encryptionKey, "installation-tokens")),
+    slack: createSlackApi({ clientId: config.slackClientId, clientSecret: config.slackClientSecret }),
+    background: (task) => waitUntil(task()),
+  }));
 }
 
-let handle: ((req: IncomingMessage, res: ServerResponse) => Promise<void>) | undefined;
-let api: Handler | undefined;
-
-/** The single Vercel function behind every /api/* path. Configuration is read on first request. */
-export default function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  api ??= createApiFromEnv(process.env, waitUntil);
-  handle ??= nodeHandler(api, "https");
-  return handle(req, res);
+/** Entry used by every file in api/: Vercel routes by file path, the shared handler checks method and path. */
+export function handle(request: Request): Promise<Response> {
+  return getHandler()(request);
 }

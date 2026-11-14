@@ -1,6 +1,7 @@
-# Replace YOUR_SITE_HOST with the host of PUBLIC_SITE_URL (for example reactping.example.com), then paste into
-# https://api.slack.com/apps -> Create New App -> From a manifest. Superseded: earlier versions used
-# /slack/oauth/callback and /slack/events on the old always-on server.
+# Replace YOUR_SITE_HOST with the host of PUBLIC_SITE_URL (for example reactping.vercel.app), then paste into
+# https://api.slack.com/apps -> your app -> App Manifest (or Create New App -> From a manifest).
+# Keep "Manage Distribution" off until public installs are intended: Slack then only accepts installs
+# into the app's own workspace, which is ReactPing's only install gate.
 display_information:
   name: ReactPing
   description: Bot DMs when someone reacts to your messages.
@@ -9,7 +10,7 @@ features:
     display_name: ReactPing
     always_online: false
   app_home:
-    home_tab_enabled: false
+    home_tab_enabled: true
     messages_tab_enabled: true
     messages_tab_read_only_enabled: true
 oauth_config:
@@ -26,8 +27,12 @@ settings:
     user_events:
       - reaction_added
     bot_events:
+      - app_home_opened
       - app_uninstalled
       - tokens_revoked
+  interactivity:
+    is_enabled: true
+    request_url: https://YOUR_SITE_HOST/api/slack/interactions
   org_deploy_enabled: false
   socket_mode_enabled: false
   token_rotation_enabled: false

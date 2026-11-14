@@ -3,4 +3,5 @@ node_modules
 data
 .vercel
 local-evidence
+supabase/.temp
 package-lock.json

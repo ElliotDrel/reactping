@@ -1,26 +1,31 @@
-import { randomBytes, randomUUID } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { after, before, beforeEach } from "node:test";
+import type { View } from "@slack/web-api";
 import pg from "pg";
-import { createApi, type Handler } from "../src/api.ts";
-import type { AuthUser } from "../src/auth.ts";
 import type { Config } from "../src/config.ts";
-import { hmacHex } from "../src/crypto.ts";
+import { hmac } from "../src/crypto.ts";
 import { Store, type Installation } from "../src/db.ts";
+import { createHandler, type Handler } from "../src/handler.ts";
 import type { OAuthResult, SlackApi } from "../src/slack.ts";
 
 process.env.NODE_ENV = "test";
 
 export const SIGNING_SECRET = "test-signing-secret";
-export const CRON_SECRET = "test-cron-secret-that-is-at-least-32-chars";
+export const SITE = "https://reactping.example.test";
 
-/** Postgres-backed suites are skipped (visibly) without a disposable database. */
+/** Postgres-backed suites are skipped (visibly) without a disposable local database. */
 export const dbSkip = process.env.TEST_DATABASE_URL
   ? false
   : "set TEST_DATABASE_URL (see README: npm run db:test:start) to run Postgres tests";
 
-const MIGRATION = readFileSync(new URL("../supabase/migrations/20261110000000_reactping.sql", import.meta.url), "utf8");
-const SHIM = readFileSync(new URL("./supabase-shim.sql", import.meta.url), "utf8");
+const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");
+const SHIM = read("./supabase-shim.sql");
+/** Applied in production order: the original (immutable) migration, then the additive Slack-only one. */
+const MIGRATIONS = [
+  read("../supabase/migrations/20261110000000_reactping.sql"),
+  read("../supabase/migrations/20261113000000_reactping_slack_installations.sql"),
+];
 
 export class Clock {
   t = 1_800_000_000_000;
@@ -28,12 +33,15 @@ export class Clock {
 }
 
 /**
- * Creates a fresh database for one test file (Supabase shim + the real migration), truncates it before
- * each test, and drops it afterwards. Call inside a `describe(..., { skip: dbSkip })`.
+ * Creates a fresh database for one test file (Supabase role shim + every migration), empties the installations
+ * table before each test, and drops the database afterwards. Call inside `describe(..., { skip: dbSkip })`.
  */
 export function useDatabase(): { pool: () => pg.Pool } {
   const name = `reactping_test_${randomBytes(6).toString("hex")}`;
   const adminUrl = process.env.TEST_DATABASE_URL!;
+  const host = new URL(adminUrl).hostname;
+  if (!["localhost", "127.0.0.1", "[::1]"].includes(host))
+    throw new Error("TEST_DATABASE_URL must be a local database");
   let pool: pg.Pool;
   before(async () => {
     const admin = new pg.Client(adminUrl);
@@ -44,14 +52,10 @@ export function useDatabase(): { pool: () => pg.Pool } {
     url.pathname = `/${name}`;
     pool = new pg.Pool({ connectionString: url.href, max: 10 });
     await pool.query(SHIM);
-    await pool.query(MIGRATION);
+    for (const migration of MIGRATIONS) await pool.query(migration);
   });
   beforeEach(async () => {
-    await pool.query(
-      `truncate reactping.deliveries, reactping.oauth_states, reactping.installations, reactping.accounts, auth.users
-       restart identity cascade;
-       update reactping.delivery_control set paused_until = '-infinity'`,
-    );
+    await pool.query("truncate reactping_slack.installations");
   });
   after(async () => {
     await pool?.end();
@@ -63,24 +67,13 @@ export function useDatabase(): { pool: () => pg.Pool } {
   return { pool: () => pool };
 }
 
-export function makeStore(pool: pg.Pool, clock: Clock, key = randomBytes(32)): Store {
-  return new Store(pool, key, clock.now);
-}
-
-/** Inserts a Supabase Auth user and its ReactPing account. */
-export async function createAccount(store: Store, email = `${randomUUID()}@example.test`): Promise<string> {
-  const id = randomUUID();
-  await store.pool.query("insert into auth.users (id, email) values ($1, $2)", [id, email]);
-  await store.ensureAccount(id);
-  return id;
-}
-
 type Call = { method: string; args: unknown[] };
 
 /** In-memory Slack API double. Override any method per test. */
 export class FakeSlack implements SlackApi {
   calls: Call[] = [];
   oauthResults = new Map<string, OAuthResult>();
+  workspaceUrl: string | null = "https://acme.slack.com/";
 
   private record(method: string, ...args: unknown[]): void {
     this.calls.push({ method, args });
@@ -96,16 +89,15 @@ export class FakeSlack implements SlackApi {
     if (!result) throw new Error("invalid_code");
     return result;
   }
-  async teamUrl(botToken: string): Promise<string | null> {
-    this.record("teamUrl", botToken);
-    return "https://acme.slack.com/";
-  }
-  async getPermalink(userToken: string, channel: string, messageTs: string): Promise<string> {
-    this.record("getPermalink", userToken, channel, messageTs);
-    return `https://acme.slack.com/archives/${channel}/p${messageTs.replace(".", "")}`;
+  async authTest(botToken: string): Promise<{ teamId: string | null; url: string | null }> {
+    this.record("authTest", botToken);
+    return { teamId: /^xoxb-(T[A-Z0-9]+)/.exec(botToken)?.[1] ?? null, url: this.workspaceUrl };
   }
   async postMessage(botToken: string, channel: string, text: string): Promise<void> {
     this.record("postMessage", botToken, channel, text);
+  }
+  async publishHome(botToken: string, userId: string, view: View): Promise<void> {
+    this.record("publishHome", botToken, userId, view);
   }
   async revoke(token: string): Promise<void> {
     this.record("revoke", token);
@@ -114,189 +106,175 @@ export class FakeSlack implements SlackApi {
 
 export function oauthResult(teamId: string, userId: string, overrides: Partial<OAuthResult> = {}): OAuthResult {
   return {
+    appId: "AREACTPING",
     teamId,
-    teamName: `Team ${teamId}`,
+    enterpriseId: null,
     isEnterpriseInstall: false,
+    botToken: `xoxb-${teamId}`,
+    botScopes: ["chat:write"],
     userId,
     userToken: `xoxp-${teamId}-${userId}`,
     userScopes: ["reactions:read"],
-    botToken: `xoxb-${teamId}`,
-    botUserId: `B${teamId}`,
+    userTokenType: "user",
     ...overrides,
   };
 }
 
-export function seedInstallation(
-  store: Store,
-  accountId: string,
-  teamId: string,
-  userId: string,
-): Promise<Installation> {
-  const r = oauthResult(teamId, userId);
-  return store.upsertInstallation(accountId, { ...r, teamUrl: "https://acme.slack.com/" });
-}
-
-export function makeConfig(siteUrl = "http://localhost:3000"): Config {
+export function makeConfig(overrides: Partial<Config> = {}): Config {
   return {
-    siteUrl,
+    siteUrl: SITE,
     databaseUrl: "postgres://unused",
-    supabaseUrl: "https://project.supabase.test",
-    supabasePublishableKey: "sb_publishable_test",
     slackClientId: "123.456",
     slackClientSecret: "client-secret",
     slackSigningSecret: SIGNING_SECRET,
     encryptionKey: randomBytes(32),
-    deliveryCronSecret: CRON_SECRET,
-    installsEnabled: true,
     includeSelfReactions: false,
+    ...overrides,
   };
 }
 
 export interface TestApp {
-  api: Handler;
+  handler: Handler;
   store: Store;
   slack: FakeSlack;
   clock: Clock;
   config: Config;
-  /** Access token -> Supabase user, standing in for Supabase Auth. */
-  sessions: Map<string, AuthUser>;
-  /** Work handed to waitUntil; run it with settle(). */
-  background: (() => Promise<unknown>)[];
+  /** Work deferred past the response. It starts only in settle(), proving the response never waited for it. */
+  pending: (() => Promise<unknown>)[];
   settle: () => Promise<void>;
 }
 
-export function startApp(pool: pg.Pool, siteUrl?: string): TestApp {
+export function startApp(pool: pg.Pool, overrides: Partial<Config> = {}): TestApp {
   const clock = new Clock();
-  const store = makeStore(pool, clock);
+  const store = new Store(pool, randomBytes(32), clock.now);
   const slack = new FakeSlack();
-  const config = makeConfig(siteUrl);
-  const sessions = new Map<string, AuthUser>();
-  const background: (() => Promise<unknown>)[] = [];
-  const api = createApi({
+  const config = makeConfig(overrides);
+  const pending: (() => Promise<unknown>)[] = [];
+  const handler = createHandler({
     config,
     store,
     slack,
     now: clock.now,
-    verifyUser: async (token) => sessions.get(token) ?? null,
-    background: (task) => background.push(task),
+    background: (task) => {
+      pending.push(task);
+    },
   });
   return {
-    api,
+    handler,
     store,
     slack,
     clock,
     config,
-    sessions,
-    background,
+    pending,
     settle: async () => {
-      for (const task of background.splice(0)) await task();
+      for (const task of pending.splice(0)) await task();
     },
   };
 }
 
-/** One browser with one signed-in Supabase user. Keeps the OAuth binding cookie like a real browser. */
+export function seed(app: TestApp, teamId: string, userId: string): Promise<Installation> {
+  return app.store.upsert({
+    teamId,
+    userId,
+    workspaceUrl: "https://acme.slack.com/",
+    botToken: `xoxb-${teamId}`,
+    userToken: `xoxp-${teamId}-${userId}`,
+  });
+}
+
+/** A Slack-signed POST, as Slack would send it. */
+export function signedPost(
+  app: TestApp,
+  path: string,
+  body: string,
+  options: { contentType?: string; secret?: string; timestamp?: number; headers?: Record<string, string> } = {},
+): Promise<Response> {
+  const ts = String(options.timestamp ?? Math.floor(app.clock.t / 1000));
+  return app.handler(
+    new Request(`${SITE}${path}`, {
+      method: "POST",
+      body,
+      headers: {
+        "content-type": options.contentType ?? "application/json",
+        "x-slack-request-timestamp": ts,
+        "x-slack-signature": `v0=${hmac(options.secret ?? SIGNING_SECRET, `v0:${ts}:${body}`, "hex")}`,
+        ...options.headers,
+      },
+    }),
+  );
+}
+
+export function signedEvent(app: TestApp, body: unknown, headers: Record<string, string> = {}): Promise<Response> {
+  return signedPost(app, "/api/slack/events", JSON.stringify(body), { headers });
+}
+
+export function signedAction(app: TestApp, payload: unknown): Promise<Response> {
+  const body = new URLSearchParams({ payload: JSON.stringify(payload) }).toString();
+  return signedPost(app, "/api/slack/interactions", body, { contentType: "application/x-www-form-urlencoded" });
+}
+
+export function eventEnvelope(teamId: string, event: Record<string, unknown>) {
+  return { type: "event_callback", team_id: teamId, api_app_id: "AREACTPING", event_id: "Ev0001", event };
+}
+
+export function reactionEvent(
+  teamId: string,
+  overrides: { user?: string; item_user?: string; item?: object; reaction?: string } = {},
+) {
+  return eventEnvelope(teamId, {
+    type: "reaction_added",
+    user: overrides.user ?? "UREACTOR",
+    reaction: overrides.reaction ?? "thumbsup",
+    item_user: overrides.item_user ?? "UAUTHOR",
+    item: overrides.item ?? { type: "message", channel: "C123ABC", ts: "1700000000.000100" },
+    event_ts: "1700000001.000000",
+  });
+}
+
+export function disconnectAction(teamId: string, userId: string, extra: Record<string, unknown> = {}) {
+  return {
+    type: "block_actions",
+    team: { id: teamId, domain: "acme" },
+    user: { id: userId, team_id: teamId },
+    is_enterprise_install: false,
+    actions: [{ action_id: "disconnect", type: "button", value: "" }],
+    view: { type: "home" },
+    ...extra,
+  };
+}
+
+/** One browser: keeps the OAuth state cookie between the install redirect and the callback. */
 export class Browser {
   readonly app: TestApp;
-  token = "";
-  accountId = "";
   cookie = "";
 
   constructor(app: TestApp) {
     this.app = app;
   }
 
-  static async signIn(app: TestApp): Promise<Browser> {
-    const browser = new Browser(app);
-    browser.accountId = randomUUID();
-    browser.token = `token-${browser.accountId}`;
-    await app.store.pool.query("insert into auth.users (id, email) values ($1, $2)", [
-      browser.accountId,
-      `${browser.accountId}@example.test`,
-    ]);
-    app.sessions.set(browser.token, { id: browser.accountId, email: `${browser.accountId}@example.test` });
-    return browser;
-  }
-
   async request(path: string, init: RequestInit = {}): Promise<Response> {
     const headers = new Headers(init.headers);
-    if (this.token && !headers.has("authorization")) headers.set("authorization", `Bearer ${this.token}`);
     if (this.cookie) headers.set("cookie", this.cookie);
-    if (!headers.has("origin")) headers.set("origin", this.app.config.siteUrl);
-    const res = await this.app.api(new Request(new URL(path, this.app.config.siteUrl), { ...init, headers }));
+    const res = await this.app.handler(new Request(new URL(path, SITE), { ...init, headers }));
     const setCookie = res.headers.get("set-cookie");
     if (setCookie) this.cookie = /Max-Age=0\b/.test(setCookie) ? "" : setCookie.split(";")[0]!;
     return res;
   }
 
-  post(path: string, body: unknown = {}, headers: Record<string, string> = {}): Promise<Response> {
-    return this.request(path, {
-      method: "POST",
-      body: JSON.stringify(body),
-      headers: { "content-type": "application/json", ...headers },
-    });
-  }
-
-  async json<T = Record<string, unknown>>(path: string): Promise<T> {
-    return (await (await this.request(path)).json()) as T;
-  }
-
-  /** Starts an install and returns the state Slack would echo back. */
+  /** Starts Add to Slack and returns the state Slack would echo back. */
   async beginInstall(): Promise<string> {
-    const res = await this.post("/api/slack/install");
-    if (res.status !== 200) throw new Error(`install failed: ${res.status}`);
-    const { url } = (await res.json()) as { url: string };
-    return new URL(url).searchParams.get("state")!;
+    const res = await this.request("/api/slack/install");
+    if (res.status !== 302) throw new Error(`install failed: ${res.status}`);
+    return new URL(res.headers.get("location")!).searchParams.get("state")!;
   }
 
   callback(params: Record<string, string>): Promise<Response> {
-    return this.request(`/api/slack/oauth/callback?${new URLSearchParams(params)}`, {
-      headers: { authorization: "" },
-    });
+    return this.request(`/api/slack/oauth/callback?${new URLSearchParams(params)}`);
   }
 
-  async connect(teamId: string, userId: string): Promise<void> {
+  async connect(teamId: string, userId: string, overrides: Partial<OAuthResult> = {}): Promise<Response> {
     const code = `code-${teamId}-${userId}`;
-    this.app.slack.oauthResults.set(code, oauthResult(teamId, userId));
-    const res = await this.callback({ code, state: await this.beginInstall() });
-    if (res.headers.get("location") !== "/app?slack=connected") throw new Error("connect failed");
+    this.app.slack.oauthResults.set(code, oauthResult(teamId, userId, overrides));
+    return this.callback({ code, state: await this.beginInstall() });
   }
-}
-
-export function signedEvent(app: TestApp, body: unknown, opts: { secret?: string; timestamp?: number } = {}) {
-  const raw = JSON.stringify(body);
-  const ts = String(opts.timestamp ?? Math.floor(app.clock.t / 1000));
-  return app.api(
-    new Request(`${app.config.siteUrl}/api/slack/events`, {
-      method: "POST",
-      body: raw,
-      headers: {
-        "content-type": "application/json",
-        "x-slack-request-timestamp": ts,
-        "x-slack-signature": `v0=${hmacHex(opts.secret ?? SIGNING_SECRET, `v0:${ts}:${raw}`)}`,
-      },
-    }),
-  );
-}
-
-let eventCounter = 0;
-export function reactionEvent(
-  teamId: string,
-  overrides: { user?: string; item_user?: string; item?: object; event_id?: string; reaction?: string } = {},
-) {
-  return {
-    type: "event_callback",
-    team_id: teamId,
-    api_app_id: "A123",
-    event_id: overrides.event_id ?? `Ev${String(++eventCounter).padStart(6, "0")}`,
-    event_time: 1,
-    authorizations: [{ team_id: teamId, user_id: "UOTHERVIEWER", is_bot: false }],
-    event: {
-      type: "reaction_added",
-      user: overrides.user ?? "UREACTOR",
-      reaction: overrides.reaction ?? "thumbsup",
-      item_user: overrides.item_user ?? "UAUTHOR",
-      item: overrides.item ?? { type: "message", channel: "C123ABC", ts: "1700000000.000100" },
-      event_ts: "1700000001.000000",
-    },
-  };
 }

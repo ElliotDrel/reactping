@@ -1,84 +1,43 @@
-# Connection guide: connected, launch disabled
+# Connection guide: Slack-only version
 
-Current state (November 13, 2026): Vercel and Supabase are connected. The production website/API is live at [reactping.vercel.app](https://reactping.vercel.app), with installs and indexing off and Supabase public signups closed. Hosted database and empty-queue API checks pass; email sign-in and all hosted Slack behavior remain unverified. The default email template cannot be changed on this free project without custom SMTP or an upgrade, so the code-entry flow is blocked until an SMTP sender is configured. The technical contract is in [setup](setup.md) and [`.env.example`](../.env.example); the dated evidence is in [verification](verification.md). Superseded: this guide previously described a locally checked build with no providers connected.
+Current state (November 13, 2026): the Slack-only version is committed locally and checked against mocks and disposable local Postgres. Production still runs the previous version (Supabase Auth, outbox, cron) with installs off and zero installations or queued deliveries. Superseded: the email/SMTP launch blocker and the account, consent, and cron steps of the previous guide. The technical contract is in [setup](setup.md) and [`.env.example`](../.env.example); dated evidence is in [verification](verification.md).
 
-## 1. Architecture being connected
+## 1. What changes for providers
 
-- **Vercel:** one Node.js website and API. No Astro, no Edge/Deno runtime. Vercel's free plan is personal/non-commercial use only; confirm current terms before any public or commercial launch.
-- **Supabase:** Auth (email OTP) and Postgres. Free projects can pause after inactivity and have quotas; check current limits and pricing in Supabase's docs rather than relying on this guide.
-- **Delivery schedule:** `pg_cron` plus `pg_net` call a protected Node delivery endpoint every minute. No Vercel paid cron is needed. The endpoint rejects requests without the internal cron secret.
-- **Slack:** Events API and OAuth hit the exact production URLs. Account login (Supabase email OTP) is separate from authorizing each Slack workspace; a Slack authorization is bound to the signed-in account via one-time OAuth state.
-- **Secrets:** server secrets live in Vercel environment variables or Supabase Vault. The browser receives only publishable configuration (`PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_PUBLISHABLE_KEY`).
+- **Vercel:** static `public/` plus four functions in `api/` (Node 24). No Build Output API output, no cron.
+- **Supabase:** Postgres only. One new private table, `reactping_slack.installations`. Supabase Auth, SMTP, Vault, `pg_cron`, and `pg_net` are no longer needed by ReactPing.
+- **Slack:** OAuth is the only identity. Home tab, interactivity, and three bot events are added to the app configuration.
 
-## 2. Local checks required before connecting
+## 2. Deployment order (migration safety)
 
-All must pass locally with mocks and a disposable local Postgres, with no real credentials. Start the disposable database with `npm run db:test:start`, set `TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:54329/postgres` in the shell, then run `npm run check`. Stop it with `npm run db:test:stop`. Never use a hosted database for these tests: the harness creates and drops disposable test databases.
+The old migration `20261110000000_reactping.sql` must stay unchanged. The new migration is additive, so it is safe to apply before or with the deploy; the destructive cleanup comes last, as its own migration.
 
-- Format, typecheck, lint, build, and existing tests (`npm run check` today; use whatever the new implementation documents).
-- Schema applies cleanly to an empty local Postgres, using `supabase/migrations/20261110000000_reactping.sql`. The hosted-only job in `supabase/cron.template.sql` is a separate provider verification; plain local Postgres does not verify Vault, `pg_cron`, or `pg_net`.
-- Account and workspace isolation: one account cannot read or alter another's installations, settings, or deliveries.
-- Cross-workspace routing is blocked without explicit consent, and consent is rechecked at delivery.
-- Source credentials are stored encrypted only; no token, OAuth code, signing secret, cron secret, or raw message content appears in logs or the browser bundle.
-- The delivery endpoint rejects missing or wrong cron secrets and is safe to call twice (deduplicated).
-- Slack signature check, expired/reused OAuth state, and revocation handling pass against the mocked Slack API.
-- Default install is **disabled** and preview deployments send `noindex`.
+1. **Apply the additive migration** `20261113000000_reactping_slack_installations.sql`. The running old version ignores the new schema.
+2. **Deploy this commit.** Keep `PUBLIC_SITE_URL`, `DATABASE_URL`, `DATABASE_CA`, the three Slack values, `ENCRYPTION_KEY`, and `INCLUDE_SELF_REACTIONS=false`. Delete the removed variables (listed in [setup](setup.md)) after deploying; they are ignored meanwhile.
+3. **Hosted checks without Slack calls:**
+   - `/` and `/privacy` return 200 with the `vercel.json` security headers and `X-Robots-Tag: noindex`; an unknown path returns the 404 page.
+   - `GET /api/slack/install` returns 302 to `slack.com/oauth/v2/authorize` with a `__Host-` HttpOnly Secure Lax cookie. Do not follow it.
+   - `GET /api/slack/oauth/callback?state=x&code=y` without the cookie returns 400 "This link expired" and makes no Slack call.
+   - `POST /api/slack/events` and `/api/slack/interactions` without a signature, or with an invalid one, return 401.
+4. **Post-deploy cleanup migration** (separate, added after step 3 passes): drop the old `reactping` schema. Stop the old Supabase `pg_cron` job and delete its Vault secrets first, since that job calls the now-removed `/api/internal/deliver`. Never apply the cleanup before the new version is live.
+5. **Supabase Auth:** with no app use left, its settings can be left closed (public signups off) or tidied; ReactPing does not depend on them.
 
-**Still unverified with real providers:** Supabase email OTP delivery, custom SMTP, actual account deletion, Slack OAuth and Events against the production URL, and every row of the [live checklist](live-checklist.md) against the new code. Hosted runtime/routing and RLS/grants now pass; see [verification](verification.md) for scheduler evidence.
+## 3. Slack app configuration (after Elliot authorizes live Slack work)
 
-## 3. Inputs the owner supplies later
+1. Paste the manifest with the production host. Slack verifies the event URL on save, so do this after step 2.
+2. Keep **Manage Distribution** off.
+3. Follow the [live checklist](live-checklist.md) and record dated results in [verification](verification.md).
 
-Secret values belong in provider secret settings, never in Git or chat logs. The public settings below are intentionally included in the browser build.
+## 4. Inputs
 
-| Input                                                                                            | Where it goes                                                           |
-| ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
-| `PUBLIC_SITE_URL` (production canonical origin; `<operator input>`)                              | Vercel domain, Supabase Auth URLs, Slack app URLs                       |
-| `PUBLIC_SUPPORT_EMAIL` (`<operator input>`; do not invent an inbox)                              | Site and email templates                                                |
-| `PUBLIC_SUPABASE_URL` and `PUBLIC_SUPABASE_PUBLISHABLE_KEY`                                      | Browser-safe config                                                     |
-| `DATABASE_URL` (Supabase transaction-pooler connection, port 6543; no service-role key required) | Server-only: Vercel env                                                 |
-| Slack Client ID, Client Secret, Signing Secret                                                   | Client ID may be public config; secret and signing secret server-only   |
-| `ENCRYPTION_KEY` (32 bytes, base64, generated once)                                              | Server-only; losing or rotating it without a plan strands stored tokens |
-| `DELIVERY_CRON_SECRET` (at least 32 characters)                                                  | Vercel env and Supabase Vault, used by the `pg_net` call                |
-| SMTP provider, host, port, credentials, sender address and name                                  | Supabase Auth custom SMTP                                               |
+Secret values belong in provider settings, never in Git or chat logs.
 
-`DATABASE_CA` is an optional server-only PEM CA certificate. Obtain the current project CA certificate from the Supabase dashboard connection/SSL settings before the first hosted connection, so it is available if needed. Set `DATABASE_CA` to the complete PEM when required. Remote Postgres uses verified TLS; omit SSL query parameters in `DATABASE_URL` and never disable certificate verification.
+| Input                                          | Where it goes                                     |
+| ---------------------------------------------- | ------------------------------------------------- |
+| `PUBLIC_SITE_URL` (production origin)          | Vercel env; Slack app URLs                        |
+| `DATABASE_URL` (transaction pooler, port 6543) | Vercel env (server-only)                          |
+| `DATABASE_CA` (optional PEM)                   | Vercel env (server-only)                          |
+| Slack Client ID, Client Secret, Signing Secret | Vercel env                                        |
+| `ENCRYPTION_KEY` (32 bytes, base64)            | Vercel env; rotating it means everyone reinstalls |
 
-## 4. Connection order (after Elliot authorizes)
-
-1. **Supabase project:** create or select it; apply the migration; confirm tables have RLS/grants as designed; set Auth Site URL and redirect allow-list to the exact production host. Add preview URLs only if needed, kept separate.
-2. **Custom SMTP and signup controls:** Before exposing sign-in publicly, configure Supabase Auth CAPTCHA and its matching browser integration, or restrict signups to invited pilot accounts. Closing Slack installs alone does not close Supabase signups. **Custom SMTP:** Supabase's built-in email is only for team/testing and is heavily limited; email OTP for general users requires custom SMTP with a verified sender domain (SPF/DKIM per the provider). On this free project, changing the default magic-link template is also blocked without custom SMTP or an upgrade, so the default sender cannot currently test our code-entry flow. Test with one owner-controlled address.
-3. **Vercel:** import the repository, set env vars (server secrets server-only; only publishable values exposed to the browser), keep the install **disabled** and previews `noindex`, deploy a preview.
-4. **Preview vs production URLs:** Slack and Supabase Auth must use the exact production origin for Redirect URL (OAuth callback) and Event Request URL. Preview URLs change per deployment and must not be registered as production Slack URLs.
-5. **Cron:** store the cron secret in Vault, create the `pg_cron` job that uses `pg_net` to call the delivery endpoint every minute with the secret. Check `cron.job_run_details` and the response status.
-6. **Slack app:** set the production URLs, scopes (user `reactions:read`, bot `chat:write`), and credentials per [setup](setup.md). Slack verifies the Event Request URL on save, so the service must be live first.
-7. **Launch flip:** enable installs only after steps 1–6 pass and Elliot explicitly declares launch readiness; then allow indexing on production only.
-
-## 5. Bounded provider smoke tests (some change state)
-
-Run only after Elliot authorizes; stop at the first surprise. OTP sign-in/sign-out creates authentication state, and the delivery endpoint can send any queued notifications. For the delivery smoke test, use an isolated test project and verify its queue is empty first.
-
-- Auth: request an OTP to an owner-controlled address, sign in, sign out. Confirm the browser bundle and network responses contain no server secret.
-- Database: read-only checks (tables exist, RLS enabled, Supabase advisors clean, `pg_cron` job present).
-- Cron: call the delivery endpoint once with the correct secret (expect success on an empty queue) and once without (expect rejection). Then observe one scheduled run.
-- Health: `GET` health route on the production host returns healthy.
-- **No live Slack action** (no OAuth, no reactions, no DMs) until Elliot separately authorizes the live checklist.
-
-## 6. Existing SQLite installation
-
-- Treat the current SQLite file, its `ENCRYPTION_KEY`, and the Slack tokens it holds as sensitive. Do not delete, overwrite, or commit them, and keep them until the operator chooses a path.
-- Choose one explicitly:
-  - **Reconnect (default):** users reauthorize each workspace in the new service. Simplest and needs no key transfer. Do not blindly revoke tokens in the old service after reconnecting: Slack bot grants can be shared with the new installation. Stop the old worker and protect its data; reconcile the actual shared grants before deliberately retiring credentials.
-  - **Supported migration:** only if the implementation ships a documented, tested importer. Do not assume stored tokens can be moved automatically, or that the old key derivation matches the new encryption scheme.
-- Slack has one configured Events Request URL for this app. Switch it deliberately after the new deployment is ready; stop the old worker so it cannot continue draining previously queued notifications.
-
-## 7. Live verification after migration
-
-Historical results in [verification](verification.md) and the [live checklist](live-checklist.md) were observed against the old SQLite service and are **not coverage for the new code**. After migration and only with Elliot's authorization, rerun the full checklist (install, OAuth state rejection, reaction coverage, filtering, cross-workspace consent, restart/retry, revocation, log hygiene) against the production deployment and record fresh dates and results. Until then, every row for the new service is unverified.
-
-## 8. Exact launch flags and routes
-
-- `PUBLIC_INSTALL_ENABLED` changes website presentation only; `REACTPING_INSTALLS_ENABLED` enables new Slack connections on the server. Both default to `false`.
-- `PUBLIC_SITE_INDEXABLE` controls production indexing; Vercel previews stay `noindex`. `INCLUDE_SELF_REACTIONS` is testing only and defaults to `false`.
-- Callback: `/api/slack/oauth/callback`; events: `/api/slack/events`; protected delivery: `/api/internal/deliver`; health: `/api/health`.
-- The email template sends `{{ .Token }}` as a code. No email link callback is required for this OTP flow.
-- The Node build emits `.vercel/output` with the static site and a bundled `nodejs24.x` API function. Configure Vercel as framework preset **Other**; see [setup](setup.md).
-- Account deletion also attempts deletion from `auth.users` using the owner database connection. Hosted permissions remain unverified; a partial outcome is reported explicitly rather than claiming the login identity was deleted.
+No import of old credentials is needed: production has zero installations.

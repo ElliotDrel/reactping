@@ -1,23 +1,11 @@
-import {
-  createCipheriv,
-  createDecipheriv,
-  createHash,
-  createHmac,
-  hkdfSync,
-  randomBytes,
-  timingSafeEqual,
-} from "node:crypto";
+import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes, timingSafeEqual } from "node:crypto";
 
 export function randomToken(bytes = 32): string {
   return randomBytes(bytes).toString("base64url");
 }
 
-export function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("base64url");
-}
-
-export function hmacHex(key: string | Buffer, value: string): string {
-  return createHmac("sha256", key).update(value).digest("hex");
+export function hmac(key: string | Buffer, value: string, encoding: "hex" | "base64url"): string {
+  return createHmac("sha256", key).update(value).digest(encoding);
 }
 
 export function safeEqual(a: string, b: string): boolean {
@@ -26,11 +14,12 @@ export function safeEqual(a: string, b: string): boolean {
   return left.length === right.length && timingSafeEqual(left, right);
 }
 
+/** Derives an independent key per purpose, so one master secret never signs and encrypts with the same key. */
 export function deriveKey(masterKey: Buffer, purpose: string): Buffer {
   return Buffer.from(hkdfSync("sha256", masterKey, Buffer.alloc(0), `reactping:${purpose}`, 32));
 }
 
-/** AES-256-GCM. `aad` binds a ciphertext to its row so it cannot be swapped into another. */
+/** AES-256-GCM. `aad` binds a ciphertext to its row and field so it cannot be swapped into another. */
 export function encrypt(key: Buffer, plaintext: string, aad: string): string {
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);

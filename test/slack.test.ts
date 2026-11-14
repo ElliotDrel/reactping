@@ -6,14 +6,15 @@ process.env.NODE_ENV = "test";
 
 type Handler = (method: string, body: URLSearchParams) => Response;
 
-/** Runs the real Slack WebClient against a fake fetch, so request shape and error mapping are covered. */
+/** Runs the real Slack WebClient against a fake fetch, so request shape, retries, and error mapping are covered. */
 function api(handler: Handler) {
-  const requests: { method: string; body: URLSearchParams; auth: string | null }[] = [];
+  const requests: { method: string; body: URLSearchParams; raw: string; auth: string | null }[] = [];
   const fakeFetch = (async (input: string | URL | Request, init?: RequestInit) => {
     const method = new URL(String(input instanceof Request ? input.url : input)).pathname.replace("/api/", "");
-    const body = new URLSearchParams(String(init?.body ?? ""));
+    const raw = String(init?.body ?? "");
+    const body = new URLSearchParams(raw);
     const auth = new Headers(init?.headers).get("authorization");
-    requests.push({ method, body, auth });
+    requests.push({ method, body, raw, auth });
     return handler(method, body);
   }) as typeof fetch;
   return { slack: createSlackApi({ clientId: "id", clientSecret: "secret", fetch: fakeFetch }), requests };
@@ -44,49 +45,74 @@ describe("Slack client adapter", () => {
     assert.equal(req!.body.get("unfurl_media"), "false");
   });
 
-  it("maps HTTP 429 with Retry-After to rate_limited", async () => {
-    const { slack } = api(() =>
-      json({ ok: false, error: "ratelimited" }, { status: 429, headers: { "retry-after": "12" } }),
-    );
-    const error = await rejection(slack.postMessage("xoxb-1", "U1", "hi"));
-    assert.equal(error.kind, "rate_limited");
-    assert.equal(error.retryAfterSec, 12);
+  it("publishes the Home view for one user with the bot token", async () => {
+    const { slack, requests } = api(() => json({ ok: true }));
+    await slack.publishHome("xoxb-1", "U1", { type: "home", blocks: [] });
+    assert.equal(requests[0]!.method, "views.publish");
+    assert.equal(requests[0]!.auth, "Bearer xoxb-1");
+    assert.match(requests[0]!.raw, /U1/);
   });
 
-  it("maps auth errors to revoked and others to permanent", async () => {
+  it("never retries: one request for rate limits, server errors, and network failures", async () => {
+    for (const respond of [
+      () => json({ ok: false, error: "ratelimited" }, { status: 429, headers: { "retry-after": "1" } }),
+      () => new Response("oops", { status: 503 }),
+      () => {
+        throw new TypeError("fetch failed xoxb-should-not-appear");
+      },
+    ]) {
+      const { slack, requests } = api(respond);
+      const error = await rejection(slack.postMessage("xoxb-1", "U1", "hi"));
+      assert.equal(requests.length, 1);
+      assert.ok(!error.message.includes("xoxb"));
+    }
+  });
+
+  it("maps auth errors to revoked and others to failed", async () => {
     const revoked = api(() => json({ ok: false, error: "token_revoked" }));
     assert.equal((await rejection(revoked.slack.postMessage("x", "U1", "hi"))).kind, "revoked");
-    const permanent = api(() => json({ ok: false, error: "channel_not_found" }));
-    const error = await rejection(permanent.slack.postMessage("x", "U1", "hi"));
-    assert.deepEqual([error.kind, error.message], ["permanent", "channel_not_found"]);
+    const other = api(() => json({ ok: false, error: "channel_not_found" }));
+    const error = await rejection(other.slack.postMessage("x", "U1", "hi"));
+    assert.deepEqual([error.kind, error.message], ["failed", "channel_not_found"]);
+    const limited = api(() =>
+      json({ ok: false, error: "ratelimited" }, { status: 429, headers: { "retry-after": "30" } }),
+    );
+    assert.equal((await rejection(limited.slack.postMessage("x", "U1", "hi"))).kind, "rate_limited");
   });
 
-  it("treats network failures and 5xx as transient without leaking details", async () => {
-    const network = api(() => {
-      throw new TypeError("fetch failed xoxb-should-not-appear");
-    });
-    const error = await rejection(network.slack.postMessage("xoxb-1", "U1", "hi"));
-    assert.deepEqual([error.kind, error.message], ["transient", "request_failed"]);
-    const server = api(() => new Response("oops", { status: 503 }));
-    assert.equal((await rejection(server.slack.postMessage("x", "U1", "hi"))).kind, "transient");
-  });
-
-  it("parses oauth.v2.access user and bot grants", async () => {
+  it("parses oauth.v2.access identity, tokens, and both scope lists", async () => {
     const { slack, requests } = api(() =>
       json({
         ok: true,
+        app_id: "A1",
         access_token: "xoxb-bot",
+        token_type: "bot",
+        scope: "chat:write",
         bot_user_id: "UBOT",
         team: { id: "T1", name: "Acme" },
+        enterprise: null,
         is_enterprise_install: false,
         authed_user: { id: "U1", scope: "reactions:read", access_token: "xoxp-user", token_type: "user" },
       }),
     );
-    const result = await slack.oauthAccess("code1", "https://example.com/slack/oauth/callback");
-    assert.equal(requests[0]!.body.get("redirect_uri"), "https://example.com/slack/oauth/callback");
-    assert.deepEqual(
-      [result.teamId, result.userId, result.userToken, result.botToken, result.userScopes],
-      ["T1", "U1", "xoxp-user", "xoxb-bot", ["reactions:read"]],
-    );
+    const result = await slack.oauthAccess("code1", "https://example.com/api/slack/oauth/callback");
+    assert.equal(requests[0]!.body.get("redirect_uri"), "https://example.com/api/slack/oauth/callback");
+    assert.deepEqual(result, {
+      appId: "A1",
+      teamId: "T1",
+      enterpriseId: null,
+      isEnterpriseInstall: false,
+      botToken: "xoxb-bot",
+      botScopes: ["chat:write"],
+      userId: "U1",
+      userToken: "xoxp-user",
+      userScopes: ["reactions:read"],
+      userTokenType: "user",
+    });
+  });
+
+  it("reads the workspace ID and URL from auth.test", async () => {
+    const { slack } = api(() => json({ ok: true, team_id: "T1", url: "https://acme.slack.com/" }));
+    assert.deepEqual(await slack.authTest("xoxb-1"), { teamId: "T1", url: "https://acme.slack.com/" });
   });
 });

@@ -5,6 +5,6 @@
 - Keep v1 to the scope and ship criteria in `README.md`.
 - Verify Slack behavior with live events before claiming coverage.
 - Never commit credentials or log Slack tokens, OAuth codes, or raw message content.
-- Enforce workspace/user isolation and explicit consent for cross-workspace routing.
+- Enforce workspace/user isolation: v1 delivers only within the reaction's workspace and has no cross-workspace routing.
 - Format staged files and run typecheck, lint, build, and existing tests before code pushes.
 - Keep the repository private until Elliot explicitly requests publication.
