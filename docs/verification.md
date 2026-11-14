@@ -1,5 +1,13 @@
 # V1 verification
 
+## November 14, 2026: live Slack install and self-reaction test
+
+Configured the existing Slack app with the production callback, events, and interactivity URLs, Home enabled, and distribution still off. Slack verified the event URL. Completed real OAuth; an expired approval flow was rejected first, then a fresh flow succeeded. Read the [welcome DM](https://example-workspace.slack.com/archives/D0000000000/p1794673880859179) in Slack and confirmed Home shows Connected with Disconnect.
+
+With Elliot's explicit approval, temporarily enabled `INCLUDE_SELF_REACTIONS=true` and deployed. A real eyes reaction by Elliot to the [labelled test message](https://example-workspace.slack.com/archives/C0000000000/p1794673987429139) produced a [real notification DM](https://example-workspace.slack.com/archives/D0000000000/p1794674234639119); its link opened the original message. This verifies self-reaction testing only, not a second person in default mode. The flag was then set back to false for the normal-mode deployment.
+
+Elliot will ask Tester A to react to that test message next. Leave the installation connected for that test. Disconnect, reinstall, revocation, uninstall, and other conversation types remain unverified. Superseded: prior statements that Slack configuration or live testing was still awaiting authorization. Screenshots are in ignored `local-evidence/`.
+
 ## November 13, 2026: Slack-only production and provider cleanup
 
 Deployed `70b62e664656cf6a7ea70e9ca6c28f93d2d5f674` to [production](https://reactping.vercel.app) as [deployment `dpl_2ZvWj1DaHky59cCKtF1BogjLtimw`](https://vercel.com/elliot-drels-projects/reactping/2ZvWj1DaHky59cCKtF1BogjLtimw). Vercel built four standard Node 24 functions. Before cleanup, hosted checks passed: `/` and `/privacy` 200 with security headers/noindex; removed pages, old API routes, and an unknown path 404; install 302 to Slack with a Secure/HttpOnly cookie (redirect not followed); callback with no state cookie 400; events/interactions with missing or invalid signatures 401. No request went to Slack.

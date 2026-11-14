@@ -1,6 +1,6 @@
 # Connection guide: Slack-only version
 
-Current state (November 13, 2026): the Slack-only version is deployed and its non-Slack hosted checks pass. Post-deploy cleanup removed the old schema, cron job and history, two Vault secrets, and six unused Vercel settings. Supabase email Auth is disabled/reset. No real Slack testing occurred, and Slack app configuration is still pending. Superseded: the previous not-deployed status and the email/SMTP launch blocker. The technical contract is in [setup](setup.md) and [`.env.example`](../.env.example); dated evidence is in [verification](verification.md).
+Current state (November 13, 2026): the Slack-only version is deployed and its non-Slack hosted checks pass. Post-deploy cleanup removed the old schema, cron job and history, two Vault secrets, and six unused Vercel settings. Supabase email Auth is disabled/reset. Superseded by November 14: Slack app configuration, installation, welcome DM, Home, and a self-reaction round trip are now verified; another person's reaction and lifecycle checks remain pending. Superseded: the previous not-deployed status and the email/SMTP launch blocker. The technical contract is in [setup](setup.md) and [`.env.example`](../.env.example); dated evidence is in [verification](verification.md).
 
 ## 1. What changes for providers
 
