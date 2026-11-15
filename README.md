@@ -2,7 +2,7 @@
 
 A Slack app that DMs you when someone reacts to your messages.
 
-Status (November 15, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 66 tests against disposable Postgres. Slack configuration, installation, welcome DM, App Home, and a real self-reaction round trip are verified. Tester B's real public-channel reactions also delivered DMs in normal mode. Disconnect, reinstall, revocation, and uninstall are explicitly skipped/unverified on the live app at Elliot's request. Unlisted distribution is enabled for second-workspace testing; that coverage is still unverified. Superseded: the November 13 status wording that included November 14 results. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
+Status (November 15, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 66 tests against disposable Postgres. Slack configuration, installation, welcome DM, App Home, and a real self-reaction round trip are verified. Tester B's real public-channel reactions also delivered DMs in normal mode. Disconnect, reinstall, revocation, and uninstall are explicitly skipped/unverified on the live app at Elliot's request. Unlisted distribution is enabled for second-workspace testing; Elliot reports that installation in a second workspace succeeded; reaction delivery there has not yet been independently verified. Superseded: the November 13 status wording that included November 14 results. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
 
 ## V1
 
@@ -34,13 +34,17 @@ TypeScript on Node 24, deployed to Vercel with Supabase Postgres. Superseded: th
 - **Database:** one private table, `reactping_slack.installations`, keyed by `(team_id, user_id)`: workspace URL, AES-256-GCM bot and user tokens (associated data binds each to its table, row, and field), and timestamps. RLS on, no policies, no `anon`/`authenticated` privileges. Remote connections require verified TLS (optional `DATABASE_CA`); SSL URL overrides are refused. The original `reactping` schema was removed by a new post-deploy cleanup migration; the old migration remains unchanged.
 - **Slack client:** `@slack/web-api` with retries off, 5-second timeouts, unfurls off, and a silent logger. Logs are structured, allowlisted fields only: never tokens, codes, or message content.
 
+## Known availability risk
+
+**Accepted availability risk (November 15, 2026):** Supabase Free projects may pause after about a week of low activity. Removing the every-minute delivery cron also removed that regular background traffic. If this project pauses, ReactPing cannot access its database and notifications stop until the project is restored from the [Supabase dashboard](https://supabase.com/dashboard/project/ykrdmgewztwzksgwbjue). Reactions missed while paused are not backfilled. Elliot accepts this risk: do not add a keep-alive. Superseded: the old idle-week availability check is no longer a remaining launch requirement. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
+
 ## Ship criteria
 
 1. Done: deploy the Slack-only version; hosted checks without Slack calls pass (static pages and headers, malformed callback, unsigned and invalid-signature requests rejected).
 2. Done: apply the post-deploy cleanup migration for the old `reactping` schema and remove unused provider configuration.
 3. Verified: Slack setup, install, welcome DM, Home, and real public-channel reaction DMs from Tester B in normal mode.
 4. Skipped/unverified by Elliot's choice: live Disconnect, reinstall, revocation, and uninstall. Do not claim those checks passed.
-5. Pending: second-workspace pilot. Release decision: Elliot approved tagging v0.1.0 on November 15 with the lifecycle checks skipped.
+5. Second-workspace installation succeeded per Elliot's November 15 report; next verify a normal-mode reaction DM there. Release decision: Elliot approved tagging v0.1.0 on November 15 with the lifecycle checks skipped.
 
 Ship criterion: Elliot's workspace works end to end on the hosted app with documented coverage and no message-content collection. v0.1.0 is the approved pilot release with live Disconnect, reinstall, revocation, and uninstall explicitly skipped/unverified. Superseded: the release-tag decision was previously pending. Unlisted distribution is enabled for testing; Marketplace submission is deferred; this repository stays private until Elliot requests otherwise.
 

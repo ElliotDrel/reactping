@@ -1,5 +1,11 @@
 # V1 verification
 
+## November 15, 2026: second-workspace report and accepted idle-pause risk
+
+Elliot reports that adding ReactPing to a second workspace worked. Record this as owner-reported installation success; no independent reaction-DM check has been observed there yet.
+
+**Accepted availability risk (November 15, 2026):** Supabase Free projects may pause after about a week of low activity. Removing the every-minute delivery cron also removed that regular background traffic. If this project pauses, ReactPing cannot access its database and notifications stop until the project is restored from the [Supabase dashboard](https://supabase.com/dashboard/project/ykrdmgewztwzksgwbjue). Reactions missed while paused are not backfilled. Elliot accepts this risk: do not add a keep-alive. Superseded: the old idle-week availability check is no longer a remaining launch requirement. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
+
 ## November 15, 2026: lifecycle checks skipped; unlisted distribution enabled
 
 Elliot explicitly chose skip for live Disconnect, reinstall, revocation, and uninstall. All remain skipped/unverified; no production installation was disconnected, reinstalled, revoked, or uninstalled. This supersedes earlier requests for approval and pending-lifecycle wording. Superseded: the tag decision was initially pending. Elliot approved v0.1.0 on November 15 with these checks explicitly skipped/unverified.
@@ -62,7 +68,7 @@ Superseded by the Slack-only simplification above, including the email blocker a
 
 The local recheck exposed a test-only race when parallel suites create cluster-wide mock roles. The shim now tolerates both duplicate-role error forms, preserving parallel coverage. Application code is unchanged. Formatting, typecheck, lint, production build, and all 85 tests pass. The full check after dropping the disposable cluster roles passes 85/85, exercising fresh concurrent role creation.
 
-Remaining: custom SMTP and owner-code sign-in; final domain/support contact and policy approval; an actual idle-week availability check; hosted account cleanup; and the full hosted Slack checklist only after separate authorization.
+Remaining: custom SMTP and owner-code sign-in; final domain/support contact and policy approval; the accepted free-tier idle-pause risk documented above (supersedes the idle-week availability check); hosted account cleanup; and the full hosted Slack checklist only after separate authorization.
 
 ## November 11, 2026: integration verification (local only)
 

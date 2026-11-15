@@ -83,6 +83,8 @@ Slack verifies the event URL when it is saved, so deploy first. Unlisted public 
 
 ## Recovery
 
+**Accepted availability risk (November 15, 2026):** Supabase Free projects may pause after about a week of low activity. Removing the every-minute delivery cron also removed that regular background traffic. If this project pauses, ReactPing cannot access its database and notifications stop until the project is restored from the [Supabase dashboard](https://supabase.com/dashboard/project/ykrdmgewztwzksgwbjue). Reactions missed while paused are not backfilled. Elliot accepts this risk: do not add a keep-alive. Superseded: the old idle-week availability check is no longer a remaining launch requirement. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
+
 - **Missed notifications:** expected occasionally and never backfilled. Check the function logs for `notify_failed` or `background_failed`.
 - **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the `reactping_slack.installations` rows; everyone adds ReactPing to Slack again.
 - **Changed domain:** update `PUBLIC_SITE_URL`, redeploy, update the three Slack URLs, then verify a fresh reaction end to end.
