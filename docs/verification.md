@@ -2,7 +2,7 @@
 
 ## November 15, 2026: second-workspace report and accepted idle-pause risk
 
-Elliot reports that adding ReactPing to a second workspace worked. Record this as owner-reported installation success; no independent reaction-DM check has been observed there yet.
+Elliot reports that adding ReactPing to a second workspace worked and subsequently confirmed receipt of the reaction DM. This is owner-confirmed live installation and normal-mode delivery coverage, not an independently inspected message. Superseded: the earlier second-workspace reaction-DM verification item is complete by owner report. The core v1 pilot path is complete; lifecycle checks stay skipped/unverified and the idle-pause risk remains accepted.
 
 **Accepted availability risk (November 15, 2026):** Supabase Free projects may pause after about a week of low activity. Removing the every-minute delivery cron also removed that regular background traffic. If this project pauses, ReactPing cannot access its database and notifications stop until the project is restored from the [Supabase dashboard](https://supabase.com/dashboard/project/ykrdmgewztwzksgwbjue). Reactions missed while paused are not backfilled. Elliot accepts this risk: do not add a keep-alive. Superseded: the old idle-week availability check is no longer a remaining launch requirement. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
 

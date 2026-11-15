@@ -6,6 +6,10 @@ Live self-reaction round trip verified in the public channel with `INCLUDE_SELF_
 
 Setup: the Slack-only version deployed at `PUBLIC_SITE_URL`, the manifest applied, unlisted distribution enabled (November 15), and a second Slack user (the "reactor") in Elliot's workspace.
 
+## Second workspace
+
+November 15, 2026: Elliot confirmed installation in a second workspace and receipt of a real reaction DM in normal mode. Owner-reported success; no message permalink or independent inspection was recorded. This completes the second-workspace pilot check, without extending coverage to other conversation types or the skipped lifecycle actions.
+
 ## Install and Home (Slack-only version)
 
 | Check                                                                           | Status     | Notes                               |
