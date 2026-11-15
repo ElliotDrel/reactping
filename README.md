@@ -2,7 +2,7 @@
 
 A Slack app that DMs you when someone reacts to your messages.
 
-Status (November 13, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 66 tests against disposable Postgres. Slack configuration, installation, welcome DM, App Home, and a real self-reaction round trip are verified. Tester B's real public-channel reactions also delivered DMs in normal mode. Disconnect/reconnect and lifecycle checks remain pending; see the dated evidence below. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
+Status (November 15, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 66 tests against disposable Postgres. Slack configuration, installation, welcome DM, App Home, and a real self-reaction round trip are verified. Tester B's real public-channel reactions also delivered DMs in normal mode. Disconnect, reinstall, revocation, and uninstall are explicitly skipped/unverified on the live app at Elliot's request. Unlisted distribution is enabled for second-workspace testing; that coverage is still unverified. Superseded: the November 13 status wording that included November 14 results. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
 
 ## V1
 
@@ -27,7 +27,7 @@ TypeScript on Node 24, deployed to Vercel with Supabase Postgres. Superseded: th
   - `POST /api/slack/events` takes Slack events.
   - `POST /api/slack/interactions` takes the Home tab's Disconnect button.
 - **OAuth CSRF:** the `state` is a random nonce. The browser holds an HttpOnly, Secure, `SameSite=Lax`, `__Host-` cookie carrying the same nonce and a 10-minute expiry, HMAC-signed with a key derived from `ENCRYPTION_KEY` for this purpose only. Wrong browser, expiry, or tampering fails. Nothing is stored.
-- **Install policy:** there is no install flag. ReactPing stays closed while Slack's **Manage Distribution** is off (only the app's own workspace can install). Enterprise Grid installs, missing scopes, or an unverifiable workspace are rejected, and the just-issued user grant is revoked unless an existing installation still uses it.
+- **Install policy:** there is no install flag. Unlisted public distribution was enabled on November 15 for multi-workspace pilots; the app is not submitted to the Marketplace. Workspace approval policies still apply. Enterprise Grid installs, missing scopes, or an unverifiable workspace are rejected, and the just-issued user grant is revoked unless an existing installation still uses it.
 - **Events:** the signature is checked over the raw body (5-minute timestamp window, 256 KB limit). `reaction_added` and `app_home_opened` are acknowledged with `200` first and processed with Vercel `waitUntil`; requests carrying `X-Slack-Retry-Num` are acknowledged and ignored. `app_uninstalled` and `tokens_revoked` delete rows before the `200` (idempotent, so Slack retries are accepted for them).
 - **Links:** `auth.test` at install provides the workspace URL, which must be `https://<name>.slack.com/`. Message links are `<workspace>/archives/<channel>/p<seconds><microseconds>`, built from validated text with no float conversion and no `chat.getPermalink` call.
 - **Disconnect:** identity comes only from the signed payload's `team.id` and `user.id`, never the button. Exactly that row is deleted before the response; then the user's own token is revoked and the Home tab shows Not connected. The workspace's bot token is shared, so it is never revoked by Disconnect; removing the app in Slack does that.
@@ -38,9 +38,11 @@ TypeScript on Node 24, deployed to Vercel with Supabase Postgres. Superseded: th
 
 1. Done: deploy the Slack-only version; hosted checks without Slack calls pass (static pages and headers, malformed callback, unsigned and invalid-signature requests rejected).
 2. Done: apply the post-deploy cleanup migration for the old `reactping` schema and remove unused provider configuration.
-3. With Elliot's authorization, configure the Slack app from [the manifest](slack-manifest.template.yaml) and complete the [live checklist](docs/live-checklist.md) in Elliot's workspace: install, welcome DM, Home, a real reaction DM from another person, Disconnect, and uninstall.
+3. Verified: Slack setup, install, welcome DM, Home, and real public-channel reaction DMs from Tester B in normal mode.
+4. Skipped/unverified by Elliot's choice: live Disconnect, reinstall, revocation, and uninstall. Do not claim those checks passed.
+5. Pending: second-workspace pilot and Elliot's explicit release-tag decision.
 
-Ship criterion: Elliot's workspace works end to end on the hosted app with documented coverage and no message-content collection. Then tag v0.1.0. Public distribution and Marketplace submission are later releases; this repository stays private until Elliot requests otherwise.
+Ship criterion: Elliot's workspace works end to end on the hosted app with documented coverage and no message-content collection. No v0.1.0 tag has been created: Elliot must decide whether to tag with the lifecycle checks skipped. Unlisted distribution is enabled for testing; Marketplace submission is deferred; this repository stays private until Elliot requests otherwise.
 
 ## Development
 

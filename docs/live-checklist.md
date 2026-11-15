@@ -2,9 +2,9 @@
 
 Automated tests use a mocked Slack API. Record the date, workspace, and observed result for each row; change **Unverified** only after seeing the behavior yourself. Hosted Slack testing was authorized on November 14, 2026. Observed results below distinguish self-reaction testing from normal mode.
 
-Live self-reaction round trip verified in the public channel with `INCLUDE_SELF_REACTIONS=true`: [source message](https://example-workspace.slack.com/archives/C0000000000/p1794673987429139), [notification DM](https://example-workspace.slack.com/archives/D0000000000/p1794674234639119). The link opened the original message. Normal mode is also verified: Tester B's eyes and white-check-mark reactions each produced a DM to Elliot on November 14, 2026 ([eyes DM](https://example-workspace.slack.com/archives/D0000000000/p1794693001935549), [check-mark DM](https://example-workspace.slack.com/archives/D0000000000/p1794693018454269)). Both point to the source message. Disconnect remains pending explicit approval.
+Live self-reaction round trip verified in the public channel with `INCLUDE_SELF_REACTIONS=true`: [source message](https://example-workspace.slack.com/archives/C0000000000/p1794673987429139), [notification DM](https://example-workspace.slack.com/archives/D0000000000/p1794674234639119). The link opened the original message. Normal mode is also verified: Tester B's eyes and white-check-mark reactions each produced a DM to Elliot on November 14, 2026 ([eyes DM](https://example-workspace.slack.com/archives/D0000000000/p1794693001935549), [check-mark DM](https://example-workspace.slack.com/archives/D0000000000/p1794693018454269)). Both point to the source message. Disconnect, reinstall, revocation, and uninstall are skipped/unverified at Elliot's explicit request (November 15).
 
-Setup: the Slack-only version deployed at `PUBLIC_SITE_URL`, the manifest applied, Manage Distribution off, and a second Slack user (the "reactor") in Elliot's workspace.
+Setup: the Slack-only version deployed at `PUBLIC_SITE_URL`, the manifest applied, unlisted distribution enabled (November 15), and a second Slack user (the "reactor") in Elliot's workspace.
 
 ## Install and Home (Slack-only version)
 
@@ -42,14 +42,14 @@ React as the reactor to a message authored by the connected user. Expect one bot
 
 ## Disconnect and lifecycle
 
-| Check                                                                          | Status     | Notes |
-| ------------------------------------------------------------------------------ | ---------- | ----- |
-| Disconnect: Home shows Not connected; row deleted; user token revoked in Slack | Unverified |       |
-| After Disconnect, a new reaction sends nothing                                 | Unverified |       |
-| Reinstall after Disconnect works and sends a new welcome DM                    | Unverified |       |
-| Revoke the user grant in Slack settings: row deleted (`tokens_revoked`)        | Unverified |       |
-| Remove the app from the workspace: all rows deleted (`app_uninstalled`)        | Unverified |       |
-| Function logs contain no tokens, codes, or message content                     | Unverified |       |
+| Check                                                                          | Status               | Notes |
+| ------------------------------------------------------------------------------ | -------------------- | ----- |
+| Disconnect: Home shows Not connected; row deleted; user token revoked in Slack | Skipped / unverified |       | Elliot chose skip, November 15; production installation left intact. |
+| After Disconnect, a new reaction sends nothing                                 | Skipped / unverified |       | Elliot chose skip, November 15; production installation left intact. |
+| Reinstall after Disconnect works and sends a new welcome DM                    | Skipped / unverified |       | Elliot chose skip, November 15; production installation left intact. |
+| Revoke the user grant in Slack settings: row deleted (`tokens_revoked`)        | Skipped / unverified |       | Elliot chose skip, November 15; production installation left intact. |
+| Remove the app from the workspace: all rows deleted (`app_uninstalled`)        | Skipped / unverified |       | Elliot chose skip, November 15; production installation left intact. |
+| Function logs contain no tokens, codes, or message content                     | Unverified           |       |
 
 Not tested by design: Slack retries (ignored), and outage recovery (no backfill).
 

@@ -1,6 +1,6 @@
 # Connection guide: Slack-only version
 
-Current state (November 13, 2026): the Slack-only version is deployed and its non-Slack hosted checks pass. Post-deploy cleanup removed the old schema, cron job and history, two Vault secrets, and six unused Vercel settings. Supabase email Auth is disabled/reset. Superseded by November 14: Slack app configuration, installation, welcome DM, Home, and a self-reaction round trip are now verified; Tester B's real public-channel reactions in normal mode are also verified. Disconnect/reconnect and lifecycle checks remain pending. Superseded: the previous not-deployed status and the email/SMTP launch blocker. The technical contract is in [setup](setup.md) and [`.env.example`](../.env.example); dated evidence is in [verification](verification.md).
+Current state (November 13, 2026): the Slack-only version is deployed and its non-Slack hosted checks pass. Post-deploy cleanup removed the old schema, cron job and history, two Vault secrets, and six unused Vercel settings. Supabase email Auth is disabled/reset. Superseded by November 14: Slack app configuration, installation, welcome DM, Home, and a self-reaction round trip are now verified; Tester B's real public-channel reactions in normal mode are also verified. Disconnect, reinstall, revocation, and uninstall were explicitly skipped by Elliot on November 15 and remain unverified. Unlisted distribution is now enabled; the second-workspace pilot is pending. Superseded: the previous not-deployed status and the email/SMTP launch blocker. The technical contract is in [setup](setup.md) and [`.env.example`](../.env.example); dated evidence is in [verification](verification.md).
 
 ## 1. What changes for providers
 
@@ -25,8 +25,8 @@ The sequence below was completed for the connected project. Keep it for upgrades
 ## 3. Slack app configuration (after Elliot authorizes live Slack work)
 
 1. Open [the ReactPing Slack app](https://api.slack.com/apps/A0CBVN3467K) → **App Manifest**. Replace `YOUR_SITE_HOST` in [the template](../slack-manifest.template.yaml) with `reactping.vercel.app`, then save it when Slack configuration/testing is authorized. Slack verifies the event URL on save. This enables Home, interactivity, and the lifecycle events on the hosted app; it does not need more OAuth scopes.
-2. In the same app, **Manage Distribution** → **Share Your App with Other Workspaces**: leave **Activate Public Distribution** off. [Slack documents that undistributed apps stay in their associated workspace](https://docs.slack.dev/app-management/distribution/).
-3. After Elliot authorizes real Slack testing, use **Add to Slack** and follow the [live checklist](live-checklist.md). Record dated results in [verification](verification.md). Welcome DM, Home, reaction DM, Disconnect, and lifecycle cleanup are still unverified live.
+2. In the same app, **Manage Distribution** → **Share Your App with Other Workspaces**: unlisted public distribution was enabled on November 15 for pilots. [Slack documents that undistributed apps stay in their associated workspace](https://docs.slack.dev/app-management/distribution/).
+3. After Elliot authorizes real Slack testing, use **Add to Slack** and follow the [live checklist](live-checklist.md). Record dated results in [verification](verification.md). Welcome DM, Home, and public-channel reaction DMs are verified live. Disconnect, reinstall, revocation, and uninstall are skipped/unverified; do not run them without a new instruction.
 
 ## 4. Inputs
 

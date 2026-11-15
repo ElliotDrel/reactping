@@ -1,5 +1,13 @@
 # V1 verification
 
+## November 15, 2026: lifecycle checks skipped; unlisted distribution enabled
+
+Elliot explicitly chose skip for live Disconnect, reinstall, revocation, and uninstall. All remain skipped/unverified; no production installation was disconnected, reinstalled, revoked, or uninstalled. This supersedes earlier requests for approval and pending-lifecycle wording. No v0.1.0 tag was created; ask Elliot whether to tag with these checks skipped.
+
+At Elliot's request, enabled unlisted public distribution in Slack after checking the OAuth/HTTPS checklist and confirming no hard-coded workspace credentials in the runtime. Slack now shows Share Your App with Any Workspace and Deactivate Public Distribution. The existing installation stays active. Second-workspace behavior is not yet verified. Use https://reactping.vercel.app/api/slack/install so the CSRF cookie is set; do not distribute Slack's raw authorization link.
+
+Superseded: November 13 README status wording that incorporated November 14 observations. The dated sections below remain historical evidence.
+
 ## November 14, 2026: another person's reaction, normal mode
 
 After `INCLUDE_SELF_REACTIONS=false` was redeployed, Tester B reacted to Elliot's [public-channel test message](https://example-workspace.slack.com/archives/C0000000000/p1794673987429139). Read two real ReactPing DMs in Elliot's Slack: [eyes at 16:50:01](https://example-workspace.slack.com/archives/D0000000000/p1794693001935549) and [white check mark at 16:50:18](https://example-workspace.slack.com/archives/D0000000000/p1794693018454269). Both mention Tester B and link to the same correct source message. The default public-channel reaction-to-author notification path is verified.

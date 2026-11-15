@@ -69,7 +69,7 @@ Paste `slack-manifest.template.yaml` with `YOUR_SITE_HOST` replaced. It configur
 - interactivity at `/api/slack/interactions`;
 - token rotation and org-wide deployment off.
 
-Slack verifies the event URL when it is saved, so deploy first. Keep **Manage Distribution** off to keep installs limited to the app's own workspace; that is the only install gate.
+Slack verifies the event URL when it is saved, so deploy first. Unlisted public distribution is enabled for second-workspace pilots as of November 15. Workspace installation policies still apply; the app is not submitted to the Marketplace.
 
 ## Behavior notes
 
