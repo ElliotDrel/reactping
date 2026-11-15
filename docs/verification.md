@@ -2,7 +2,7 @@
 
 ## November 15, 2026: lifecycle checks skipped; unlisted distribution enabled
 
-Elliot explicitly chose skip for live Disconnect, reinstall, revocation, and uninstall. All remain skipped/unverified; no production installation was disconnected, reinstalled, revoked, or uninstalled. This supersedes earlier requests for approval and pending-lifecycle wording. No v0.1.0 tag was created; ask Elliot whether to tag with these checks skipped.
+Elliot explicitly chose skip for live Disconnect, reinstall, revocation, and uninstall. All remain skipped/unverified; no production installation was disconnected, reinstalled, revoked, or uninstalled. This supersedes earlier requests for approval and pending-lifecycle wording. Superseded: the tag decision was initially pending. Elliot approved v0.1.0 on November 15 with these checks explicitly skipped/unverified.
 
 At Elliot's request, enabled unlisted public distribution in Slack after checking the OAuth/HTTPS checklist and confirming no hard-coded workspace credentials in the runtime. Slack now shows Share Your App with Any Workspace and Deactivate Public Distribution. The existing installation stays active. Second-workspace behavior is not yet verified. Use https://reactping.vercel.app/api/slack/install so the CSRF cookie is set; do not distribute Slack's raw authorization link.
 
@@ -20,7 +20,7 @@ Configured the existing Slack app with the production callback, events, and inte
 
 With Elliot's explicit approval, temporarily enabled `INCLUDE_SELF_REACTIONS=true` and deployed. A real eyes reaction by Elliot to the [labelled test message](https://example-workspace.slack.com/archives/C0000000000/p1794673987429139) produced a [real notification DM](https://example-workspace.slack.com/archives/D0000000000/p1794674234639119); its link opened the original message. This verifies self-reaction testing only, not a second person in default mode. The flag was then set back to false for the normal-mode deployment.
 
-Elliot will ask Tester A to react to that test message next. Leave the installation connected for that test. Disconnect, reinstall, revocation, uninstall, and other conversation types remain unverified. Superseded: prior statements that Slack configuration or live testing was still awaiting authorization. Screenshots are in ignored `local-evidence/`.
+Elliot will ask Tester A to react to that test message next. Leave the installation connected for that test. Disconnect, reinstall, revocation, uninstall, and other conversation types remain unverified. Superseded: prior statements that Slack configuration or live testing was still awaiting authorization. Temporary screenshots were removed during the authorized November 15 local cleanup; the Slack message permalinks above retain the live evidence.
 
 ## November 13, 2026: Slack-only production and provider cleanup
 

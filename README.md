@@ -40,9 +40,9 @@ TypeScript on Node 24, deployed to Vercel with Supabase Postgres. Superseded: th
 2. Done: apply the post-deploy cleanup migration for the old `reactping` schema and remove unused provider configuration.
 3. Verified: Slack setup, install, welcome DM, Home, and real public-channel reaction DMs from Tester B in normal mode.
 4. Skipped/unverified by Elliot's choice: live Disconnect, reinstall, revocation, and uninstall. Do not claim those checks passed.
-5. Pending: second-workspace pilot and Elliot's explicit release-tag decision.
+5. Pending: second-workspace pilot. Release decision: Elliot approved tagging v0.1.0 on November 15 with the lifecycle checks skipped.
 
-Ship criterion: Elliot's workspace works end to end on the hosted app with documented coverage and no message-content collection. No v0.1.0 tag has been created: Elliot must decide whether to tag with the lifecycle checks skipped. Unlisted distribution is enabled for testing; Marketplace submission is deferred; this repository stays private until Elliot requests otherwise.
+Ship criterion: Elliot's workspace works end to end on the hosted app with documented coverage and no message-content collection. v0.1.0 is the approved pilot release with live Disconnect, reinstall, revocation, and uninstall explicitly skipped/unverified. Superseded: the release-tag decision was previously pending. Unlisted distribution is enabled for testing; Marketplace submission is deferred; this repository stays private until Elliot requests otherwise.
 
 ## Development
 
