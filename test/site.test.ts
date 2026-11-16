@@ -78,7 +78,8 @@ describe("website", () => {
       .replace(/<[^>]+>/g, " ")
       .split(/\s+/)
       .filter(Boolean).length;
-    assert.ok(words <= 110, `homepage has ${words} words`);
+    // Raised from 110 on November 16, 2026, when Elliot added Q&A content; still guards against sprawl.
+    assert.ok(words <= 150, `homepage has ${words} words`);
     for (const [file, page] of Object.entries(html)) assert.doesNotMatch(page, /<script/i, file);
     const csp = JSON.parse(read("vercel.json")).headers[0].headers.find(
       (h: { key: string }) => h.key === "Content-Security-Policy",
