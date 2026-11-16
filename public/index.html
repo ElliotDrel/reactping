@@ -54,8 +54,7 @@
           <div class="hero-copy">
             <h1>Reaction notifications for Slack</h1>
             <p class="lede">
-              ReactPing sends you a direct message when someone reacts to something you wrote, with the emoji, who
-              reacted, and a link straight back to the message.
+              Someone reacted to your message. Get a DM with who, which emoji, and a link straight back.
             </p>
             <div class="hero-actions">
               <a class="btn btn-primary btn-large" href="/api/slack/install">Add to Slack</a>
@@ -120,26 +119,22 @@
       <section class="section" id="how-it-works" aria-labelledby="steps-heading">
         <div class="wrap">
           <p class="eyebrow">How it works</p>
-          <h2 id="steps-heading">Add it once, then it stays out of your way.</h2>
+          <h2 id="steps-heading">Add it. Get back to work.</h2>
           <ol class="steps">
             <li>
               <span class="step-num" aria-hidden="true">1</span>
               <h3>Add to Slack</h3>
-              <p>
-                Approve two narrow permissions. Your Slack account is your login; there's nothing else to sign up for.
-              </p>
+              <p>Choose your workspace and approve. No new account.</p>
             </li>
             <li>
               <span class="step-num" aria-hidden="true">2</span>
-              <h3>Get a welcome DM</h3>
-              <p>
-                ReactPing confirms it can reach you. Its Home tab in Slack shows your status and a Disconnect button.
-              </p>
+              <h3>Keep the conversation going</h3>
+              <p>Post your messages as usual. ReactPing handles the reactions.</p>
             </li>
             <li>
               <span class="step-num" aria-hidden="true">3</span>
-              <h3>Get a DM per reaction</h3>
-              <p>When someone else reacts to your message, ReactPing tells you who, which emoji, and where.</p>
+              <h3>Get the ping</h3>
+              <p>See who reacted, see the emoji, and jump back into the conversation.</p>
             </li>
           </ol>
         </div>
@@ -147,29 +142,19 @@
 
       <section class="section section-sunk" aria-labelledby="limits-heading">
         <div class="wrap">
-          <p class="eyebrow">Good to know</p>
-          <h2 id="limits-heading">Small, focused, and honest about its limits.</h2>
+          <h2 id="limits-heading">Less checking. More connection.</h2>
           <div class="cards">
             <article class="card">
-              <h3>One workspace at a time</h3>
-              <p>
-                Notifications arrive in the same workspace where the reaction happened. Add ReactPing separately in each
-                workspace you use.
-              </p>
+              <h3>See the response</h3>
+              <p>A thank-you. A thumbs-up. A celebration. See the reactions to your messages in your DMs.</p>
             </article>
             <article class="card">
-              <h3>Best effort, no backfill</h3>
-              <p>
-                If Slack can't reach ReactPing or a DM fails, that notification is skipped. Reactions from before you
-                connected, or during an outage, are never sent later.
-              </p>
+              <h3>Go straight to the message</h3>
+              <p>Every notification links to the original. Pick up where you left off.</p>
             </article>
             <article class="card">
-              <h3>Easy to leave</h3>
-              <p>
-                Press Disconnect in ReactPing's Home tab, or remove the app in Slack. Your stored tokens are deleted
-                right away.
-              </p>
+              <h3>Stay in control</h3>
+              <p>Connect the workspaces you use. Manage your connection from ReactPing's Home tab.</p>
             </article>
           </div>
         </div>
@@ -178,80 +163,58 @@
       <section class="section" aria-labelledby="privacy-heading">
         <div class="wrap split">
           <div>
-            <p class="eyebrow">Privacy by design</p>
-            <h2 id="privacy-heading">Two permissions. No message text.</h2>
-            <p>
-              ReactPing asks for the least Slack access that can do the job. It never reads what you wrote, never
-              downloads history, and keeps no record of your reactions: each one is turned into a DM and forgotten.
-            </p>
-            <p><a href="/privacy">Read the privacy notice</a></p>
+            <h2 id="privacy-heading">Your messages stay yours.</h2>
+            <p>ReactPing handles reactions, not message text. No history downloads. No tracking.</p>
+            <p><a href="/privacy">Read our privacy policy</a></p>
           </div>
           <div class="scope-cards">
             <div class="scope-card">
-              <code>reactions:read</code>
-              <p>Granted by you, so Slack can tell ReactPing when your messages get reactions.</p>
+              <h3>Read reactions</h3>
+              <p>Know when someone reacts to your messages.</p>
             </div>
             <div class="scope-card">
-              <code>chat:write</code>
-              <p>Granted to the ReactPing bot, so it can DM you.</p>
+              <h3>Send you a DM</h3>
+              <p>Put the reaction and message link where you'll see them.</p>
             </div>
-            <ul class="never">
-              <li>No message text or files</li>
-              <li>No reaction history</li>
-              <li>No analytics or ads</li>
-            </ul>
           </div>
         </div>
       </section>
 
       <section class="section section-sunk" aria-labelledby="faq-heading">
         <div class="wrap narrow">
-          <p class="eyebrow">Questions</p>
-          <h2 id="faq-heading">Short answers</h2>
+          <h2 id="faq-heading">A few quick answers.</h2>
           <div class="faq-list">
             <details class="faq-item">
-              <summary>Which reactions trigger a DM?</summary>
+              <summary>Who gets the notification?</summary>
+              <div class="faq-answer">
+                <p>You do, when someone else reacts to a message you wrote. Your own reactions don't trigger a DM.</p>
+              </div>
+            </details>
+            <details class="faq-item">
+              <summary>Can my team use it?</summary>
               <div class="faq-answer">
                 <p>
-                  Reactions other people add to messages <em>you</em> wrote, in a workspace where you added ReactPing.
-                  Reactions on other people's messages, on files, removed reactions, and your own reactions to your own
-                  messages never send anything.
+                  Yes. Each person connects their own Slack account. Connect in each workspace where you want
+                  notifications; DMs stay in that workspace.
                 </p>
               </div>
             </details>
             <details class="faq-item">
-              <summary>Can I get notifications from several workspaces in one place?</summary>
+              <summary>Does it need admin approval?</summary>
               <div class="faq-answer">
                 <p>
-                  Not yet. Each workspace's notifications stay in that workspace. A single inbox across workspaces may
-                  come later.
-                </p>
-              </div>
-            </details>
-            <details class="faq-item">
-              <summary>Which conversations are covered?</summary>
-              <div class="faq-answer">
-                <p>
-                  Messages in conversations you can see. Live testing of this version is still in progress; public
-                  channels were confirmed on an earlier version, and private channels, threads, DMs, group DMs, and
-                  Slack Connect channels have not been confirmed yet.
-                </p>
-              </div>
-            </details>
-            <details class="faq-item">
-              <summary>My workspace needs admin approval for apps. What happens?</summary>
-              <div class="faq-answer">
-                <p>
-                  Slack shows a request form instead of the approval screen. Once an admin approves, add ReactPing
-                  again. Enterprise Grid organizations are not supported.
+                  Only if your workspace requires it. Ask an admin to approve ReactPing, then connect. Enterprise Grid
+                  installs aren't supported.
                 </p>
               </div>
             </details>
             <details class="faq-item">
               <summary>Is it free?</summary>
-              <div class="faq-answer">
-                <p>ReactPing is a free pilot with no uptime commitment; it may change, pause, or end.</p>
-              </div>
+              <div class="faq-answer"><p>Yes. Add ReactPing to Slack and start using it.</p></div>
+            </details>
+            <details class="faq-item">
+              <summary>Will it catch every reaction?</summary>
+              <div class="faq-answer"><p>Notifications are best effort. Missed reactions aren't replayed.</p></div>
             </details>
           </div>
         </div>
@@ -260,8 +223,8 @@
       <section class="cta-band" aria-labelledby="cta-heading">
         <div class="wrap cta-inner">
           <div>
-            <h2 id="cta-heading">Stop checking threads for reactions.</h2>
-            <p>Add ReactPing in a minute. Disconnect whenever you like.</p>
+            <h2 id="cta-heading">Get the reaction. Keep the conversation.</h2>
+            <p>Your next reaction belongs in your DMs.</p>
           </div>
           <div class="cta-actions">
             <a class="btn btn-primary btn-large" href="/api/slack/install">Add to Slack</a>

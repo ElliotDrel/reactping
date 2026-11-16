@@ -40,89 +40,58 @@
       <section class="page-head">
         <div class="wrap narrow">
           <p class="eyebrow">Privacy</p>
-          <h1>Privacy notice</h1>
-          <p class="lede">Plain description of the data ReactPing handles.</p>
+          <h1>Your data. Kept simple.</h1>
+          <p class="lede">What we store, why we need it, and how you remove it.</p>
         </div>
       </section>
       <section class="section section-tight">
         <div class="wrap narrow prose">
-          <div class="notice notice-draft" role="note">
-            <strong>Draft for the pilot.</strong> This describes how ReactPing works today. It has not had a legal
-            review and will be finalized before public launch.
-          </div>
-
-          <h2>What ReactPing stores</h2>
-          <p>For each person who adds ReactPing in a Slack workspace, one record containing:</p>
-          <ul>
-            <li>the Slack workspace ID and your Slack user ID, which are your only identity in ReactPing;</li>
-            <li>
-              the workspace's Slack address (for example <code>https://example.slack.com/</code>), used to link back to
-              messages;
-            </li>
-            <li>
-              the ReactPing bot's access token for that workspace and your own access token, both encrypted at rest
-              (AES-256-GCM);
-            </li>
-            <li>when the record was created and last updated.</li>
-          </ul>
-          <p>There is no separate ReactPing account, password, or email address.</p>
-
-          <h2>What ReactPing never stores</h2>
+          <h2>What we store</h2>
           <p>
-            Message text, files, channel history, names, email addresses, or any record of reactions. When Slack reports
-            a reaction to your message, ReactPing turns it into a DM and keeps nothing about it afterwards. The DM
-            itself lives in your Slack, like any other message. ReactPing has no analytics, advertising, or tracking
-            scripts, and does not sell or share data.
+            Your Slack workspace and user IDs, workspace URL, encrypted access tokens, and connection timestamps. These
+            let ReactPing recognize your connection and send you DMs.
           </p>
-
-          <h2>How it is used</h2>
+          <h2>What we don't store</h2>
           <p>
-            Only to send you reaction notifications in the same workspace, show your status in ReactPing's Slack Home
-            tab, and keep the service secure. Notifications never move between workspaces.
+            Message text, files, channel history, names, email addresses, or reaction history. Reaction details are
+            processed to send your notification, then discarded. The notification itself stays in Slack.
           </p>
-
-          <h2>Browser storage</h2>
+          <h2>How we use it</h2>
           <p>
-            While you add ReactPing to Slack, the site sets one short-lived, signed, HttpOnly cookie that ties the
-            approval to your browser. It expires after 10 minutes and is cleared when you return. The website uses no
-            other cookies and no scripts.
+            To deliver reaction notifications and manage your connection. Notifications stay in the workspace where the
+            reaction happened. No advertising, tracking, or sale of your data.
           </p>
-
-          <h2>Reliability</h2>
+          <h2>Security and cookies</h2>
           <p>
-            Notifications are best effort. ReactPing does not queue or retry them: if Slack cannot reach ReactPing, or a
-            DM fails, that notification is lost. Reactions from before you connected, or during an outage, are never
-            sent later.
+            Access tokens are encrypted with AES-256-GCM. During installation, one signed, HttpOnly cookie connects
+            Slack's approval to your browser. It expires after 10 minutes and is cleared when you return. The website
+            has no tracking scripts.
           </p>
-
-          <h2>Service providers</h2>
-          <ul>
-            <li><strong>Vercel</strong> hosts the website and the Slack endpoints.</li>
-            <li><strong>Supabase</strong> hosts the Postgres database that holds the records above.</li>
-            <li><strong>Slack</strong> delivers reaction events and the DMs ReactPing sends.</li>
-          </ul>
+          <h2>Our service providers</h2>
           <p>
-            Hosting providers keep their own operational logs, such as IP addresses and request times. ReactPing's own
-            logs contain workspace IDs and error codes only, never tokens, authorization codes, or message content.
+            Vercel hosts the website and API. Supabase stores connection records. Slack supplies reaction events and
+            delivers DMs. These providers process data to run the service and may keep operational logs such as IP
+            addresses and request times.
           </p>
-
-          <h2>Leaving and deletion</h2>
-          <ul>
-            <li>
-              Press <strong>Disconnect</strong> in ReactPing's Home tab in Slack: your record is deleted immediately and
-              ReactPing asks Slack to revoke your access token. Other people's connections in the workspace are not
-              affected, so the shared ReactPing bot stays in the workspace until someone removes the app in Slack.
-            </li>
-            <li>Removing the app from a workspace in Slack deletes every ReactPing record for that workspace.</li>
-            <li>If Slack reports that access was revoked, the affected records are deleted.</li>
-          </ul>
-
-          <h2>Contact</h2>
           <p>
-            ReactPing is in a private pilot and a public support address has not been published yet. Pilot participants
-            can reach the maintainer through the channel they were invited from. Please never send Slack tokens or
-            message contents.
+            ReactPing's logs contain workspace IDs and error codes, never access tokens, authorization codes, or message
+            content.
           </p>
+          <h2>Disconnect and delete</h2>
+          <p>
+            Select <strong>Disconnect</strong> in ReactPing's Slack Home tab to delete your connection record and
+            request revocation of your user token. Other people's connections stay active. Removing ReactPing from a
+            workspace deletes its connection records when Slack notifies us. Revocation events remove the affected
+            connections.
+          </p>
+          <h2>Delivery</h2>
+          <p>
+            Notifications are best effort. Failed deliveries and reactions during downtime aren't replayed. Our
+            free-tier database may pause after about a week of low activity; notifications resume after the project is
+            restored.
+          </p>
+          <h2>Questions?</h2>
+          <p>Contact the person who shared ReactPing with you for help with your connection or data.</p>
         </div>
       </section>
     </main>
