@@ -6,7 +6,7 @@
     <title>ReactPing: reaction notifications for Slack</title>
     <meta
       name="description"
-      content="ReactPing DMs you when someone reacts to your Slack message: who reacted, the emoji, and a link back. No tracking, and it never reads your messages."
+      content="ReactPing DMs you when someone reacts to your Slack message: who reacted, the emoji, and a link back. No tracking, and it never stores your messages."
     />
     <meta name="robots" content="noindex, nofollow" />
     <meta property="og:type" content="website" />
@@ -60,7 +60,7 @@
 
       <section class="privacy" id="privacy" aria-labelledby="privacy-heading">
         <div class="wrap">
-          <h2 id="privacy-heading">No tracking. Your messages are never read.</h2>
+          <h2 id="privacy-heading">No tracking. Your messages are never stored.</h2>
           <p class="privacy-intro">Open source. Check the code.</p>
           <dl class="claims">
             <div>
@@ -73,7 +73,7 @@
             <div>
               <dt>Reactions only</dt>
               <dd>
-                Never asks Slack for message text.
+                No other data is needed.
                 <a href="https://github.com/ElliotDrel/reactping/blob/main/src/handler.ts#L309-L338">Event handling</a>
                 <a href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L113-L160">Slack calls</a>
               </dd>

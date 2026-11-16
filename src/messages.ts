@@ -73,7 +73,7 @@ export const WELCOME_TEXT =
 
 const BEST_EFFORT =
   "Best effort: if Slack can't reach ReactPing, or a DM fails, that notification is skipped and never backfilled. " +
-  "ReactPing never reads message text.";
+  "ReactPing never stores message text.";
 
 export function homeView(options: { connected: boolean; siteUrl: string; includeSelfReactions: boolean }): View {
   if (!options.connected) {

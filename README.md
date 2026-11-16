@@ -11,12 +11,12 @@ Status (November 16, 2026): the Slack-only version is deployed at [reactping.ver
 - **Add to Slack** from the website. Slack OAuth is the only identity: a person is their Slack workspace ID plus user ID. There is no separate account, email, or password.
 - Authorize with user `reactions:read` and bot `chat:write`.
 - Notify only when `item.type` is `message`, `item_user` is a connected user in that same workspace, and the reactor is someone else (unless the testing flag `INCLUDE_SELF_REACTIONS` is on).
-- Deliver in the same workspace only: a bot DM with the reactor mention, the emoji, and a link to the message. No message text, no history, no unfurls.
+- Deliver in the same workspace only: a bot DM with the reactor mention, the emoji, a link on "your message", and a one-line preview (up to 160 characters) of the reacted-to message, fetched with `reactions.get` using the author's own `reactions:read` token. The preview text is never stored or logged; if the fetch fails, the DM goes out without it. No history, no unfurls. Superseded (November 16, 2026): "No message text" and the separate "View message" link.
 - A welcome DM on install; ReactPing's Slack **Home** tab shows the status and a **Disconnect** button.
 - Best effort: Slack's request is acknowledged immediately and the DM is sent right after. Slack retries are ignored, and nothing is queued, retried, or backfilled, so an occasional notification can be lost. The website says so.
 - Store no reaction, event, or delivery records.
 
-Deferred to v2: a single inbox across workspaces (with explicit consent). Also deferred: billing, analytics, digests, per-emoji filters, message previews, backfill, Marketplace submission, and organization-wide (Enterprise Grid) installs.
+Deferred to v2: a single inbox across workspaces (with explicit consent). Also deferred: billing, analytics, digests, per-emoji filters, backfill, Marketplace submission, and organization-wide (Enterprise Grid) installs.
 
 ## Architecture
 
