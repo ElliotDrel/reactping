@@ -306,6 +306,10 @@ a:hover {
   padding-block: clamp(64px, 9vw, 112px);
 }
 
+.faq {
+  padding-block: clamp(64px, 9vw, 112px);
+}
+
 .privacy-intro {
   font-size: 1.2rem;
   color: var(--ink-2);
