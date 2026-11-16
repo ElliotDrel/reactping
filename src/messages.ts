@@ -59,7 +59,7 @@ export function homeView(options: { connected: boolean; siteUrl: string; include
           type: "section",
           text: {
             type: "mrkdwn",
-            text: `*Not connected.* You won't get reaction DMs in this workspace. To connect, use Add to Slack at <${escapeMrkdwn(options.siteUrl)}/|ReactPing>.`,
+            text: `*Not connected.* You won't get reaction DMs in this workspace. To connect again, <${escapeMrkdwn(options.siteUrl)}/connect|add ReactPing to Slack>.`,
           },
         },
       ],

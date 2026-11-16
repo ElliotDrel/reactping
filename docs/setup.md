@@ -37,7 +37,7 @@ URLs under `PUBLIC_SITE_URL`:
 
 | Route                           | Slack setting                           |
 | ------------------------------- | --------------------------------------- |
-| `GET /api/slack/install`        | none; the website's "Add to Slack" link |
+| `GET /api/slack/install`        | none; `/connect`'s "Continue to Slack"  |
 | `GET /api/slack/oauth/callback` | OAuth & Permissions → Redirect URL      |
 | `POST /api/slack/events`        | Event Subscriptions → Request URL       |
 | `POST /api/slack/interactions`  | Interactivity & Shortcuts → Request URL |

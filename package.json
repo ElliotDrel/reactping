@@ -2,6 +2,7 @@
   "name": "reactping",
   "version": "0.0.0",
   "private": true,
+  "license": "MIT",
   "description": "Slack app that DMs you when someone reacts to your messages.",
   "type": "module",
   "engines": {

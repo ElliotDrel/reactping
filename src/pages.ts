@@ -39,14 +39,23 @@ const HEADERS = {
     "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 };
 
+/** Every new connection, success or retry, goes through the static /connect instructions first. */
+export const CONNECT_PATH = "/connect";
+
 export function resultPage(outcome: Outcome, status: number, cookie: string, slackLink?: string): Response {
   const { title, body } = COPY[outcome];
-  const action =
+  const actions =
     outcome === "connected"
-      ? slackLink
-        ? `<a class="btn btn-primary btn-large" href="${slackLink.replace(/&/g, "&amp;")}">Open ReactPing in Slack</a>`
-        : ""
-      : `<a class="btn btn-primary btn-large" href="/api/slack/install">Add to Slack</a>`;
+      ? [
+          slackLink
+            ? `<a class="btn btn-large" href="${slackLink.replace(/&/g, "&amp;")}">Open ReactPing in Slack</a>`
+            : "",
+          `<a class="btn btn-quiet btn-large" href="${CONNECT_PATH}">Add another workspace</a>`,
+        ]
+      : [
+          `<a class="btn btn-large" href="${CONNECT_PATH}">Try again</a>`,
+          `<a class="btn btn-quiet btn-large" href="/">Back to ReactPing</a>`,
+        ];
   const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -58,15 +67,11 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, sla
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>
-    <main id="main">
-      <section class="page-head">
-        <div class="wrap narrow">
-          <p class="eyebrow"><a href="/">ReactPing</a></p>
-          <h1>${title}</h1>
-          <p class="lede">${body}</p>
-          <div class="hero-actions">${action}<a class="btn btn-quiet btn-large" href="/">Back to ReactPing</a></div>
-        </div>
-      </section>
+    <header class="site-header wrap"><a class="brand" href="/">ReactPing</a></header>
+    <main id="main" class="page wrap">
+      <h1>${title}</h1>
+      <p class="lede">${body}</p>
+      <div class="actions">${actions.join("")}</div>
     </main>
   </body>
 </html>

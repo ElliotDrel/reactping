@@ -3,257 +3,113 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>ReactPing · A DM when someone reacts to your Slack messages</title>
+    <title>ReactPing: reaction notifications for Slack</title>
     <meta
       name="description"
-      content="ReactPing is a Slack app that DMs you when someone reacts to your message, with the emoji, who reacted, and a link back. No message text is read or stored."
+      content="ReactPing DMs you when someone reacts to your Slack message: who reacted, the emoji, and a link back. No tracking, and it never reads your messages."
     />
     <meta name="robots" content="noindex, nofollow" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="ReactPing" />
-    <meta property="og:title" content="ReactPing · A DM when someone reacts to your Slack messages" />
+    <meta property="og:title" content="ReactPing: reaction notifications for Slack" />
     <meta
       property="og:description"
-      content="A Slack app that DMs you when someone reacts to your message, with the emoji, who reacted, and a link back."
+      content="A DM when someone reacts to your Slack message: who reacted, the emoji, and a link back."
     />
     <meta property="og:image" content="/assets/social-card.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="ReactPing: a DM when someone reacts to your Slack messages." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="theme-color" content="#FAF6EE" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
-      <div class="wrap header-inner">
-        <a class="brand" href="/" aria-label="ReactPing home">
-          <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
-            <path
-              d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z"
-              fill="currentColor"
-            />
-            <circle cx="22.5" cy="9.5" r="5" fill="var(--accent-bright)" stroke="var(--bg)" stroke-width="2.5" /></svg
-          ><span>ReactPing</span>
-        </a>
-        <nav class="site-nav" aria-label="Main">
-          <ul>
-            <li><a href="#how-it-works">How it works</a></li>
-            <li><a href="/privacy">Privacy</a></li>
-          </ul>
-          <a class="btn btn-primary btn-small" href="/api/slack/install">Add to Slack</a>
-        </nav>
-      </div>
+    <header class="site-header wrap">
+      <a class="brand" href="/" aria-label="ReactPing home">
+        <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
+          <path d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z" />
+          <circle class="logo-dot" cx="23" cy="9.5" r="5" />
+        </svg>
+        <span>ReactPing</span>
+      </a>
+      <nav aria-label="Main">
+        <a href="#privacy">Privacy</a>
+        <a class="btn btn-small" href="/connect">Add to Slack</a>
+      </nav>
     </header>
 
     <main id="main">
-      <section class="hero">
-        <div class="wrap hero-inner">
-          <div class="hero-copy">
-            <h1>Reaction notifications for Slack</h1>
-            <p class="lede">
-              Someone reacted to your message. Get a DM with who, which emoji, and a link straight back.
+      <section class="hero wrap">
+        <div class="hero-copy">
+          <h1>Reaction notifications for Slack</h1>
+          <p class="lede">Reactions get lost in busy channels. Get a DM with who reacted and a link back.</p>
+          <a class="btn btn-large" href="/connect">Add to Slack</a>
+        </div>
+
+        <figure class="ping" aria-label="Example: ReactPing DMs you that Sam reacted with a party popper">
+          <span class="ping-emoji" aria-hidden="true">🎉</span>
+          <div class="ping-dm">
+            <p class="ping-from"><strong>ReactPing</strong> <span>now</span></p>
+            <p>
+              <span class="mention">@Sam</span> reacted 🎉 to your message. <span class="fake-link">View message</span>
             </p>
-            <div class="hero-actions">
-              <a class="btn btn-primary btn-large" href="/api/slack/install">Add to Slack</a>
-              <a class="btn btn-quiet btn-large" href="#how-it-works">How it works</a>
-            </div>
           </div>
-
-          <figure class="demo" aria-label="Example reaction notification">
-            <div class="demo-stage">
-              <div class="mock mock-channel">
-                <div class="mock-bar"><span class="mock-hash" aria-hidden="true">#</span> launch-notes</div>
-                <div class="mock-msg">
-                  <div class="avatar avatar-a" aria-hidden="true">M</div>
-                  <div class="mock-body">
-                    <p class="mock-meta"><strong>Maya</strong> <span>10:42 AM</span></p>
-                    <p>Draft release notes are up. Comments welcome before Thursday.</p>
-                    <ul class="reactions" aria-label="Reactions on Maya's message">
-                      <li><span aria-hidden="true">👀</span> 2</li>
-                      <li class="reaction-new">
-                        <span aria-hidden="true">🎉</span> 1<span class="sr-only"> new party popper reaction</span>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              <div class="demo-link" aria-hidden="true"><span></span></div>
-              <div class="mock mock-dm">
-                <div class="mock-bar">Direct message</div>
-                <div class="mock-msg">
-                  <div class="avatar avatar-bot" aria-hidden="true">
-                    <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
-                      <path
-                        d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z"
-                        fill="currentColor"
-                      />
-                      <circle
-                        cx="22.5"
-                        cy="9.5"
-                        r="5"
-                        fill="var(--accent-bright)"
-                        stroke="var(--bg)"
-                        stroke-width="2.5"
-                      />
-                    </svg>
-                  </div>
-                  <div class="mock-body">
-                    <p class="mock-meta">
-                      <strong>ReactPing</strong> <span class="app-tag">App</span> <span>10:43 AM</span>
-                    </p>
-                    <p>
-                      <span class="mention">@Sam</span> reacted 🎉 to your message.
-                      <span class="fake-link">View message</span>
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </figure>
-        </div>
+        </figure>
       </section>
 
-      <section class="section" id="how-it-works" aria-labelledby="steps-heading">
+      <section class="privacy" id="privacy" aria-labelledby="privacy-heading">
         <div class="wrap">
-          <p class="eyebrow">How it works</p>
-          <h2 id="steps-heading">Add it. Get back to work.</h2>
-          <ol class="steps">
-            <li>
-              <span class="step-num" aria-hidden="true">1</span>
-              <h3>Add to Slack</h3>
-              <p>Choose your workspace and approve. No new account.</p>
-            </li>
-            <li>
-              <span class="step-num" aria-hidden="true">2</span>
-              <h3>Keep the conversation going</h3>
-              <p>Post your messages as usual. ReactPing handles the reactions.</p>
-            </li>
-            <li>
-              <span class="step-num" aria-hidden="true">3</span>
-              <h3>Get the ping</h3>
-              <p>See who reacted, see the emoji, and jump back into the conversation.</p>
-            </li>
-          </ol>
-        </div>
-      </section>
-
-      <section class="section section-sunk" aria-labelledby="limits-heading">
-        <div class="wrap">
-          <h2 id="limits-heading">Less checking. More connection.</h2>
-          <div class="cards">
-            <article class="card">
-              <h3>See the response</h3>
-              <p>A thank-you. A thumbs-up. A celebration. See the reactions to your messages in your DMs.</p>
-            </article>
-            <article class="card">
-              <h3>Go straight to the message</h3>
-              <p>Every notification links to the original. Pick up where you left off.</p>
-            </article>
-            <article class="card">
-              <h3>Stay in control</h3>
-              <p>Connect the workspaces you use. Manage your connection from ReactPing's Home tab.</p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="privacy-heading">
-        <div class="wrap split">
-          <div>
-            <h2 id="privacy-heading">Your messages stay yours.</h2>
-            <p>ReactPing handles reactions, not message text. No history downloads. No tracking.</p>
-            <p><a href="/privacy">Read our privacy policy</a></p>
-          </div>
-          <div class="scope-cards">
-            <div class="scope-card">
-              <h3>Read reactions</h3>
-              <p>Know when someone reacts to your messages.</p>
+          <h2 id="privacy-heading">No tracking. Your messages are never read.</h2>
+          <p class="privacy-intro">Open source. Check the code.</p>
+          <dl class="claims">
+            <div>
+              <dt>Two permissions</dt>
+              <dd>
+                See reactions. Send you a DM.
+                <a href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L3-L4">Scopes</a>
+              </dd>
             </div>
-            <div class="scope-card">
-              <h3>Send you a DM</h3>
-              <p>Put the reaction and message link where you'll see them.</p>
+            <div>
+              <dt>Reactions only</dt>
+              <dd>
+                Never asks Slack for message text.
+                <a href="https://github.com/ElliotDrel/reactping/blob/main/src/handler.ts#L308-L333">Event handling</a>
+                <a href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L111-L153">Slack calls</a>
+              </dd>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section section-sunk" aria-labelledby="faq-heading">
-        <div class="wrap narrow">
-          <h2 id="faq-heading">A few quick answers.</h2>
-          <div class="faq-list">
-            <details class="faq-item">
-              <summary>Who gets the notification?</summary>
-              <div class="faq-answer">
-                <p>You do, when someone else reacts to a message you wrote. Your own reactions don't trigger a DM.</p>
-              </div>
-            </details>
-            <details class="faq-item">
-              <summary>Can my team use it?</summary>
-              <div class="faq-answer">
-                <p>
-                  Yes. Each person connects their own Slack account. Connect in each workspace where you want
-                  notifications; DMs stay in that workspace.
-                </p>
-              </div>
-            </details>
-            <details class="faq-item">
-              <summary>Does it need admin approval?</summary>
-              <div class="faq-answer">
-                <p>
-                  Only if your workspace requires it. Ask an admin to approve ReactPing, then connect. Enterprise Grid
-                  installs aren't supported.
-                </p>
-              </div>
-            </details>
-            <details class="faq-item">
-              <summary>Is it free?</summary>
-              <div class="faq-answer"><p>Yes. Add ReactPing to Slack and start using it.</p></div>
-            </details>
-            <details class="faq-item">
-              <summary>Will it catch every reaction?</summary>
-              <div class="faq-answer"><p>Notifications are best effort. Missed reactions aren't replayed.</p></div>
-            </details>
-          </div>
-        </div>
-      </section>
-
-      <section class="cta-band" aria-labelledby="cta-heading">
-        <div class="wrap cta-inner">
-          <div>
-            <h2 id="cta-heading">Get the reaction. Keep the conversation.</h2>
-            <p>Your next reaction belongs in your DMs.</p>
-          </div>
-          <div class="cta-actions">
-            <a class="btn btn-primary btn-large" href="/api/slack/install">Add to Slack</a>
-          </div>
+            <div>
+              <dt>Minimal storage</dt>
+              <dd>
+                Slack IDs, workspace URL, encrypted tokens.
+                <a
+                  href="https://github.com/ElliotDrel/reactping/blob/main/supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24"
+                  >Table</a
+                >
+                <a href="https://github.com/ElliotDrel/reactping/blob/main/src/db.ts#L82-L83">Encryption</a>
+              </dd>
+            </div>
+            <div>
+              <dt>No tracking</dt>
+              <dd>
+                No analytics or scripts.
+                <a href="https://github.com/ElliotDrel/reactping/blob/main/vercel.json#L17-L18">Script block</a>
+              </dd>
+            </div>
+          </dl>
         </div>
       </section>
     </main>
 
-    <footer class="site-footer">
-      <div class="wrap footer-inner">
-        <div class="footer-brand">
-          <a class="brand" href="/"
-            ><svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
-              <path
-                d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z"
-                fill="currentColor"
-              />
-              <circle cx="22.5" cy="9.5" r="5" fill="var(--accent-bright)" stroke="var(--bg)" stroke-width="2.5" /></svg
-            ><span>ReactPing</span></a
-          >
-          <p>A DM when someone reacts to your Slack messages.</p>
-        </div>
-        <nav aria-label="Footer">
-          <ul>
-            <li><a href="/api/slack/install">Add to Slack</a></li>
-            <li><a href="/privacy">Privacy</a></li>
-          </ul>
-        </nav>
-      </div>
+    <footer class="site-footer wrap">
+      <p>Free and MIT licensed.</p>
+      <nav aria-label="Footer">
+        <a href="/connect">Add to Slack</a>
+        <a href="/privacy">Privacy</a>
+        <a href="https://github.com/ElliotDrel/reactping">Source code</a>
+      </nav>
     </footer>
   </body>
 </html>

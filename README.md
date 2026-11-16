@@ -2,7 +2,7 @@
 
 A Slack app that DMs you when someone reacts to your messages.
 
-Status (November 15, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 66 tests against disposable Postgres. Slack configuration, installation, welcome DM, App Home, and a real self-reaction round trip are verified. Tester B's real public-channel reactions also delivered DMs in normal mode. Disconnect, reinstall, revocation, and uninstall are explicitly skipped/unverified on the live app at Elliot's request. Unlisted distribution is enabled for second-workspace testing; Elliot confirmed installation and receipt of a real reaction DM in a second workspace on November 15 (owner-reported live coverage). Superseded: the November 13 status wording that included November 14 results. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
+Status (November 15, 2026): the Slack-only version is deployed at [reactping.vercel.app](https://reactping.vercel.app). Non-Slack hosted checks pass, and the old account schema, delivery job, Vault secrets, and unused Vercel variables are removed. Supabase email Auth is disabled; no SMTP setup is needed. Local checks pass with 77 tests against disposable Postgres (November 16). Slack configuration, installation, welcome DM, App Home, and a real self-reaction round trip are verified. Tester B's real public-channel reactions also delivered DMs in normal mode. Disconnect, reinstall, revocation, and uninstall are explicitly skipped/unverified on the live app at Elliot's request. Unlisted distribution is enabled for second-workspace testing; Elliot confirmed installation and receipt of a real reaction DM in a second workspace on November 15 (owner-reported live coverage). Superseded: the November 13 status wording that included November 14 results. See [verification](docs/verification.md), [setup](docs/setup.md), and [the connection guide](docs/connection-guide.md). Superseded: the separate account, cross-workspace inbox, dashboard, and durable outbox.
 
 ## V1
 
@@ -20,10 +20,10 @@ Deferred to v2: a single inbox across workspaces (with explicit consent). Also d
 
 TypeScript on Node 24, deployed to Vercel with Supabase Postgres. Superseded: the Build Output API generator, Supabase Auth, pg_cron/pg_net/Vault delivery recovery, and the SQLite service before that.
 
-- **Website:** plain static HTML and CSS in `public/` (`/` and `/privacy`, plus a 404 page). No JavaScript, no configuration, no browser auth. "Add to Slack" is the relative link `/api/slack/install`. Security headers, clean URLs, and `noindex` come from `vercel.json`.
+- **Website:** plain static HTML and CSS in `public/` (`/`, `/connect`, and `/privacy`, plus a 404 page). No JavaScript, no configuration, no browser auth. Every "Add to Slack" link opens `/connect`, which explains workspace choice, per-workspace and per-person connection, and admin approval, then continues to `/api/slack/install`. The homepage's privacy claims link to exact source lines; `test/site.test.ts` fails if those lines stop matching. Security headers, clean URLs, and `noindex` come from `vercel.json`. Superseded: CTAs linking straight to `/api/slack/install`.
 - **Functions:** standard Vercel filesystem functions in `api/`, one per Slack URL, each exporting a Web-standard `GET` or `POST` that calls one shared handler (`src/handler.ts`). The handler takes its dependencies as arguments, so tests run it directly with a mocked Slack API.
   - `GET /api/slack/install` sets the OAuth state cookie and redirects to Slack.
-  - `GET /api/slack/oauth/callback` completes OAuth and shows a small result page.
+  - `GET /api/slack/oauth/callback` completes OAuth and shows a small result page. Success offers **Open ReactPing in Slack** and **Add another workspace** (back to `/connect`); failures offer **Try again** through `/connect`.
   - `POST /api/slack/events` takes Slack events.
   - `POST /api/slack/interactions` takes the Home tab's Disconnect button.
 - **OAuth CSRF:** the `state` is a random nonce. The browser holds an HttpOnly, Secure, `SameSite=Lax`, `__Host-` cookie carrying the same nonce and a 10-minute expiry, HMAC-signed with a key derived from `ENCRYPTION_KEY` for this purpose only. Wrong browser, expiry, or tampering fails. Nothing is stored.
@@ -46,7 +46,7 @@ TypeScript on Node 24, deployed to Vercel with Supabase Postgres. Superseded: th
 4. Skipped/unverified by Elliot's choice: live Disconnect, reinstall, revocation, and uninstall. Do not claim those checks passed.
 5. Complete by owner report: second-workspace installation and receipt of a normal-mode reaction DM, November 15. Next: a small opt-in pilot. Release decision: Elliot approved tagging v0.1.0 on November 15 with the lifecycle checks skipped.
 
-Ship criterion: Elliot's workspace works end to end on the hosted app with documented coverage and no message-content collection. v0.1.0 is the approved pilot release with live Disconnect, reinstall, revocation, and uninstall explicitly skipped/unverified. Superseded: the release-tag decision was previously pending. Unlisted distribution is enabled for testing; Marketplace submission is deferred; this repository stays private until Elliot requests otherwise.
+Ship criterion: Elliot's workspace works end to end on the hosted app with documented coverage and no message-content collection. v0.1.0 is the approved pilot release with live Disconnect, reinstall, revocation, and uninstall explicitly skipped/unverified. Superseded: the release-tag decision was previously pending. Unlisted distribution is enabled for testing; Marketplace submission is deferred; this repository stays private until Elliot requests otherwise. Open-source readiness (MIT license, contributing and security docs, source-linked privacy claims) was added November 16; publication awaits Elliot's review.
 
 ## Development
 
@@ -66,7 +66,15 @@ npm run dev                           # vercel dev (needs the Vercel CLI and a l
 
 Layout: `public/` (site), `api/` (Vercel entry points), `src/handler.ts` (routes), `src/db.ts` (installations store), `src/slack.ts` (Slack client), `src/messages.ts` (DM and Home text, links), `src/oauth-state.ts` (state cookie), `src/vercel.ts` (environment wiring, `waitUntil`), `supabase/migrations/`. Tests live in `test/`.
 
+## Self-hosting
+
+Create a Slack app from [`slack-manifest.template.yaml`](slack-manifest.template.yaml), a Supabase Postgres database with the migrations in `supabase/migrations/` (they revoke Supabase's `anon` and `authenticated` roles), and a Vercel project with the variables in [`.env.example`](.env.example). [Setup](docs/setup.md) is the full technical contract. The `docs/` connection guide, checklist, and verification log record the hosted instance's own rollout.
+
 Environment contract: [`.env.example`](.env.example). Slack URLs under `PUBLIC_SITE_URL`: OAuth redirect `/api/slack/oauth/callback`, events `/api/slack/events`, interactivity `/api/slack/interactions`.
+
+## Contributing, security, license
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) and [SECURITY.md](SECURITY.md). ReactPing is released under the [MIT License](LICENSE).
 
 ## Verified references
 

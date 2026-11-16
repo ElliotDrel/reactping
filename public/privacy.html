@@ -3,111 +3,99 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Privacy · ReactPing</title>
+    <title>ReactPing privacy policy</title>
     <meta
       name="description"
       content="What ReactPing stores, why, which service providers process it, and how to delete it."
     />
     <meta name="robots" content="noindex, nofollow" />
-    <meta name="theme-color" content="#FAF6EE" />
+    <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
-    <header class="site-header">
-      <div class="wrap header-inner">
-        <a class="brand" href="/" aria-label="ReactPing home"
-          ><svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
-            <path
-              d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z"
-              fill="currentColor"
-            />
-            <circle cx="22.5" cy="9.5" r="5" fill="var(--accent-bright)" stroke="var(--bg)" stroke-width="2.5" /></svg
-          ><span>ReactPing</span></a
-        >
-        <nav class="site-nav" aria-label="Main">
-          <ul>
-            <li><a href="/#how-it-works">How it works</a></li>
-            <li><a href="/privacy" aria-current="page">Privacy</a></li>
-          </ul>
-          <a class="btn btn-primary btn-small" href="/api/slack/install">Add to Slack</a>
-        </nav>
-      </div>
+    <header class="site-header wrap">
+      <a class="brand" href="/" aria-label="ReactPing home">
+        <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
+          <path d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z" />
+          <circle class="logo-dot" cx="23" cy="9.5" r="5" />
+        </svg>
+        <span>ReactPing</span>
+      </a>
+      <nav aria-label="Main">
+        <a class="btn btn-small" href="/connect">Add to Slack</a>
+      </nav>
     </header>
 
-    <main id="main">
-      <section class="page-head">
-        <div class="wrap narrow">
-          <p class="eyebrow">Privacy</p>
-          <h1>Your data. Kept simple.</h1>
-          <p class="lede">What we store, why we need it, and how you remove it.</p>
-        </div>
-      </section>
-      <section class="section section-tight">
-        <div class="wrap narrow prose">
-          <h2>What we store</h2>
-          <p>
-            Your Slack workspace and user IDs, workspace URL, encrypted access tokens, and connection timestamps. These
-            let ReactPing recognize your connection and send you DMs.
-          </p>
-          <h2>What we don't store</h2>
-          <p>
-            Message text, files, channel history, names, email addresses, or reaction history. Reaction details are
-            processed to send your notification, then discarded. The notification itself stays in Slack.
-          </p>
-          <h2>How we use it</h2>
-          <p>
-            To deliver reaction notifications and manage your connection. Notifications stay in the workspace where the
-            reaction happened. No advertising, tracking, or sale of your data.
-          </p>
-          <h2>Security and cookies</h2>
-          <p>
-            Access tokens are encrypted with AES-256-GCM. During installation, one signed, HttpOnly cookie connects
-            Slack's approval to your browser. It expires after 10 minutes and is cleared when you return. The website
-            has no tracking scripts.
-          </p>
-          <h2>Our service providers</h2>
-          <p>
-            Vercel hosts the website and API. Supabase stores connection records. Slack supplies reaction events and
-            delivers DMs. These providers process data to run the service and may keep operational logs such as IP
-            addresses and request times.
-          </p>
-          <p>
-            ReactPing's logs contain workspace IDs and error codes, never access tokens, authorization codes, or message
-            content.
-          </p>
-          <h2>Disconnect and delete</h2>
-          <p>
-            Select <strong>Disconnect</strong> in ReactPing's Slack Home tab to delete your connection record and
-            request revocation of your user token. Other people's connections stay active. Removing ReactPing from a
-            workspace deletes its connection records when Slack notifies us. Revocation events remove the affected
-            connections.
-          </p>
-          <h2>Delivery</h2>
-          <p>
-            Notifications are best effort. Failed deliveries and reactions during downtime aren't replayed. Our
-            free-tier database may pause after about a week of low activity; notifications resume after the project is
-            restored.
-          </p>
-          <h2>Questions?</h2>
-          <p>Contact the person who shared ReactPing with you for help with your connection or data.</p>
-        </div>
-      </section>
+    <main id="main" class="page wrap prose">
+      <h1>Privacy</h1>
+      <p class="lede">
+        No tracking, and ReactPing never reads your messages. ReactPing is
+        <a href="https://github.com/ElliotDrel/reactping">open source</a>, so you can check everything below.
+      </p>
+
+      <h2>What we store</h2>
+      <p>
+        For each person who connects, in each workspace: the Slack workspace ID, user ID, workspace URL, encrypted
+        access tokens, and when the connection was created and updated. That is what lets ReactPing recognize you and
+        send your DMs.
+      </p>
+
+      <h2>What we don't store</h2>
+      <p>
+        Message text, files, channel history, names, email addresses, or reaction history. ReactPing never asks Slack
+        for message text. When someone reacts, Slack sends who reacted, the emoji, and where. ReactPing uses that to
+        send your DM, then discards it. The DM itself stays in Slack.
+      </p>
+
+      <h2>How we use it</h2>
+      <p>
+        Only to deliver reaction notifications and manage your connection. Notifications stay in the workspace where the
+        reaction happened. No advertising, analytics, or sale of data.
+      </p>
+
+      <h2>Security and cookies</h2>
+      <p>
+        Access tokens are encrypted with AES-256-GCM. While you add ReactPing, one signed, HttpOnly cookie links Slack's
+        approval to your browser; it expires after 10 minutes and is cleared when you return. This website runs no
+        scripts.
+      </p>
+
+      <h2>Service providers</h2>
+      <p>
+        Vercel hosts the website and API. Supabase stores connection records. Slack sends reaction events and delivers
+        DMs. They may keep operational logs such as IP addresses and request times. ReactPing's own logs contain
+        workspace IDs and error codes, never tokens, authorization codes, or message content.
+      </p>
+
+      <h2>Disconnect and delete</h2>
+      <p>
+        Select <strong>Disconnect</strong> in ReactPing's Home tab in Slack. That deletes your connection record and
+        asks Slack to revoke your user token; other people's connections are unaffected. Removing ReactPing from a
+        workspace deletes all of that workspace's records when Slack notifies us.
+      </p>
+
+      <h2>Delivery</h2>
+      <p>
+        Notifications are best effort. Missed reactions aren't replayed. The free-tier database may pause after about a
+        week of low activity; notifications resume once it is restored.
+      </p>
+
+      <h2>Questions</h2>
+      <p>
+        Open an issue on <a href="https://github.com/ElliotDrel/reactping/issues">GitHub</a>. Report security issues
+        privately as described in the
+        <a href="https://github.com/ElliotDrel/reactping/blob/main/SECURITY.md">security policy</a>.
+      </p>
     </main>
 
-    <footer class="site-footer">
-      <div class="wrap footer-inner">
-        <div class="footer-brand">
-          <p>ReactPing: a DM when someone reacts to your Slack messages.</p>
-        </div>
-        <nav aria-label="Footer">
-          <ul>
-            <li><a href="/">Home</a></li>
-            <li><a href="/api/slack/install">Add to Slack</a></li>
-          </ul>
-        </nav>
-      </div>
+    <footer class="site-footer wrap">
+      <p><a href="/">ReactPing</a></p>
+      <nav aria-label="Footer">
+        <a href="/connect">Add to Slack</a>
+        <a href="https://github.com/ElliotDrel/reactping">Source code</a>
+      </nav>
     </footer>
   </body>
 </html>
