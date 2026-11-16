@@ -22,7 +22,7 @@ function links(page: string): [string, string][] {
   ]);
 }
 
-const REPO = "https://github.com/ElliotDrel/reactping-source/blob/main/";
+const REPO = "https://github.com/ElliotDrel/reactping/blob/main/";
 
 /**
  * Every source link on the site, and text its line range must contain. When code moves, this fails until the

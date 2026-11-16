@@ -26,14 +26,14 @@ November 15, 2026: Elliot confirmed installation in a second workspace and recei
 
 React as the reactor to a message authored by the connected user. Expect one bot DM with `<@reactor>`, the emoji, and a working link, with no unfurl.
 
-| Conversation                         | Status     | DM received           | Link opens message  |
-| ------------------------------------ | ---------- | --------------------- | ------------------- |
+| Conversation                         | Status     | DM received            | Link opens message  |
+| ------------------------------------ | ---------- | ---------------------- | ------------------- |
 | Public channel                       | Verified   | Yes (Tester B, Nov 14) | Correct source link |
-| Private channel (author is a member) | Unverified |                       |                     |
-| Thread reply                         | Unverified |                       |                     |
-| 1:1 DM between reactor and author    | Unverified |                       |                     |
-| Group DM (MPIM)                      | Unverified |                       |                     |
-| Slack Connect shared channel         | Unverified |                       |                     |
+| Private channel (author is a member) | Unverified |                        |                     |
+| Thread reply                         | Unverified |                        |                     |
+| 1:1 DM between reactor and author    | Unverified |                        |                     |
+| Group DM (MPIM)                      | Unverified |                        |                     |
+| Slack Connect shared channel         | Unverified |                        |                     |
 
 ## Filtering
 
