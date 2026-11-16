@@ -10,3 +10,6 @@ data/
 local-evidence/
 .DS_Store
 Thumbs.db
+
+# Local Supabase CLI link state
+supabase/.temp/
