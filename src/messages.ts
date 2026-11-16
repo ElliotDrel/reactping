@@ -36,8 +36,34 @@ export function messageLink(workspaceUrl: string, channel: string, ts: string): 
   return `${base}archives/${channel}/p${parts[1]}${parts[2]}`;
 }
 
-export function reactionNotification(reactorId: string, reaction: string, link: string): string {
-  return `<@${escapeMrkdwn(reactorId)}> reacted :${escapeMrkdwn(reaction)}: to your message. <${escapeMrkdwn(link)}|View message>`;
+export const PREVIEW_CHARS = 160;
+
+/**
+ * One line of a message's text for the DM: Slack markup reduced to its label (`<url|label>` -> label,
+ * `<@U1>` -> @U1), whitespace collapsed, cut at a word boundary with an ellipsis, then escaped.
+ */
+export function messagePreview(text: string | null | undefined): string | null {
+  if (!text) return null;
+  const plain = text
+    .replace(/<([^<>|]*)\|([^<>]*)>/g, "$2")
+    .replace(/<([^<>]*)>/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!plain) return null;
+  if (plain.length <= PREVIEW_CHARS) return escapeMrkdwn(plain);
+  const cut = plain.slice(0, PREVIEW_CHARS);
+  const space = cut.lastIndexOf(" ");
+  return `${escapeMrkdwn((space > PREVIEW_CHARS / 2 ? cut.slice(0, space) : cut).trimEnd())}…`;
+}
+
+export function reactionNotification(
+  reactorId: string,
+  reaction: string,
+  link: string,
+  preview?: string | null,
+): string {
+  const line = `<@${escapeMrkdwn(reactorId)}> reacted :${escapeMrkdwn(reaction)}: to <${escapeMrkdwn(link)}|your message>`;
+  return preview ? `${line}\n>${preview}` : line;
 }
 
 export const WELCOME_TEXT =

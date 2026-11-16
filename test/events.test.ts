@@ -70,10 +70,26 @@ describe("Slack events", { skip: dbSkip }, () => {
         [
           "xoxb-T1",
           "UAUTHOR",
-          "<@UREACTOR> reacted :tada: to your message. <https://acme.slack.com/archives/C123ABC/p1700000000000100|View message>",
+          "<@UREACTOR> reacted :tada: to <https://acme.slack.com/archives/C123ABC/p1700000000000100|your message>",
         ],
       ]);
       assert.equal(app.slack.callsTo("revoke").length, 0);
+    });
+
+    it("adds a preview fetched with the author's user token, and falls back without one on failure", async () => {
+      app.slack.messageText = "Deployed to prod";
+      await signedEvent(app, reactionEvent("T1", { reaction: "tada" }));
+      await app.settle();
+      const [fetch] = app.slack.callsTo("reactedMessageText");
+      assert.deepEqual(fetch!.args, ["xoxp-T1-UAUTHOR", "C123ABC", "1700000000.000100"]);
+      assert.match(String(dms()[0]![2]), /\|your message>\n>Deployed to prod$/);
+
+      app.slack.reactedMessageText = async () => {
+        throw new Error("missing_scope");
+      };
+      await signedEvent(app, reactionEvent("T1", { reaction: "tada" }));
+      await app.settle();
+      assert.match(String(dms()[1]![2]), /\|your message>$/);
     });
 
     it("ignores Slack retries without doing the work again", async () => {

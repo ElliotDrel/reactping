@@ -6,6 +6,7 @@ import {
   DISCONNECT_ACTION,
   homeView,
   messageLink,
+  messagePreview,
   parseWorkspaceUrl,
   reactionNotification,
   WELCOME_TEXT,
@@ -318,11 +319,15 @@ export function createHandler(deps: Deps | null): Handler {
     if (!installation) return;
     const link = messageLink(installation.workspaceUrl, item.channel, item.ts);
     if (!link) return;
+    // The preview is optional: any failure to fetch it sends the plain notification. The text is never stored or logged.
+    const preview = messagePreview(
+      await slack.reactedMessageText(installation.userToken, item.channel, item.ts).catch(() => null),
+    );
     try {
       await slack.postMessage(
         installation.botToken,
         installation.userId,
-        reactionNotification(reactorId, reaction, link),
+        reactionNotification(reactorId, reaction, link, preview),
       );
     } catch (error) {
       const failure = classifySlackError(error);

@@ -37,6 +37,8 @@ export interface SlackApi {
   postMessage(botToken: string, channel: string, text: string): Promise<void>;
   publishHome(botToken: string, userId: string, view: View): Promise<void>;
   revoke(token: string): Promise<void>;
+  /** Text of the reacted-to message (reactions.get with the author's user token), used only for the DM preview. */
+  reactedMessageText(userToken: string, channel: string, ts: string): Promise<string | null>;
 }
 
 const REVOKED_ERRORS = new Set([
@@ -149,6 +151,11 @@ export function createSlackApi(options: {
 
     async revoke(token) {
       await call(() => client.auth.revoke({ token }));
+    },
+
+    async reactedMessageText(userToken, channel, ts) {
+      const res = await call(() => client.reactions.get({ token: userToken, channel, timestamp: ts }));
+      return text(res.message?.text);
     },
   };
 }

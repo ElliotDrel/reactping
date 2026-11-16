@@ -3,7 +3,14 @@ import { randomBytes } from "node:crypto";
 import { describe, it } from "node:test";
 import { decrypt, deriveKey, encrypt, hmac } from "../src/crypto.ts";
 import { MAX_BODY_BYTES, readBody, verifySlackSignature } from "../src/handler.ts";
-import { escapeMrkdwn, homeView, messageLink, parseWorkspaceUrl, reactionNotification } from "../src/messages.ts";
+import {
+  escapeMrkdwn,
+  homeView,
+  messageLink,
+  messagePreview,
+  parseWorkspaceUrl,
+  reactionNotification,
+} from "../src/messages.ts";
 import { createOAuthState, OAUTH_STATE_TTL_SECONDS, verifyOAuthState } from "../src/oauth-state.ts";
 
 process.env.NODE_ENV = "test";
@@ -120,9 +127,29 @@ describe("notification text", () => {
     assert.equal(escapeMrkdwn("a<b>&c"), "a&lt;b&gt;&amp;c");
     assert.equal(
       reactionNotification("U1", "tada", "https://acme.slack.com/archives/C1/p1700000000000100"),
-      "<@U1> reacted :tada: to your message. <https://acme.slack.com/archives/C1/p1700000000000100|View message>",
+      "<@U1> reacted :tada: to <https://acme.slack.com/archives/C1/p1700000000000100|your message>",
     );
     assert.ok(!reactionNotification("U1", "a<b", "https://x/").includes("a<b"));
+  });
+
+  it("builds a one-line, escaped, word-boundary preview of the reacted-to message", () => {
+    assert.equal(messagePreview("Deployed\n\nto  prod"), "Deployed to prod");
+    assert.equal(
+      messagePreview("hi <@U123> see <https://x.test|the doc> & <!here>"),
+      "hi @U123 see the doc &amp; !here",
+    );
+    assert.equal(messagePreview("a <b"), "a &lt;b");
+    assert.equal(messagePreview(""), null);
+    assert.equal(messagePreview("   "), null);
+    assert.equal(messagePreview(null), null);
+    const long = messagePreview("word ".repeat(60))!;
+    assert.ok(long.endsWith("…"));
+    assert.ok(long.length <= 161);
+    assert.ok(!long.includes("wor…"), "cuts at a word boundary");
+    assert.equal(
+      reactionNotification("U1", "tada", "https://acme.slack.com/archives/C1/p1", "Deployed to prod"),
+      "<@U1> reacted :tada: to <https://acme.slack.com/archives/C1/p1|your message>\n>Deployed to prod",
+    );
   });
 
   it("puts Disconnect only on the connected Home view, with a confirmation and no identity in its value", () => {

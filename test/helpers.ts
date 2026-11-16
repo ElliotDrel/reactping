@@ -103,6 +103,11 @@ export class FakeSlack implements SlackApi {
   async revoke(token: string): Promise<void> {
     this.record("revoke", token);
   }
+  messageText: string | null = null;
+  async reactedMessageText(userToken: string, channel: string, ts: string): Promise<string | null> {
+    this.record("reactedMessageText", userToken, channel, ts);
+    return this.messageText;
+  }
 }
 
 export function oauthResult(teamId: string, userId: string, overrides: Partial<OAuthResult> = {}): OAuthResult {
