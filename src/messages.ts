@@ -63,7 +63,7 @@ export function reactionNotification(
   preview?: string | null,
 ): string {
   const line = `<@${escapeMrkdwn(reactorId)}> reacted :${escapeMrkdwn(reaction)}: to <${escapeMrkdwn(link)}|your message>`;
-  return preview ? `${line}\n>${preview}` : line;
+  return preview ? `${line}\n>"${preview}"` : line;
 }
 
 export const WELCOME_TEXT =

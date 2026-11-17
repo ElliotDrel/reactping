@@ -148,7 +148,7 @@ describe("notification text", () => {
     assert.ok(!long.includes("wor…"), "cuts at a word boundary");
     assert.equal(
       reactionNotification("U1", "tada", "https://acme.slack.com/archives/C1/p1", "Deployed to prod"),
-      "<@U1> reacted :tada: to <https://acme.slack.com/archives/C1/p1|your message>\n>Deployed to prod",
+      '<@U1> reacted :tada: to <https://acme.slack.com/archives/C1/p1|your message>\n>"Deployed to prod"',
     );
   });
 

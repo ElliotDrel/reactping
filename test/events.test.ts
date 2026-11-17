@@ -82,7 +82,7 @@ describe("Slack events", { skip: dbSkip }, () => {
       await app.settle();
       const [fetch] = app.slack.callsTo("reactedMessageText");
       assert.deepEqual(fetch!.args, ["xoxp-T1-UAUTHOR", "C123ABC", "1700000000.000100"]);
-      assert.match(String(dms()[0]![2]), /\|your message>\n>Deployed to prod$/);
+      assert.match(String(dms()[0]![2]), /\|your message>\n>"Deployed to prod"$/);
 
       app.slack.reactedMessageText = async () => {
         throw new Error("missing_scope");
