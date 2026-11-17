@@ -1,5 +1,9 @@
 # V1 verification
 
+## November 16, 2026: message preview
+
+Elliot reports a real reaction from another person produced a DM with "your message" as the link and the quoted preview of the reacted-to message (owner-confirmed live coverage). This confirms `reactions.get` returns message text with the existing `reactions:read` user token; no new scope was needed. 80 local tests pass.
+
 ## November 15, 2026: second-workspace report and accepted idle-pause risk
 
 Elliot reports that adding ReactPing to a second workspace worked and subsequently confirmed receipt of the reaction DM. This is owner-confirmed live installation and normal-mode delivery coverage, not an independently inspected message. Superseded: the earlier second-workspace reaction-DM verification item is complete by owner report. The core v1 pilot path is complete; lifecycle checks stay skipped/unverified and the idle-pause risk remains accepted.
