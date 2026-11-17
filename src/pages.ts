@@ -78,3 +78,27 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, sla
 `;
   return new Response(html, { status, headers: { ...HEADERS, "set-cookie": cookie } });
 }
+
+const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
+
+/**
+ * The homepage's live counters as an SVG image: the site runs no scripts, so an <img> is the simplest way to show
+ * a number that changes. Contains only two totals; cached at the edge so page views rarely reach the database.
+ */
+export function statsImage(stats: { workspaces: number; notifications: number }): Response {
+  const workspaces = plural(stats.workspaces, "workspace", "workspaces");
+  const sent = plural(stats.notifications, "reaction notification", "reaction notifications");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="32" viewBox="0 0 640 32" role="img" aria-label="In ${workspaces}. ${sent} sent.">
+  <text x="0" y="22" font-family="Segoe UI, -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif" font-size="18" fill="#44506a">In <tspan font-weight="800" fill="#0f1d3a">${workspaces}</tspan> · <tspan font-weight="800" fill="#0f1d3a">${sent}</tspan> sent</text>
+</svg>
+`;
+  return new Response(svg, {
+    status: 200,
+    headers: {
+      "content-type": "image/svg+xml; charset=utf-8",
+      "cache-control": "public, max-age=60, s-maxage=300, stale-while-revalidate=3600",
+      "x-content-type-options": "nosniff",
+      "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'",
+    },
+  });
+}

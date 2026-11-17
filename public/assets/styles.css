@@ -277,6 +277,13 @@ a:hover {
   padding: 0 0.2rem;
 }
 
+.stats {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-top: 1.5rem;
+}
+
 .ping-quote {
   border-left: 4px solid var(--rule);
   padding-left: 0.75rem;

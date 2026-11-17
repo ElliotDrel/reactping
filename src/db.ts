@@ -128,4 +128,35 @@ export class Store {
     const result = await this.pool.query(`delete from ${TABLE} where team_id = $1`, [teamId]);
     return result.rowCount ?? 0;
   }
+
+  /** Logs a connection change for a workspace. No user IDs: only the workspace, the event, and how many installs. */
+  async recordActivity(teamId: string, event: ActivityEvent, installs = 1): Promise<void> {
+    if (installs < 1) return;
+    await this.pool.query(`insert into reactping_slack.activity (team_id, event, installs) values ($1, $2, $3)`, [
+      teamId,
+      event,
+      installs,
+    ]);
+  }
+
+  /** Adds one to the delivered-notification total. Nothing about the notification itself is stored. */
+  async countNotification(): Promise<void> {
+    await this.pool.query(`update reactping_slack.counters set value = value + 1 where name = 'notifications_sent'`);
+  }
+
+  /** Public totals: workspaces with at least one connected person, and reaction DMs delivered all time. */
+  async stats(): Promise<Stats> {
+    const { rows } = await this.pool.query(
+      `select (select count(distinct team_id) from ${TABLE})::int as workspaces,
+              (select value from reactping_slack.counters where name = 'notifications_sent')::bigint as notifications`,
+    );
+    const row = rows[0] as Row;
+    return { workspaces: Number(row.workspaces ?? 0), notifications: Number(row.notifications ?? 0) };
+  }
+}
+
+export type ActivityEvent = "connected" | "disconnected" | "uninstalled";
+export interface Stats {
+  workspaces: number;
+  notifications: number;
 }

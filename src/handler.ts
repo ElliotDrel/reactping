@@ -12,7 +12,7 @@ import {
   WELCOME_TEXT,
 } from "./messages.ts";
 import { createOAuthState, OAUTH_STATE_TTL_SECONDS, verifyOAuthState } from "./oauth-state.ts";
-import { resultPage } from "./pages.ts";
+import { resultPage, statsImage } from "./pages.ts";
 import {
   BOT_SCOPES,
   classifySlackError,
@@ -251,6 +251,7 @@ export function createHandler(deps: Deps | null): Handler {
 
     const installation = await store.upsert({ teamId, userId, workspaceUrl, botToken, userToken });
     log("info", "installation_connected", { teamId });
+    background("activity", () => store.recordActivity(teamId, "connected"));
     background("welcome", async () => {
       await slack.postMessage(installation.botToken, installation.userId, WELCOME_TEXT);
       await home(installation, true);
@@ -280,19 +281,24 @@ export function createHandler(deps: Deps | null): Handler {
     }
 
     // Lifecycle cleanup is idempotent and runs before the 200, so Slack's retries are welcome here.
+    // Activity is recorded only for rows actually deleted, so a retried event never counts twice.
     if (event.type === "app_uninstalled") {
-      log("info", "app_uninstalled", { teamId, installations: await store.deleteTeam(teamId) });
+      const removed = await store.deleteTeam(teamId);
+      log("info", "app_uninstalled", { teamId, installations: removed });
+      background("activity", () => store.recordActivity(teamId, "uninstalled", removed));
       return plain(200);
     }
     if (event.type === "tokens_revoked") {
       // A revoked bot token means nobody in the workspace can be DMed; revoked user tokens stop those users only.
-      const removed = strings(event.tokens?.bot).length
+      const botRevoked = strings(event.tokens?.bot).length > 0;
+      const removed = botRevoked
         ? await store.deleteTeam(teamId)
         : await store.deleteUsers(
             teamId,
             strings(event.tokens?.oauth).filter((id) => USER_ID.test(id)),
           );
       log("info", "tokens_revoked", { teamId, installations: removed });
+      background("activity", () => store.recordActivity(teamId, botRevoked ? "uninstalled" : "disconnected", removed));
       return plain(200);
     }
 
@@ -333,8 +339,12 @@ export function createHandler(deps: Deps | null): Handler {
       const failure = classifySlackError(error);
       log("warn", "notify_failed", { error: failure.message });
       // Dead credentials: drop the row, unless the user reinstalled while this request was in flight.
-      if (failure.kind === "revoked") await store.deleteIfUnchanged(installation);
+      if (failure.kind === "revoked" && (await store.deleteIfUnchanged(installation))) {
+        await store.recordActivity(teamId, "disconnected");
+      }
+      return;
     }
+    await store.countNotification();
   }
 
   async function openHome(teamId: string, event: SlackEvent): Promise<void> {
@@ -377,7 +387,10 @@ export function createHandler(deps: Deps | null): Handler {
     // Local deletion first, so delivery stops even if Slack is slow or the revoke fails.
     const removed = await store.delete(teamId, userId);
     log("info", "installation_disconnected", { teamId, found: Boolean(removed) });
-    if (removed) background("disconnect", () => afterDisconnect(removed));
+    if (removed) {
+      background("disconnect", () => afterDisconnect(removed));
+      background("activity", () => store.recordActivity(teamId, "disconnected"));
+    }
     return plain(200);
   }
 
@@ -404,6 +417,8 @@ export function createHandler(deps: Deps | null): Handler {
         return events(request);
       case "POST /api/slack/interactions":
         return interactions(request);
+      case "GET /api/stats":
+        return statsImage(await store.stats());
       default:
         return plain(404, "not_found");
     }
