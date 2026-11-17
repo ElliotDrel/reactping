@@ -188,6 +188,13 @@ a:hover {
   text-decoration: underline;
 }
 
+@media (max-width: 560px) {
+  /* Phones: keep the header to the brand and one button; the footer carries the other links. */
+  .site-header nav a:not(.btn) {
+    display: none;
+  }
+}
+
 .site-footer {
   display: flex;
   flex-wrap: wrap;
@@ -270,6 +277,12 @@ a:hover {
   padding: 0 0.2rem;
 }
 
+.ping-quote {
+  border-left: 4px solid var(--rule);
+  padding-left: 0.75rem;
+  color: var(--ink-2);
+}
+
 .fake-link {
   color: var(--signal-deep);
   text-decoration: underline;
@@ -308,6 +321,53 @@ a:hover {
 
 .faq {
   padding-block: clamp(64px, 9vw, 112px);
+}
+
+/* How it works: three numbered steps in a row. */
+
+.how {
+  padding-block: 0 clamp(64px, 9vw, 112px);
+}
+
+.how-steps {
+  list-style: none;
+  counter-reset: step;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1.5rem;
+  margin: 2rem 0;
+  padding: 0;
+}
+
+.how-steps li {
+  counter-increment: step;
+  border-top: 2px solid var(--ink);
+  padding-top: 1rem;
+  color: var(--ink-2);
+}
+
+.how-steps li::before {
+  content: counter(step);
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  aspect-ratio: 1;
+  margin-bottom: 0.75rem;
+  background: var(--react);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  color: var(--ink);
+  font-weight: 800;
+}
+
+.how-steps strong {
+  color: var(--ink);
+}
+
+@media (max-width: 640px) {
+  .how-steps {
+    grid-template-columns: 1fr;
+  }
 }
 
 .privacy-intro {

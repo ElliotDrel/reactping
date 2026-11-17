@@ -6,7 +6,7 @@
     <title>ReactPing: reaction notifications for Slack</title>
     <meta
       name="description"
-      content="ReactPing DMs you when someone reacts to your Slack message: who reacted, the emoji, and a link back. No tracking, and it never stores your messages."
+      content="ReactPing DMs you when someone reacts to your Slack message: who reacted, the emoji, a preview, and a link back. No tracking, and it never stores your messages."
     />
     <meta name="robots" content="noindex, nofollow" />
     <meta property="og:type" content="website" />
@@ -36,7 +36,8 @@
         <span>ReactPing</span>
       </a>
       <nav aria-label="Main">
-        <a href="#privacy">Privacy</a>
+        <a href="/how-it-works">How it works</a>
+        <a href="/security">Security</a>
         <a class="btn btn-small" href="/connect">Add to Slack</a>
       </nav>
     </header>
@@ -54,8 +55,19 @@
           <div class="ping-dm">
             <p class="ping-from"><strong>ReactPing</strong> <span>now</span></p>
             <p><span class="mention">@Sam</span> reacted 🎉 to <span class="fake-link">your message</span></p>
+            <p class="ping-quote">"Here's the launch plan. We'll start with BuildPurdue…"</p>
           </div>
         </figure>
+      </section>
+
+      <section class="how wrap" aria-labelledby="how-heading">
+        <h2 id="how-heading">How it works</h2>
+        <ol class="how-steps">
+          <li><strong>Add to Slack.</strong> Takes ten seconds.</li>
+          <li><strong>Pick your workspace.</strong> Repeat for each one you use.</li>
+          <li><strong>Get a DM</strong> whenever someone reacts to your message.</li>
+        </ol>
+        <p><a href="/how-it-works">Read how it works</a></p>
       </section>
 
       <section class="privacy" id="privacy" aria-labelledby="privacy-heading">
@@ -65,38 +77,22 @@
           <dl class="claims">
             <div>
               <dt>Two permissions</dt>
-              <dd>
-                See reactions. Send you a DM.
-                <a href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L3-L4">Scopes</a>
-              </dd>
+              <dd>See reactions. Send you a DM.</dd>
             </div>
             <div>
               <dt>Reactions only</dt>
-              <dd>
-                No other data is needed.
-                <a href="https://github.com/ElliotDrel/reactping/blob/main/src/handler.ts#L309-L338">Event handling</a>
-                <a href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L113-L160">Slack calls</a>
-              </dd>
+              <dd>No other data is needed.</dd>
             </div>
             <div>
               <dt>Minimal storage</dt>
-              <dd>
-                Slack IDs, workspace URL, encrypted tokens.
-                <a
-                  href="https://github.com/ElliotDrel/reactping/blob/main/supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24"
-                  >Table</a
-                >
-                <a href="https://github.com/ElliotDrel/reactping/blob/main/src/db.ts#L82-L83">Encryption</a>
-              </dd>
+              <dd>Slack IDs, workspace URL, encrypted tokens.</dd>
             </div>
             <div>
               <dt>No tracking</dt>
-              <dd>
-                No analytics or scripts.
-                <a href="https://github.com/ElliotDrel/reactping/blob/main/vercel.json#L17-L18">Script block</a>
-              </dd>
+              <dd>No analytics or scripts.</dd>
             </div>
           </dl>
+          <p><a href="/security">See the proof in the code</a></p>
         </div>
       </section>
 
@@ -107,6 +103,18 @@
             <dt>Do my own reactions notify me?</dt>
             <dd>No. ReactPing ignores reactions you add to your own messages, so you only hear about other people.</dd>
           </div>
+          <div>
+            <dt>Does everyone need to add it?</dt>
+            <dd>Only people who want DMs. Everyone adds it for themselves.</dd>
+          </div>
+          <div>
+            <dt>What if my admin approves apps?</dt>
+            <dd>Slack lets you request approval. Add ReactPing again once it's approved.</dd>
+          </div>
+          <div>
+            <dt>How do I disconnect?</dt>
+            <dd>Open ReactPing in Slack, go to Home, and select Disconnect. Your record is deleted.</dd>
+          </div>
         </dl>
       </section>
     </main>
@@ -115,6 +123,8 @@
       <p>Free and MIT licensed.</p>
       <nav aria-label="Footer">
         <a href="/connect">Add to Slack</a>
+        <a href="/how-it-works">How it works</a>
+        <a href="/security">Security</a>
         <a href="/privacy">Privacy</a>
         <a href="https://github.com/ElliotDrel/reactping">Source code</a>
       </nav>

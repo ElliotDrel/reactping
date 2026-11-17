@@ -78,8 +78,9 @@ describe("website", () => {
       .replace(/<[^>]+>/g, " ")
       .split(/\s+/)
       .filter(Boolean).length;
-    // Raised from 110 on November 16, 2026, when Elliot added Q&A content; still guards against sprawl.
-    assert.ok(words <= 150, `homepage has ${words} words`);
+    // Raised from 110 (Nov 16) and 150 (Nov 17) as Elliot added How it works and Q&A; still guards against sprawl.
+    // Long-form content belongs on /how-it-works and /security.
+    assert.ok(words <= 230, `homepage has ${words} words`);
     for (const [file, page] of Object.entries(html)) assert.doesNotMatch(page, /<script/i, file);
     const csp = JSON.parse(read("vercel.json")).headers[0].headers.find(
       (h: { key: string }) => h.key === "Content-Security-Policy",
