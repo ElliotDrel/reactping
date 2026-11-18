@@ -152,23 +152,24 @@ describe("OAuth result pages", () => {
     assert.deepEqual(page, [
       ["/", "ReactPing"],
       ["https://slack.com/app_redirect?app=A1&amp;team=T1", "Open ReactPing in Slack"],
-      [CONNECT_PATH, "Add another workspace"],
+      // Elliot: skip /connect here; the person just went through it, so go straight to Slack's approval page.
+      ["/api/slack/install", "Add another workspace"],
     ]);
   });
 
   it("still offers Add another workspace when no Slack link can be built", async () => {
     const page = links(await resultPage("connected", 200, "c=; Max-Age=0").text());
-    assert.ok(page.some(([href, text]) => href === CONNECT_PATH && text === "Add another workspace"));
+    assert.ok(page.some(([href, text]) => href === "/api/slack/install" && text === "Add another workspace"));
     assert.ok(!page.some(([, text]) => text === "Open ReactPing in Slack"));
   });
 
-  it("retries through /connect and never links straight to OAuth", async () => {
+  it("retries failures through /connect, never straight to OAuth", async () => {
     for (const outcome of outcomes) {
       const res = resultPage(outcome, 400, "c=; Max-Age=0");
       assert.equal(res.headers.get("referrer-policy"), "no-referrer");
       assert.match(res.headers.get("content-security-policy")!, /default-src 'none'/);
       const page = links(await res.text());
-      assert.ok(!page.some(([href]) => href.includes("/api/slack/install")), outcome);
+      if (outcome !== "connected") assert.ok(!page.some(([href]) => href.includes("/api/slack/install")), outcome);
       if (outcome !== "connected")
         assert.ok(page.some(([href, text]) => href === CONNECT_PATH && text === "Try again"));
     }

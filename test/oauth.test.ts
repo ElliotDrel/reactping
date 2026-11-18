@@ -50,7 +50,7 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       const html = await res.text();
       assert.match(html, /ReactPing is connected/);
       assert.match(html, /https:\/\/slack\.com\/app_redirect\?app=AREACTPING&amp;team=T1/);
-      assert.match(html, /href="\/connect">Add another workspace</);
+      assert.match(html, /href="\/api\/slack\/install">Add another workspace</);
       assert.equal(res.headers.get("referrer-policy"), "no-referrer");
       assert.match(res.headers.get("set-cookie")!, /Max-Age=0/);
       assert.equal(app.slack.callsTo("postMessage").length, 0, "welcome waits for waitUntil");

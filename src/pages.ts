@@ -41,6 +41,8 @@ const HEADERS = {
 
 /** Every new connection, success or retry, goes through the static /connect instructions first. */
 export const CONNECT_PATH = "/connect";
+/** Straight to Slack's approval page. Used after a successful install, when the person has already seen /connect. */
+export const INSTALL_PATH = "/api/slack/install";
 
 export function resultPage(outcome: Outcome, status: number, cookie: string, slackLink?: string): Response {
   const { title, body } = COPY[outcome];
@@ -50,7 +52,7 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, sla
           slackLink
             ? `<a class="btn btn-large" href="${slackLink.replace(/&/g, "&amp;")}">Open ReactPing in Slack</a>`
             : "",
-          `<a class="btn btn-quiet btn-large" href="${CONNECT_PATH}">Add another workspace</a>`,
+          `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>`,
         ]
       : [
           `<a class="btn btn-large" href="${CONNECT_PATH}">Try again</a>`,
