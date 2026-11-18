@@ -133,6 +133,25 @@ describe("website", () => {
     assert.ok(existsSync(new URL("public/assets/apple-touch-icon.png", root)));
   });
 
+  it("lets search engines index exactly the canonical pages, all listed in the sitemap", () => {
+    // A canonical URL means "index me"; anything without one (404, feedback form) stays noindex.
+    const sitemap = read("public/sitemap.xml");
+    const listed = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!).sort();
+    const canonical = pages
+      .map((f) => [f, /<link rel="canonical" href="([^"]+)"/.exec(html[f]!)?.[1]] as const)
+      .filter(([, url]) => url);
+    assert.deepEqual(listed, canonical.map(([, url]) => url!).sort());
+    for (const file of pages) {
+      const noindex = /<meta name="robots" content="[^"]*noindex/.test(html[file]!);
+      assert.equal(noindex, !canonical.some(([f]) => f === file), file);
+    }
+    assert.doesNotMatch(read("vercel.json"), /X-Robots-Tag/);
+    assert.match(read("public/robots.txt"), /^Disallow: \/api\/$/m);
+    assert.doesNotMatch(read("public/robots.txt"), /^Disallow: \/$/m);
+    const origin = new URL(canonical.find(([f]) => f === "index.html")![1]!).origin;
+    assert.ok(read("public/robots.txt").includes(`\nSitemap: ${origin}/sitemap.xml\n`), "robots.txt Sitemap line");
+  });
+
   it("styles every link to another page as a button, except the header's text links", () => {
     // Elliot (Nov 17): links to other pages are buttons, never inline text. The header nav keeps text links (he
     // reverted header buttons the same day); the logo and skip link are exempt too.
