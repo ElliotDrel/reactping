@@ -333,7 +333,20 @@ a:hover {
 /* How it works: three numbered steps in a row. */
 
 .how {
-  padding-block: 0 clamp(64px, 9vw, 112px);
+  border-top: 2px solid var(--rule);
+  padding-block: clamp(48px, 7vw, 88px) clamp(64px, 9vw, 112px);
+}
+
+/* Closing call to action above the footer. */
+
+.cta {
+  border-top: 2px solid var(--rule);
+  padding-block: clamp(48px, 7vw, 88px);
+  text-align: center;
+}
+
+.cta h2 {
+  margin-bottom: 1.5rem;
 }
 
 .how-steps {
