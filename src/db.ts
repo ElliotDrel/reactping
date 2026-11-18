@@ -144,26 +144,12 @@ export class Store {
     await this.pool.query(`update reactping_slack.counters set value = value + 1 where name = 'notifications_sent'`);
   }
 
-  /** Stores one piece of feedback. Slack feedback carries the sender's IDs; website feedback an optional name/email. */
+  /** Stores one piece of feedback from the website form, with the optional name and email the person gave. */
   async saveFeedback(feedback: Feedback): Promise<void> {
     await this.pool.query(
-      `insert into reactping_slack.feedback (source, team_id, user_id, name, email, message)
-       values ($1, $2, $3, $4, $5, $6)`,
-      [
-        feedback.source,
-        feedback.teamId ?? null,
-        feedback.userId ?? null,
-        feedback.name ?? null,
-        feedback.email ?? null,
-        feedback.message,
-      ],
+      `insert into reactping_slack.feedback (source, name, email, message) values ($1, $2, $3, $4)`,
+      [feedback.source, feedback.name ?? null, feedback.email ?? null, feedback.message],
     );
-  }
-
-  /** Any connected person's bot token in this workspace (the bot token is shared by everyone there). */
-  async workspaceBotToken(teamId: string): Promise<string | undefined> {
-    const { rows } = await this.pool.query(`select * from ${TABLE} where team_id = $1 limit 1`, [teamId]);
-    return rows[0] ? this.toInstallation(rows[0] as Row).botToken : undefined;
   }
 
   /** Public totals: workspaces with at least one connected person, and reaction DMs delivered all time. */
@@ -177,11 +163,12 @@ export class Store {
   }
 }
 
+/** Where the feedback form was opened from: the website itself, or the link in ReactPing's welcome DM or Home tab. */
+export type FeedbackSource = "website" | "slack_welcome" | "slack_home";
+
 export interface Feedback {
-  source: "slack" | "website";
+  source: FeedbackSource;
   message: string;
-  teamId?: string;
-  userId?: string;
   name?: string;
   email?: string;
 }

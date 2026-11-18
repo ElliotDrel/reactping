@@ -1,16 +1,15 @@
 import type { Config } from "./config.ts";
 import { deriveKey, hmac, safeEqual } from "./crypto.ts";
-import type { Installation, Store } from "./db.ts";
+import type { FeedbackSource, Installation, Store } from "./db.ts";
 import { log } from "./log.ts";
 import {
   DISCONNECT_ACTION,
-  FEEDBACK_THANKS,
   homeView,
   messageLink,
   messagePreview,
   parseWorkspaceUrl,
   reactionNotification,
-  WELCOME_TEXT,
+  welcomeText,
 } from "./messages.ts";
 import { createOAuthState, OAUTH_STATE_TTL_SECONDS, verifyOAuthState } from "./oauth-state.ts";
 import { resultPage, statsImage } from "./pages.ts";
@@ -102,15 +101,14 @@ interface SlackEvent {
   item?: { type?: unknown; channel?: unknown; ts?: unknown };
   tab?: unknown;
   tokens?: { oauth?: unknown; bot?: unknown };
-  text?: unknown;
-  channel?: unknown;
-  channel_type?: unknown;
-  bot_id?: unknown;
-  subtype?: unknown;
 }
 
-const DM_CHANNEL = /^D[A-Z0-9]{2,31}$/;
 const MAX_FEEDBACK = 5000;
+/** utm_medium values on ReactPing's own Slack links to the feedback form (see feedbackLink). */
+const SLACK_FEEDBACK_MEDIUMS = new Map<string, FeedbackSource>([
+  ["welcome_dm", "slack_welcome"],
+  ["home_tab", "slack_home"],
+]);
 /** Trimmed text, or undefined when blank; cut to `max` characters. */
 const field = (value: unknown, max: number): string | undefined => {
   const text = typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -267,7 +265,7 @@ export function createHandler(deps: Deps | null): Handler {
     log("info", "installation_connected", { teamId });
     background("activity", () => store.recordActivity(teamId, "connected"));
     background("welcome", async () => {
-      await slack.postMessage(installation.botToken, installation.userId, WELCOME_TEXT);
+      await slack.postMessage(installation.botToken, installation.userId, welcomeText(config.siteUrl));
       await home(installation, true);
     });
     const appId = result.appId && APP_ID.test(result.appId) ? result.appId : null;
@@ -323,24 +321,19 @@ export function createHandler(deps: Deps | null): Handler {
     }
     if (event.type === "reaction_added") background("reaction", () => notify(teamId, event));
     else if (event.type === "app_home_opened") background("home", () => openHome(teamId, event));
-    else if (event.type === "message" && event.channel_type === "im") {
-      background("feedback", () => dmFeedback(teamId, event));
-    }
     return plain(200);
   }
 
-  /** A person's DM to ReactPing is feedback: save it with their Slack IDs, then thank them in the same DM. */
-  async function dmFeedback(teamId: string, event: SlackEvent): Promise<void> {
-    // ReactPing's own DMs (notifications, the thank-you) and edits/joins arrive here too; only plain human messages count.
-    if (event.bot_id !== undefined || event.subtype !== undefined) return;
-    if (typeof event.user !== "string" || !USER_ID.test(event.user)) return;
-    if (typeof event.channel !== "string" || !DM_CHANNEL.test(event.channel)) return;
-    const message = field(event.text, MAX_FEEDBACK);
-    if (!message) return;
-    await store.saveFeedback({ source: "slack", teamId, userId: event.user, message });
-    log("info", "feedback_saved", { source: "slack", teamId });
-    const botToken = await store.workspaceBotToken(teamId);
-    if (botToken) await slack.postMessage(botToken, event.channel, FEEDBACK_THANKS);
+  /**
+   * Where the form was opened from. The site runs no scripts, so the form can't copy its own URL's UTM tags into a
+   * field; instead the browser's Referer (the form page's full URL under strict-origin-when-cross-origin) carries
+   * them. Anything else, including a missing or foreign Referer, counts as the website.
+   */
+  function feedbackSource(referer: string | null): FeedbackSource {
+    if (!URL.canParse(referer ?? "")) return "website";
+    const url = new URL(referer!);
+    if (url.host !== siteHost || url.searchParams.get("utm_source") !== "slack") return "website";
+    return SLACK_FEEDBACK_MEDIUMS.get(url.searchParams.get("utm_medium") ?? "") ?? "website";
   }
 
   /** The website's feedback form: a plain HTML POST, no scripts. Name and email are optional. */
@@ -350,13 +343,14 @@ export function createHandler(deps: Deps | null): Handler {
     const form = new URLSearchParams(raw);
     const message = field(form.get("message"), MAX_FEEDBACK);
     if (!message) return plain(400, "message_required");
+    const source = feedbackSource(request.headers.get("referer"));
     await store.saveFeedback({
-      source: "website",
+      source,
       message,
       name: field(form.get("name"), 100),
       email: field(form.get("email"), 254),
     });
-    log("info", "feedback_saved", { source: "website" });
+    log("info", "feedback_saved", { source });
     return resultPage("feedback", 200, "");
   }
 

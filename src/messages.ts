@@ -66,15 +66,24 @@ export function reactionNotification(
   return preview ? `${line}\n>"${preview}"` : line;
 }
 
-/** Instant reply to any DM someone sends ReactPing; the DM itself is saved as feedback. */
-export const FEEDBACK_THANKS =
-  "Thank you so much for your feedback. We will take it into account and get back to you ASAP.";
+/**
+ * The website feedback form, linked from Slack. UTM tags say which Slack message it was opened from; the form's
+ * handler reads them back from the Referer, so feedback from Slack can be told apart from direct website visits.
+ */
+export function feedbackLink(siteUrl: string, medium: "welcome_dm" | "home_tab"): string {
+  return `${siteUrl}/feedback?utm_source=slack&utm_medium=${medium}`;
+}
 
-export const WELCOME_TEXT =
-  "Welcome to ReactPing. You're connected in this workspace: when someone else reacts to one of your messages, " +
-  "I'll DM you here with the emoji, who reacted, and a link back. Notifications are best effort, so an occasional " +
-  "one can be missed, and nothing is backfilled. Open the ReactPing *Home* tab to disconnect. " +
-  "Have feedback? Just reply here.";
+/** ReactPing can't read replies (no message-history permission), so feedback goes through the website form. */
+export function welcomeText(siteUrl: string): string {
+  return (
+    "Welcome to ReactPing. You're connected in this workspace: when someone else reacts to one of your messages, " +
+    "I'll DM you here with the emoji, who reacted, and a link back. Notifications are best effort, so an occasional " +
+    "one can be missed, and nothing is backfilled. Open the ReactPing *Home* tab to disconnect.\n\n" +
+    `*Have feedback or found a bug?* Tell us with this short form: <${escapeMrkdwn(feedbackLink(siteUrl, "welcome_dm"))}|send feedback>. ` +
+    "Replies to this DM aren't read, so please use the form."
+  );
+}
 
 const BEST_EFFORT =
   "Best effort: if Slack can't reach ReactPing, or a DM fails, that notification is skipped and never backfilled. " +
@@ -104,7 +113,7 @@ export function homeView(options: { connected: boolean; siteUrl: string; include
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "*Connected.* When someone else reacts to one of your messages in this workspace, ReactPing DMs you here with the emoji, who reacted, and a link back.\n\n*Have feedback?* Send ReactPing a message in the Messages tab.",
+          text: `*Connected.* When someone else reacts to one of your messages in this workspace, ReactPing DMs you here with the emoji, who reacted, and a link back.\n\n*Have feedback or found a bug?* Tell us with this short form: <${escapeMrkdwn(feedbackLink(options.siteUrl, "home_tab"))}|send feedback>.`,
         },
       },
       {

@@ -15,7 +15,7 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.equal(res.status, 302);
       const location = new URL(res.headers.get("location")!);
       assert.equal(location.origin + location.pathname, "https://slack.com/oauth/v2/authorize");
-      assert.equal(location.searchParams.get("scope"), "chat:write,im:history");
+      assert.equal(location.searchParams.get("scope"), "chat:write");
       assert.equal(location.searchParams.get("user_scope"), "reactions:read");
       assert.equal(location.searchParams.get("redirect_uri"), `${SITE}/api/slack/oauth/callback`);
       const state = location.searchParams.get("state")!;
@@ -65,8 +65,11 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       const [welcome] = app.slack.callsTo("postMessage");
       assert.deepEqual(welcome!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
       assert.match(String(welcome!.args[2]), /best effort/);
+      // Feedback goes through the website form, UTM-tagged so Slack-sourced feedback can be counted.
+      assert.ok(String(welcome!.args[2]).includes(`<${SITE}/feedback?utm_source=slack&amp;utm_medium=welcome_dm|`));
       const [home] = app.slack.callsTo("publishHome");
       assert.deepEqual(home!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
+      assert.ok(JSON.stringify(home!.args[2]).includes("/feedback?utm_source=slack&amp;utm_medium=home_tab|"));
       assert.equal(app.slack.callsTo("revoke").length, 0);
     });
 

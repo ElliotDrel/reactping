@@ -28,6 +28,7 @@ const MIGRATIONS = [
   read("../supabase/migrations/20261114000000_remove_account_backend.sql"),
   read("../supabase/migrations/20261117000000_reactping_activity.sql"),
   read("../supabase/migrations/20261117010000_reactping_feedback.sql"),
+  read("../supabase/migrations/20261117020000_reactping_feedback_status.sql"),
 ];
 
 export class Clock {
@@ -120,7 +121,7 @@ export function oauthResult(teamId: string, userId: string, overrides: Partial<O
     enterpriseId: null,
     isEnterpriseInstall: false,
     botToken: `xoxb-${teamId}`,
-    botScopes: ["chat:write", "im:history"],
+    botScopes: ["chat:write"],
     userId,
     userToken: `xoxp-${teamId}-${userId}`,
     userScopes: ["reactions:read"],
