@@ -1,6 +1,6 @@
 /** The small HTML pages the OAuth callback returns. Static text only; the one link is built from validated IDs. */
 
-export type Outcome = "connected" | "cancelled" | "expired" | "failed" | "enterprise" | "scopes";
+export type Outcome = "connected" | "cancelled" | "expired" | "failed" | "enterprise" | "scopes" | "feedback";
 
 const COPY: Record<Outcome, { title: string; body: string }> = {
   connected: {
@@ -25,7 +25,11 @@ const COPY: Record<Outcome, { title: string; body: string }> = {
   },
   scopes: {
     title: "Permissions missing",
-    body: "Slack didn't grant the two permissions ReactPing needs, so nothing was saved. Please try again.",
+    body: "Slack didn't grant the permissions ReactPing needs, so nothing was saved. Please try again.",
+  },
+  feedback: {
+    title: "Thank you so much for your feedback",
+    body: "We will take it into account and get back to you ASAP.",
   },
 };
 
@@ -47,17 +51,19 @@ export const INSTALL_PATH = "/api/slack/install";
 export function resultPage(outcome: Outcome, status: number, cookie: string, slackLink?: string): Response {
   const { title, body } = COPY[outcome];
   const actions =
-    outcome === "connected"
-      ? [
-          slackLink
-            ? `<a class="btn btn-large" href="${slackLink.replace(/&/g, "&amp;")}">Open ReactPing in Slack</a>`
-            : "",
-          `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>`,
-        ]
-      : [
-          `<a class="btn btn-large" href="${CONNECT_PATH}">Try again</a>`,
-          `<a class="btn btn-quiet btn-large" href="/">Back to ReactPing</a>`,
-        ];
+    outcome === "feedback"
+      ? [`<a class="btn btn-large" href="/">Back to ReactPing</a>`]
+      : outcome === "connected"
+        ? [
+            slackLink
+              ? `<a class="btn btn-large" href="${slackLink.replace(/&/g, "&amp;")}">Open ReactPing in Slack</a>`
+              : "",
+            `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>`,
+          ]
+        : [
+            `<a class="btn btn-large" href="${CONNECT_PATH}">Try again</a>`,
+            `<a class="btn btn-quiet btn-large" href="/">Back to ReactPing</a>`,
+          ];
   const html = `<!doctype html>
 <html lang="en">
   <head>
@@ -78,7 +84,7 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, sla
   </body>
 </html>
 `;
-  return new Response(html, { status, headers: { ...HEADERS, "set-cookie": cookie } });
+  return new Response(html, { status, headers: { ...HEADERS, ...(cookie ? { "set-cookie": cookie } : {}) } });
 }
 
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;

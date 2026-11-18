@@ -12,7 +12,8 @@ features:
   app_home:
     home_tab_enabled: true
     messages_tab_enabled: true
-    messages_tab_read_only_enabled: true
+    # People send feedback by messaging ReactPing; each DM is saved and gets an instant thank-you.
+    messages_tab_read_only_enabled: false
 oauth_config:
   redirect_urls:
     - https://YOUR_SITE_HOST/api/slack/oauth/callback
@@ -21,6 +22,7 @@ oauth_config:
       - reactions:read
     bot:
       - chat:write
+      - im:history
 settings:
   event_subscriptions:
     request_url: https://YOUR_SITE_HOST/api/slack/events
@@ -30,6 +32,7 @@ settings:
       - app_home_opened
       - app_uninstalled
       - tokens_revoked
+      - message.im
   interactivity:
     is_enabled: true
     request_url: https://YOUR_SITE_HOST/api/slack/interactions

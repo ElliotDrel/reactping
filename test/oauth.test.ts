@@ -15,7 +15,7 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.equal(res.status, 302);
       const location = new URL(res.headers.get("location")!);
       assert.equal(location.origin + location.pathname, "https://slack.com/oauth/v2/authorize");
-      assert.equal(location.searchParams.get("scope"), "chat:write");
+      assert.equal(location.searchParams.get("scope"), "chat:write,im:history");
       assert.equal(location.searchParams.get("user_scope"), "reactions:read");
       assert.equal(location.searchParams.get("redirect_uri"), `${SITE}/api/slack/oauth/callback`);
       const state = location.searchParams.get("state")!;

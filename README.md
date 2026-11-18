@@ -9,7 +9,8 @@ Status (November 16, 2026): the Slack-only version is deployed at [reactping.ver
 ## V1
 
 - **Add to Slack** from the website. Slack OAuth is the only identity: a person is their Slack workspace ID plus user ID. There is no separate account, email, or password.
-- Authorize with user `reactions:read` and bot `chat:write`.
+- Authorize with user `reactions:read` and bot `chat:write` + `im:history` (superseded November 17: bot `chat:write` only).
+- **Feedback (November 17, 2026):** any DM a person sends ReactPing (Messages tab, event `message.im`) is saved to `reactping_slack.feedback` with their team and user ID and gets an instant thank-you reply; ReactPing's own messages, edits, and retries are ignored. The website's `/feedback` form posts to `POST /api/feedback` (message required; name and email optional; no spam filter yet). Feedback is stored only, not forwarded.
 - Notify only when `item.type` is `message`, `item_user` is a connected user in that same workspace, and the reactor is someone else (unless the testing flag `INCLUDE_SELF_REACTIONS` is on).
 - Deliver in the same workspace only: a bot DM with the reactor mention, the emoji, a link on "your message", and a one-line preview (up to 160 characters) of the reacted-to message, fetched with `reactions.get` using the author's own `reactions:read` token. The preview text is never stored or logged; if the fetch fails, the DM goes out without it. No history, no unfurls. Superseded (November 16, 2026): "No message text" and the separate "View message" link.
 - A welcome DM on install; ReactPing's Slack **Home** tab shows the status and a **Disconnect** button.

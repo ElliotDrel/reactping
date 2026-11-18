@@ -29,8 +29,8 @@ const REPO = "https://github.com/ElliotDrel/reactping/blob/main/";
  * link is updated, so a privacy claim can never point readers at the wrong lines.
  */
 const SOURCE_LINKS: Record<string, RegExp[]> = {
-  "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write"\]/, /USER_SCOPES = \["reactions:read"\]/],
-  "src/handler.ts#L315-L348": [/async function notify\(/, /item_user: authorId, reaction/, /postMessage\(/],
+  "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write", "im:history"\]/, /USER_SCOPES = \["reactions:read"\]/],
+  "src/handler.ts#L363-L396": [/async function notify\(/, /item_user: authorId, reaction/, /postMessage\(/],
   "src/slack.ts#L113-L160": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /publishHome/, /revoke/],
   "supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24": [
     /create table reactping_slack\.installations/,

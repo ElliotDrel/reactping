@@ -144,6 +144,28 @@ export class Store {
     await this.pool.query(`update reactping_slack.counters set value = value + 1 where name = 'notifications_sent'`);
   }
 
+  /** Stores one piece of feedback. Slack feedback carries the sender's IDs; website feedback an optional name/email. */
+  async saveFeedback(feedback: Feedback): Promise<void> {
+    await this.pool.query(
+      `insert into reactping_slack.feedback (source, team_id, user_id, name, email, message)
+       values ($1, $2, $3, $4, $5, $6)`,
+      [
+        feedback.source,
+        feedback.teamId ?? null,
+        feedback.userId ?? null,
+        feedback.name ?? null,
+        feedback.email ?? null,
+        feedback.message,
+      ],
+    );
+  }
+
+  /** Any connected person's bot token in this workspace (the bot token is shared by everyone there). */
+  async workspaceBotToken(teamId: string): Promise<string | undefined> {
+    const { rows } = await this.pool.query(`select * from ${TABLE} where team_id = $1 limit 1`, [teamId]);
+    return rows[0] ? this.toInstallation(rows[0] as Row).botToken : undefined;
+  }
+
   /** Public totals: workspaces with at least one connected person, and reaction DMs delivered all time. */
   async stats(): Promise<Stats> {
     const { rows } = await this.pool.query(
@@ -153,6 +175,15 @@ export class Store {
     const row = rows[0] as Row;
     return { workspaces: Number(row.workspaces ?? 0), notifications: Number(row.notifications ?? 0) };
   }
+}
+
+export interface Feedback {
+  source: "slack" | "website";
+  message: string;
+  teamId?: string;
+  userId?: string;
+  name?: string;
+  email?: string;
 }
 
 export type ActivityEvent = "connected" | "disconnected" | "uninstalled";

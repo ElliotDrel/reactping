@@ -4,6 +4,7 @@ import type { Installation, Store } from "./db.ts";
 import { log } from "./log.ts";
 import {
   DISCONNECT_ACTION,
+  FEEDBACK_THANKS,
   homeView,
   messageLink,
   messagePreview,
@@ -101,7 +102,20 @@ interface SlackEvent {
   item?: { type?: unknown; channel?: unknown; ts?: unknown };
   tab?: unknown;
   tokens?: { oauth?: unknown; bot?: unknown };
+  text?: unknown;
+  channel?: unknown;
+  channel_type?: unknown;
+  bot_id?: unknown;
+  subtype?: unknown;
 }
+
+const DM_CHANNEL = /^D[A-Z0-9]{2,31}$/;
+const MAX_FEEDBACK = 5000;
+/** Trimmed text, or undefined when blank; cut to `max` characters. */
+const field = (value: unknown, max: number): string | undefined => {
+  const text = typeof value === "string" ? value.trim().slice(0, max) : "";
+  return text || undefined;
+};
 
 /** The four Slack routes. With `deps` null (missing or invalid configuration) every route fails closed. */
 export function createHandler(deps: Deps | null): Handler {
@@ -309,7 +323,41 @@ export function createHandler(deps: Deps | null): Handler {
     }
     if (event.type === "reaction_added") background("reaction", () => notify(teamId, event));
     else if (event.type === "app_home_opened") background("home", () => openHome(teamId, event));
+    else if (event.type === "message" && event.channel_type === "im") {
+      background("feedback", () => dmFeedback(teamId, event));
+    }
     return plain(200);
+  }
+
+  /** A person's DM to ReactPing is feedback: save it with their Slack IDs, then thank them in the same DM. */
+  async function dmFeedback(teamId: string, event: SlackEvent): Promise<void> {
+    // ReactPing's own DMs (notifications, the thank-you) and edits/joins arrive here too; only plain human messages count.
+    if (event.bot_id !== undefined || event.subtype !== undefined) return;
+    if (typeof event.user !== "string" || !USER_ID.test(event.user)) return;
+    if (typeof event.channel !== "string" || !DM_CHANNEL.test(event.channel)) return;
+    const message = field(event.text, MAX_FEEDBACK);
+    if (!message) return;
+    await store.saveFeedback({ source: "slack", teamId, userId: event.user, message });
+    log("info", "feedback_saved", { source: "slack", teamId });
+    const botToken = await store.workspaceBotToken(teamId);
+    if (botToken) await slack.postMessage(botToken, event.channel, FEEDBACK_THANKS);
+  }
+
+  /** The website's feedback form: a plain HTML POST, no scripts. Name and email are optional. */
+  async function websiteFeedback(request: Request): Promise<Response> {
+    const raw = await readBody(request, 32 * 1024);
+    if (raw === null) return plain(413, "too_large");
+    const form = new URLSearchParams(raw);
+    const message = field(form.get("message"), MAX_FEEDBACK);
+    if (!message) return plain(400, "message_required");
+    await store.saveFeedback({
+      source: "website",
+      message,
+      name: field(form.get("name"), 100),
+      email: field(form.get("email"), 254),
+    });
+    log("info", "feedback_saved", { source: "website" });
+    return resultPage("feedback", 200, "");
   }
 
   async function notify(teamId: string, event: SlackEvent): Promise<void> {
@@ -417,6 +465,8 @@ export function createHandler(deps: Deps | null): Handler {
         return events(request);
       case "POST /api/slack/interactions":
         return interactions(request);
+      case "POST /api/feedback":
+        return websiteFeedback(request);
       case "GET /api/stats":
         return statsImage(await store.stats());
       default:

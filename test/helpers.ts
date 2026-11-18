@@ -27,6 +27,7 @@ const MIGRATIONS = [
   read("../supabase/migrations/20261113000000_reactping_slack_installations.sql"),
   read("../supabase/migrations/20261114000000_remove_account_backend.sql"),
   read("../supabase/migrations/20261117000000_reactping_activity.sql"),
+  read("../supabase/migrations/20261117010000_reactping_feedback.sql"),
 ];
 
 export class Clock {
@@ -57,7 +58,7 @@ export function useDatabase(): { pool: () => pg.Pool } {
     for (const migration of MIGRATIONS) await pool.query(migration);
   });
   beforeEach(async () => {
-    await pool.query("truncate reactping_slack.installations, reactping_slack.activity");
+    await pool.query("truncate reactping_slack.installations, reactping_slack.activity, reactping_slack.feedback");
     await pool.query("update reactping_slack.counters set value = 0");
   });
   after(async () => {
@@ -119,7 +120,7 @@ export function oauthResult(teamId: string, userId: string, overrides: Partial<O
     enterpriseId: null,
     isEnterpriseInstall: false,
     botToken: `xoxb-${teamId}`,
-    botScopes: ["chat:write"],
+    botScopes: ["chat:write", "im:history"],
     userId,
     userToken: `xoxp-${teamId}-${userId}`,
     userScopes: ["reactions:read"],

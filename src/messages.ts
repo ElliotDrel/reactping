@@ -66,10 +66,15 @@ export function reactionNotification(
   return preview ? `${line}\n>"${preview}"` : line;
 }
 
+/** Instant reply to any DM someone sends ReactPing; the DM itself is saved as feedback. */
+export const FEEDBACK_THANKS =
+  "Thank you so much for your feedback. We will take it into account and get back to you ASAP.";
+
 export const WELCOME_TEXT =
   "Welcome to ReactPing. You're connected in this workspace: when someone else reacts to one of your messages, " +
   "I'll DM you here with the emoji, who reacted, and a link back. Notifications are best effort, so an occasional " +
-  "one can be missed, and nothing is backfilled. Open the ReactPing *Home* tab to disconnect.";
+  "one can be missed, and nothing is backfilled. Open the ReactPing *Home* tab to disconnect. " +
+  "Have feedback? Just reply here.";
 
 const BEST_EFFORT =
   "Best effort: if Slack can't reach ReactPing, or a DM fails, that notification is skipped and never backfilled. " +
@@ -99,7 +104,7 @@ export function homeView(options: { connected: boolean; siteUrl: string; include
         type: "section",
         text: {
           type: "mrkdwn",
-          text: "*Connected.* When someone else reacts to one of your messages in this workspace, ReactPing DMs you here with the emoji, who reacted, and a link back.",
+          text: "*Connected.* When someone else reacts to one of your messages in this workspace, ReactPing DMs you here with the emoji, who reacted, and a link back.\n\n*Have feedback?* Send ReactPing a message in the Messages tab.",
         },
       },
       {

@@ -1,6 +1,6 @@
 import { ErrorCode, LogLevel, WebClient, type Logger, type View, type WebClientOptions } from "@slack/web-api";
 
-export const BOT_SCOPES = ["chat:write"];
+export const BOT_SCOPES = ["chat:write", "im:history"];
 export const USER_SCOPES = ["reactions:read"];
 export const SLACK_TIMEOUT_MS = 5_000;
 
