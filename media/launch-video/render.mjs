@@ -5,12 +5,11 @@
 import { chromium } from "playwright-core";
 import { spawn } from "node:child_process";
 import { mkdirSync } from "node:fs";
-import { pathToFileURL } from "node:url";
 
 const [mode, ...args] = process.argv.slice(2);
 const browser = await chromium.launch({ executablePath: "C:/Program Files/Google/Chrome/Application/chrome.exe" });
 const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
-await page.goto(pathToFileURL(new URL("launch.html", import.meta.url).pathname.slice(1)).href);
+await page.goto(new URL("launch.html", import.meta.url).href);
 await page.evaluate(() => Promise.all([...document.images].map((i) => i.decode())));
 await page.evaluate(() => document.fonts.ready);
 

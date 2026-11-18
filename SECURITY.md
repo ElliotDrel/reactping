@@ -2,7 +2,7 @@
 
 Please report vulnerabilities privately through GitHub's [private vulnerability reporting](https://github.com/ElliotDrel/reactping/security/advisories/new) for this repository, not in a public issue. Include the affected route or file and steps to reproduce. Never include real Slack tokens, OAuth codes, or message content.
 
-Supported version: the latest commit on `main`, which is what [reactping.vercel.app](https://reactping.vercel.app) runs.
+Supported version: the latest commit on `main`, which is what [reactping.com](https://reactping.com) runs.
 
 ## In scope
 

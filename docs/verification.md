@@ -1,6 +1,6 @@
 # Verification
 
-Automated tests mock Slack. This page records what was observed live on the hosted app at [reactping.vercel.app](https://reactping.vercel.app). Change a row to Verified only after seeing the behavior yourself, and add a dated log entry.
+Automated tests mock Slack. This page records what was observed live on the hosted app at [reactping.com](https://reactping.com). Change a row to Verified only after seeing the behavior yourself, and add a dated log entry.
 
 ## Live coverage
 

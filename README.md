@@ -2,7 +2,7 @@
 
 A Slack app that DMs you when someone reacts to your messages. Free and open source under MIT.
 
-**[Add ReactPing to Slack](https://reactping.vercel.app)** · [How it works](https://reactping.vercel.app/how-it-works) · [Security](https://reactping.vercel.app/security) · [Privacy](https://reactping.vercel.app/privacy) · [19-second demo](media/launch-video/reactping-launch.mp4)
+**[Add ReactPing to Slack](https://reactping.com)** · [How it works](https://reactping.com/how-it-works) · [Security](https://reactping.com/security) · [Privacy](https://reactping.com/privacy) · [19-second demo](media/launch-video/reactping-launch.mp4)
 
 ## What it does
 

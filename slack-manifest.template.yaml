@@ -1,4 +1,4 @@
-# Replace YOUR_SITE_HOST with the host of PUBLIC_SITE_URL (for example reactping.vercel.app), then paste into
+# Replace YOUR_SITE_HOST with the host of PUBLIC_SITE_URL (for example reactping.com), then paste into
 # https://api.slack.com/apps -> your app -> App Manifest (or Create New App -> From a manifest).
 # Unlisted public distribution is enabled for workspace pilots. This setting is managed in Slack,
 # not this manifest; Marketplace submission is separate.

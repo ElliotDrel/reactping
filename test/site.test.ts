@@ -150,6 +150,10 @@ describe("website", () => {
     assert.doesNotMatch(read("public/robots.txt"), /^Disallow: \/$/m);
     const origin = new URL(canonical.find(([f]) => f === "index.html")![1]!).origin;
     assert.ok(read("public/robots.txt").includes(`\nSitemap: ${origin}/sitemap.xml\n`), "robots.txt Sitemap line");
+    // Old hosts send pages (never /api/, which Slack may still call there) to the one canonical origin.
+    const redirects = JSON.parse(read("vercel.json")).redirects as { destination: string }[];
+    assert.ok(redirects.length > 0);
+    for (const r of redirects) assert.equal(r.destination, `${origin}/:path`);
   });
 
   it("styles every link to another page as a button, except the header's text links", () => {
