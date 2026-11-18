@@ -26,6 +26,8 @@ Not tested by design: Slack retries (ignored) and outage recovery (no backfill).
 
 ## Log
 
+**November 17, 2026: moved to reactping.com.** Slack verified `https://reactping.com/api/slack/events` (signed challenge) and saved the new events and interactivity URLs; the reactping.com OAuth redirect URL was added beside the old one. Live: `reactping.vercel.app` pages and `www.reactping.com` 308 to `reactping.com`, `/api/` on the old host still answers (unsigned events 401, install redirects to the new host), and `/api/slack/install` sends Slack `redirect_uri=https://reactping.com/api/slack/oauth/callback`. A real reaction on the new host is not yet observed; the multi-person test covers it.
+
 **November 17, 2026: demo recording, reinstall, and multiple reactors.** After the app was removed and reinstalled in Elliot's workspace, four other people reacted to one public-channel message; each reaction produced its own DM. After `INCLUDE_SELF_REACTIONS` was turned off and redeployed, the Home tab no longer showed the testing notice.
 
 **November 17, 2026: Disconnect and uninstall.** Disconnect on the Home tab in a second workspace logged `installation_disconnected` then `tokens_revoked`, and the row was gone. Elliot then removed ReactPing from both workspaces; the remaining row was deleted and `activity` recorded `uninstalled`.
