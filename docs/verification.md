@@ -1,5 +1,11 @@
 # V1 verification
 
+## November 17, 2026: Disconnect and uninstall
+
+- Disconnect: Elliot selected Disconnect on ReactPing's Home tab in a second workspace. Logs showed `installation_disconnected` then `tokens_revoked` (installations 0, already deleted); the workspace's row was gone from `reactping_slack.installations`.
+- Uninstall: Elliot then removed ReactPing from both workspaces. The remaining row was deleted and `reactping_slack.activity` recorded `uninstalled` (1 install) for that workspace. Installations table now empty.
+- Superseded: the November 15 "lifecycle checks skipped" entry below.
+
 ## November 16, 2026: message preview
 
 Elliot reports a real reaction from another person produced a DM with "your message" as the link and the quoted preview of the reacted-to message (owner-confirmed live coverage). This confirms `reactions.get` returns message text with the existing `reactions:read` user token; no new scope was needed. 80 local tests pass.
