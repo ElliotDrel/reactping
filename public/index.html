@@ -45,8 +45,9 @@
         <span>ReactPing</span>
       </a>
       <nav aria-label="Main">
-        <a href="/how-it-works">How it works</a>
-        <a href="/security">Security</a>
+        <a class="btn btn-quiet btn-small nav-extra" href="/how-it-works">How it works</a>
+        <a class="btn btn-quiet btn-small nav-extra" href="/security">Security</a>
+        <a class="btn btn-quiet btn-small" href="/feedback">Feedback</a>
         <a class="btn btn-small" href="/connect">Add to Slack</a>
       </nav>
     </header>
@@ -83,7 +84,7 @@
           <li><strong>Pick your workspace.</strong> Repeat for each one you use.</li>
           <li><strong>Get a DM</strong> whenever someone reacts to your message.</li>
         </ol>
-        <p><a href="/how-it-works">Read how it works</a></p>
+        <p><a class="btn btn-quiet" href="/how-it-works">Read how it works</a></p>
       </section>
 
       <section class="privacy" id="privacy" aria-labelledby="privacy-heading">
@@ -92,8 +93,8 @@
           <p class="privacy-intro">Open source. Check the code.</p>
           <dl class="claims">
             <div>
-              <dt>Three permissions</dt>
-              <dd>See reactions. Send you a DM. Read DMs you send it.</dd>
+              <dt>Two permissions</dt>
+              <dd>See reactions. Send you a DM.</dd>
             </div>
             <div>
               <dt>Reactions only</dt>
@@ -108,7 +109,7 @@
               <dd>No analytics or scripts.</dd>
             </div>
           </dl>
-          <p><a href="/security">See the proof in the code</a></p>
+          <p><a class="btn btn-quiet" href="/security">See the proof in the code</a></p>
         </div>
       </section>
 
@@ -134,6 +135,12 @@
         </dl>
       </section>
 
+      <section class="feedback-band wrap" id="feedback" aria-labelledby="feedback-heading">
+        <h2 id="feedback-heading">Help shape ReactPing</h2>
+        <p>Found a bug or want a feature? Tell us in a short form. Every message is read.</p>
+        <a class="btn btn-quiet btn-large" href="/feedback">Send feedback</a>
+      </section>
+
       <section class="cta wrap" aria-labelledby="cta-heading">
         <h2 id="cta-heading">Stop missing reactions.</h2>
         <a class="btn btn-large" href="/connect">Add to Slack</a>
@@ -143,12 +150,12 @@
     <footer class="site-footer wrap">
       <p>Free and MIT licensed.</p>
       <nav aria-label="Footer">
-        <a href="/connect">Add to Slack</a>
-        <a href="/how-it-works">How it works</a>
-        <a href="/security">Security</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/feedback">Feedback</a>
-        <a href="https://github.com/ElliotDrel/reactping">Source code</a>
+        <a class="btn btn-quiet btn-small" href="/">Home</a>
+        <a class="btn btn-quiet btn-small" href="/how-it-works">How it works</a>
+        <a class="btn btn-quiet btn-small" href="/security">Security</a>
+        <a class="btn btn-quiet btn-small" href="/privacy">Privacy</a>
+        <a class="btn btn-quiet btn-small" href="/feedback">Feedback</a>
+        <a class="btn btn-quiet btn-small" href="https://github.com/ElliotDrel/reactping">Source code</a>
       </nav>
     </footer>
   </body>

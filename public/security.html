@@ -45,6 +45,9 @@
         <span>ReactPing</span>
       </a>
       <nav aria-label="Main">
+        <a class="btn btn-quiet btn-small nav-extra" href="/how-it-works">How it works</a>
+        <a class="btn btn-quiet btn-small nav-extra" href="/security">Security</a>
+        <a class="btn btn-quiet btn-small" href="/feedback">Feedback</a>
         <a class="btn btn-small" href="/connect">Add to Slack</a>
       </nav>
     </header>
@@ -52,66 +55,84 @@
     <main id="main" class="page wrap prose">
       <h1>How ReactPing protects your messages</h1>
       <p class="lede">
-        No tracking, and your messages are never stored. You don't have to take our word for it: ReactPing is
-        <a href="https://github.com/ElliotDrel/reactping">open source</a>, and every claim below links to the exact
-        code.
+        No tracking, and your messages are never stored. You don't have to take our word for it: ReactPing is open
+        source, and every claim below links to the exact code.
       </p>
 
-      <h2>Three permissions</h2>
-      <p>
-        ReactPing asks Slack to see reactions, to send you a DM, and to read messages you send ReactPing directly
-        (that's how feedback works). Nothing else.
-        <a href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L3-L4">See the permissions</a>.
+      <h2>Two permissions</h2>
+      <p>ReactPing asks Slack to see reactions and to send you a DM. Nothing else.</p>
+      <p class="actions">
+        <a class="btn btn-quiet btn-small" href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L3-L4"
+          >See the permissions</a
+        >
       </p>
 
       <h2>Reactions only</h2>
       <p>
         No other data is needed. When someone reacts to your message, ReactPing checks it's someone else's reaction to
         your message in the same workspace, then sends your DM.
-        <a href="https://github.com/ElliotDrel/reactping/blob/main/src/handler.ts#L363-L396">See the event handling</a>
-        and
-        <a href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L113-L160">every Slack call it makes</a
-        >.
+      </p>
+      <p class="actions">
+        <a
+          class="btn btn-quiet btn-small"
+          href="https://github.com/ElliotDrel/reactping/blob/main/src/handler.ts#L357-L390"
+          >See the event handling</a
+        >
+        <a
+          class="btn btn-quiet btn-small"
+          href="https://github.com/ElliotDrel/reactping/blob/main/src/slack.ts#L113-L160"
+          >See every Slack call it makes</a
+        >
       </p>
 
       <h2>Minimal storage</h2>
-      <p>
-        One database table: your Slack workspace and user IDs, the workspace URL, and encrypted access tokens.
+      <p>One database table: your Slack workspace and user IDs, the workspace URL, and encrypted access tokens.</p>
+      <p class="actions">
         <a
+          class="btn btn-quiet btn-small"
           href="https://github.com/ElliotDrel/reactping/blob/main/supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24"
           >See the table</a
-        >.
+        >
       </p>
 
       <h2>Encrypted tokens</h2>
-      <p>
-        Slack access tokens are encrypted with AES-256-GCM before they're saved.
-        <a href="https://github.com/ElliotDrel/reactping/blob/main/src/db.ts#L82-L83">See the encryption</a>.
+      <p>Slack access tokens are encrypted with AES-256-GCM before they're saved.</p>
+      <p class="actions">
+        <a class="btn btn-quiet btn-small" href="https://github.com/ElliotDrel/reactping/blob/main/src/db.ts#L82-L83"
+          >See the encryption</a
+        >
       </p>
 
       <h2>No tracking</h2>
       <p>
         No analytics, no scripts, and no cookies except one short-lived cookie that secures adding ReactPing to Slack.
         The site's security policy blocks scripts outright.
-        <a href="https://github.com/ElliotDrel/reactping/blob/main/vercel.json#L17-L18">See the policy</a>.
+      </p>
+      <p class="actions">
+        <a class="btn btn-quiet btn-small" href="https://github.com/ElliotDrel/reactping/blob/main/vercel.json#L17-L18"
+          >See the policy</a
+        >
       </p>
 
       <h2>Leave any time</h2>
       <p>
         Select <strong>Disconnect</strong> in ReactPing's Home tab in Slack and your record is deleted. Full details are
-        in the <a href="/privacy">privacy policy</a>.
+        in the privacy policy.
       </p>
+      <p class="actions"><a class="btn btn-quiet btn-small" href="/privacy">Read the privacy policy</a></p>
 
       <p class="actions"><a class="btn btn-large" href="/connect">Add to Slack</a></p>
     </main>
 
     <footer class="site-footer wrap">
-      <p><a href="/">ReactPing</a></p>
+      <p>Free and MIT licensed.</p>
       <nav aria-label="Footer">
-        <a href="/how-it-works">How it works</a>
-        <a href="/privacy">Privacy</a>
-        <a href="/feedback">Feedback</a>
-        <a href="https://github.com/ElliotDrel/reactping">Source code</a>
+        <a class="btn btn-quiet btn-small" href="/">Home</a>
+        <a class="btn btn-quiet btn-small" href="/how-it-works">How it works</a>
+        <a class="btn btn-quiet btn-small" href="/security">Security</a>
+        <a class="btn btn-quiet btn-small" href="/privacy">Privacy</a>
+        <a class="btn btn-quiet btn-small" href="/feedback">Feedback</a>
+        <a class="btn btn-quiet btn-small" href="https://github.com/ElliotDrel/reactping">Source code</a>
       </nav>
     </footer>
   </body>

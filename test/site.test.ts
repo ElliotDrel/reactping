@@ -29,8 +29,8 @@ const REPO = "https://github.com/ElliotDrel/reactping/blob/main/";
  * link is updated, so a privacy claim can never point readers at the wrong lines.
  */
 const SOURCE_LINKS: Record<string, RegExp[]> = {
-  "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write", "im:history"\]/, /USER_SCOPES = \["reactions:read"\]/],
-  "src/handler.ts#L363-L396": [/async function notify\(/, /item_user: authorId, reaction/, /postMessage\(/],
+  "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write"\]/, /USER_SCOPES = \["reactions:read"\]/],
+  "src/handler.ts#L357-L390": [/async function notify\(/, /item_user: authorId, reaction/, /postMessage\(/],
   "src/slack.ts#L113-L160": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /publishHome/, /revoke/],
   "supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24": [
     /create table reactping_slack\.installations/,
@@ -78,9 +78,9 @@ describe("website", () => {
       .replace(/<[^>]+>/g, " ")
       .split(/\s+/)
       .filter(Boolean).length;
-    // Raised from 110 (Nov 16) and 150 (Nov 17) as Elliot added How it works and Q&A; still guards against sprawl.
-    // Long-form content belongs on /how-it-works and /security.
-    assert.ok(words <= 230, `homepage has ${words} words`);
+    // Raised from 110 (Nov 16), 150, and 230 (Nov 17) as Elliot added How it works, Q&A, a feedback section, and
+    // button navigation; still guards against sprawl. Long-form content belongs on /how-it-works and /security.
+    assert.ok(words <= 260, `homepage has ${words} words`);
     for (const [file, page] of Object.entries(html)) assert.doesNotMatch(page, /<script/i, file);
     const csp = JSON.parse(read("vercel.json")).headers[0].headers.find(
       (h: { key: string }) => h.key === "Content-Security-Policy",
@@ -131,6 +131,29 @@ describe("website", () => {
       assert.match(page, /<link rel="apple-touch-icon" href="\/assets\/apple-touch-icon\.png" \/>/, file);
     }
     assert.ok(existsSync(new URL("public/assets/apple-touch-icon.png", root)));
+  });
+
+  it("styles every link to another page as a button", () => {
+    // Elliot (Nov 17): links to other pages are buttons, never inline text. Only the logo and skip link are exempt.
+    for (const [file, page] of Object.entries(html)) {
+      for (const tag of page.match(/<a\b[^>]*>/g) ?? []) {
+        if (/class="(brand|skip-link)"/.test(tag)) continue;
+        assert.match(tag, /class="btn\b/, `${file}: ${tag.replace(/\s+/g, " ")}`);
+      }
+    }
+  });
+
+  it("offers feedback from every page header and a homepage section", () => {
+    for (const [file, page] of Object.entries(html)) {
+      if (file === "connect.html" || file === "404.html") continue;
+      const header = /<header[\s\S]*?<\/header>/.exec(page)![0];
+      assert.ok(
+        links(header).some(([href, text]) => href === "/feedback" && text === "Feedback"),
+        file,
+      );
+    }
+    const section = /<section[^>]*id="feedback"[\s\S]*?<\/section>/.exec(html["index.html"]!)![0];
+    assert.deepEqual(links(section), [["/feedback", "Send feedback"]]);
   });
 
   it("only links to files that exist in the repository", () => {
