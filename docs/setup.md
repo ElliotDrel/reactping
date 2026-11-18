@@ -64,8 +64,8 @@ Each file in `api/` exports only its route's method, and the shared handler retu
 Paste `slack-manifest.template.yaml` with `YOUR_SITE_HOST` replaced. It configures:
 
 - user scope `reactions:read` and bot scopes `chat:write` and `im:history` (`im:history` plus the `message.im` event and a writable Messages tab let people DM feedback; App Home and `views.publish` need no extra scope);
-- the user event `reaction_added`, and the bot events `app_home_opened`, `app_uninstalled`, and `tokens_revoked`;
-- the Home tab and a read-only Messages tab;
+- the user event `reaction_added`, and the bot events `app_home_opened`, `app_uninstalled`, `tokens_revoked`, and `message.im`;
+- the Home tab and a Messages tab people can write in (superseded November 17: read-only);
 - interactivity at `/api/slack/interactions`;
 - token rotation and org-wide deployment off.
 
