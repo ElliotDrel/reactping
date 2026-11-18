@@ -83,7 +83,14 @@ describe("website", () => {
     // when the footer gained a link back to elliotdrel.com), and 265 for the search-intent Q&A "How do I get notified
     // when someone reacts to my Slack message?" (Nov 17). Long-form content belongs on /how-it-works and /security.
     assert.ok(words <= 265, `homepage <main> has ${words} words`);
-    for (const [file, page] of Object.entries(html)) assert.doesNotMatch(page, /<script/i, file);
+    // JSON-LD is data, not code: browsers never run it, so the CSP still blocks every script.
+    for (const [file, page] of Object.entries(html)) {
+      assert.doesNotMatch(
+        page.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, ""),
+        /<script/i,
+        file,
+      );
+    }
     const csp = JSON.parse(read("vercel.json")).headers[0].headers.find(
       (h: { key: string }) => h.key === "Content-Security-Policy",
     ).value;
@@ -156,6 +163,38 @@ describe("website", () => {
     const redirects = JSON.parse(read("vercel.json")).redirects as { destination: string }[];
     assert.ok(redirects.length > 0);
     for (const r of redirects) assert.equal(r.destination, `${origin}/:path`);
+  });
+
+  it("keeps structured data and llms.txt true to the visible site", () => {
+    // Search engines penalize JSON-LD that says something the page doesn't, so the FAQ must match word for word.
+    const page = html["index.html"]!;
+    const text = (s: string) =>
+      s
+        .replace(/<[^>]+>/g, "")
+        .replace(/\s+/g, " ")
+        .trim();
+    const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(page)![1]!);
+    const byType = (type: string) => ld["@graph"].find((n: { "@type": string }) => n["@type"] === type);
+    const faq = /<section class="faq[\s\S]*?<\/section>/.exec(page)![0];
+    const visible = [...faq.matchAll(/<dt>([\s\S]*?)<\/dt>\s*<dd>([\s\S]*?)<\/dd>/g)].map((m) => [
+      text(m[1]!),
+      text(m[2]!),
+    ]);
+    const structured = byType("FAQPage").mainEntity.map((q: { name: string; acceptedAnswer: { text: string } }) => [
+      q.name,
+      q.acceptedAnswer.text,
+    ]);
+    assert.deepEqual(structured, visible);
+    const app = byType("WebApplication");
+    assert.equal(app.description, /name="description"\s+content="([^"]+)"/.exec(page)![1]);
+    assert.equal(app.offers.price, "0");
+    assert.match(page, /Free forever/);
+    // llms.txt may only point at pages that exist and are indexable.
+    const sitemap = read("public/sitemap.xml");
+    const llms = read("public/llms.txt");
+    for (const [, url] of llms.matchAll(/\((https:\/\/reactping\.com[^)]*)\)/g)) {
+      assert.ok(url === "https://reactping.com/connect" || sitemap.includes(`<loc>${url}</loc>`), url);
+    }
   });
 
   it("styles every link to another page as a button, except the header's text links", () => {

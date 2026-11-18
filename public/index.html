@@ -33,6 +33,95 @@
     <meta name="theme-color" content="#ffffff" />
     <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="/assets/styles.css" />
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://reactping.com/#website",
+            "name": "ReactPing",
+            "url": "https://reactping.com/"
+          },
+          {
+            "@type": "WebApplication",
+            "@id": "https://reactping.com/#app",
+            "name": "ReactPing",
+            "url": "https://reactping.com/",
+            "description": "ReactPing DMs you when someone reacts to your Slack message: who reacted, the emoji, a preview, and a link back. Free forever, no tracking, and it never stores your messages.",
+            "applicationCategory": "BusinessApplication",
+            "operatingSystem": "Slack",
+            "image": "https://reactping.com/assets/social-card.png?v=2",
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "USD"
+            },
+            "license": "https://opensource.org/licenses/MIT",
+            "sameAs": ["https://github.com/ElliotDrel/reactping"],
+            "author": {
+              "@type": "Person",
+              "name": "Elliot Drel",
+              "url": "https://elliotdrel.com/"
+            }
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How do I get notified when someone reacts to my Slack message?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Slack lists reactions in Activity but doesn't alert you. Add ReactPing and it DMs you each time."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What does it cost?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Nothing. Free forever, no paid plan, no ads."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Do my own reactions notify me?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "No. ReactPing ignores reactions you add to your own messages, so you only hear about other people."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Does everyone need to add it?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Only people who want DMs. Everyone adds it for themselves."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What if my admin approves apps?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Slack lets you request approval. Add ReactPing again once it's approved."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "How do I disconnect?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Open ReactPing in Slack, go to Home, and select Disconnect. Your record is deleted."
+                }
+              }
+            ]
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>

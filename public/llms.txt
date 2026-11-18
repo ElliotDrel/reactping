@@ -1,0 +1,24 @@
+# ReactPing
+
+> A free, open-source Slack app that DMs you when someone else reacts to your Slack message: who reacted, the emoji, a one-line preview, and a link back.
+
+Slack lists reactions in its Activity tab, but its notification settings cover DMs, mentions, thread replies, and keywords, not reactions. ReactPing fills that gap.
+
+- Free forever: no paid plan or ads. MIT licensed.
+- Two permissions: user `reactions:read` and bot `chat:write`.
+- Never stores message text.
+- Each person adds it for themselves. Your own reactions don't notify you.
+- Disconnect from ReactPing's Home tab in Slack.
+
+## Docs
+
+- [How it works](https://reactping.com/how-it-works): setup, what triggers a DM, and what it shows
+- [Security](https://reactping.com/security): permissions and storage, with links to the code
+- [Privacy](https://reactping.com/privacy): what's stored, for how long, and how to delete it
+- [Add to Slack](https://reactping.com/connect)
+
+## Optional
+
+- [Source code](https://github.com/ElliotDrel/reactping)
+- [What it took to build ReactPing](https://elliotdrel.com/blog/building-reactping)
+- Support: elliotdrel@gmail.com
