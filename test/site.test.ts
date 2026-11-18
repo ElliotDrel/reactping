@@ -112,6 +112,27 @@ describe("website", () => {
     }
   });
 
+  it("gives every shareable page complete link-preview tags with absolute URLs to real files", () => {
+    // iMessage, X, and Slack drop or shrink previews when og:image is relative, missing, or not 1200x630.
+    for (const file of ["index.html", "how-it-works.html", "security.html", "privacy.html", "connect.html"]) {
+      const page = html[file]!;
+      const meta = (key: string) => new RegExp(`(?:property|name)="${key}"\\s+content="([^"]+)"`).exec(page)?.[1];
+      for (const key of ["og:title", "og:description", "og:url", "og:image", "twitter:card", "twitter:image"]) {
+        assert.ok(meta(key), `${file} is missing ${key}`);
+      }
+      assert.equal(meta("twitter:card"), "summary_large_image", file);
+      assert.equal(meta("og:image:width"), "1200", file);
+      assert.equal(meta("og:image:height"), "630", file);
+      for (const key of ["og:url", "og:image", "twitter:image"]) {
+        assert.match(meta(key)!, /^https:\/\//, `${file} ${key} must be absolute`);
+      }
+      const image = new URL(meta("og:image")!).pathname;
+      assert.ok(existsSync(new URL(`public${image}`, root)), `${file} og:image ${image} does not exist`);
+      assert.match(page, /<link rel="apple-touch-icon" href="\/assets\/apple-touch-icon\.png" \/>/, file);
+    }
+    assert.ok(existsSync(new URL("public/assets/apple-touch-icon.png", root)));
+  });
+
   it("only links to files that exist in the repository", () => {
     for (const page of Object.values(html)) {
       for (const [href] of links(page).filter(([h]) => h.startsWith(REPO))) {
