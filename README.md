@@ -1,6 +1,6 @@
 # ReactPing
 
-A Slack app that DMs you when someone reacts to your messages. Free and open source under MIT.
+A Slack app that DMs you when someone reacts to your messages. Free forever and open source under MIT.
 
 **[Add ReactPing to Slack](https://reactping.com)** · [How it works](https://reactping.com/how-it-works) · [Security](https://reactping.com/security) · [Privacy](https://reactping.com/privacy) · [19-second demo](media/launch-video/reactping-launch.mp4)
 
@@ -16,7 +16,7 @@ When someone else reacts to a message you wrote, ReactPing's bot DMs you the emo
 
 ## Scope
 
-V1 is the above, plus a welcome DM, the Home tab, and a website feedback form. Deferred: a single inbox across workspaces, digests, per-emoji filters, backfill, billing, and Enterprise Grid installs.
+V1 is the above, plus a welcome DM, the Home tab, and a website feedback form. ReactPing is free forever: no paid plan, trial, or ads (Elliot's decision, November 17, 2026; superseded: billing listed as deferred). Deferred: a single inbox across workspaces, digests, per-emoji filters, backfill, and Enterprise Grid installs.
 
 Ship criteria (all met November 17, 2026): the hosted app works end to end in more than one workspace, Disconnect and uninstall delete the person's or workspace's data, and no message content is collected. Live coverage is in [verification](docs/verification.md).
 
