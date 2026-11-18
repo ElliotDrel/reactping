@@ -54,9 +54,13 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConfigResult {
     }
   };
 
-  const selfReactions = env.INCLUDE_SELF_REACTIONS?.trim() || "false";
-  if (selfReactions !== "true" && selfReactions !== "false")
-    problems.push("INCLUDE_SELF_REACTIONS must be true or false");
+  // A testing-only flag must never take the service down (Nov 17: a dashboard value the old strict check rejected
+  // made every route 503). Accept true in any case, with or without quotes; anything else means off, the safe
+  // default. When it's on, the Home tab says "Testing mode is on", so a value that didn't take is visible.
+  const selfReactions = (env.INCLUDE_SELF_REACTIONS ?? "")
+    .trim()
+    .replace(/^(["'])(.*)\1$/, "$2")
+    .toLowerCase();
 
   const encryptionKey = Buffer.from(
     read("ENCRYPTION_KEY", (v) => {

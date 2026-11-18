@@ -22,11 +22,15 @@ function config(overrides: Record<string, string | undefined> = {}) {
 }
 
 describe("server configuration", () => {
-  it("excludes self-reactions unless testing is explicitly enabled, and rejects ambiguous flag values", () => {
+  it("excludes self-reactions unless testing is enabled, and never fails configuration over the flag", () => {
     assert.equal(config().includeSelfReactions, false);
-    assert.equal(config({ INCLUDE_SELF_REACTIONS: "true" }).includeSelfReactions, true);
-    assert.equal(config({ INCLUDE_SELF_REACTIONS: "false" }).includeSelfReactions, false);
-    assert.throws(() => config({ INCLUDE_SELF_REACTIONS: "yes" }), /INCLUDE_SELF_REACTIONS/);
+    for (const on of ["true", "TRUE", " True\n", '"true"', "'true'"]) {
+      assert.equal(config({ INCLUDE_SELF_REACTIONS: on }).includeSelfReactions, true, JSON.stringify(on));
+    }
+    // Anything unclear means off, the safe default, rather than a site-wide 503.
+    for (const off of ["false", "yes", "1", "tru", ""]) {
+      assert.equal(config({ INCLUDE_SELF_REACTIONS: off }).includeSelfReactions, false, JSON.stringify(off));
+    }
   });
 
   it("has no install gate: removed launch flags are ignored", () => {
