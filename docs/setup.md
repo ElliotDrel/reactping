@@ -1,92 +1,80 @@
-# Setup and run
+# Setup and architecture
 
-ReactPing is a static website plus four small Vercel Node.js functions, with one Supabase Postgres table. Superseded: the Build Output API generator, Supabase Auth email codes, the `/app` dashboard, and the pg_cron delivery job. Step-by-step provider work lives in [the connection guide](connection-guide.md); this page is the technical contract it follows.
+ReactPing is a static website plus six small Vercel Node.js functions, backed by Supabase Postgres. This page is the technical contract for running it, including self-hosting.
 
-## 1. Install and verify locally
+## Architecture
 
-```sh
-npm ci
-npm run db:test:start
-export TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:54329/postgres
-npm run check   # format:check, typecheck, lint, build, test
-npm run db:test:stop
-```
+- **Website:** static HTML and CSS in `public/` (`/`, `/connect`, `/how-it-works`, `/security`, `/privacy`, `/feedback`, and a 404 page). No scripts and no configuration. Every "Add to Slack" link opens `/connect`, which explains workspace choice and admin approval, then continues to `/api/slack/install`. `/security` links its claims to exact source lines; `test/site.test.ts` fails if those lines stop matching.
+- **Functions:** one file per route in `api/`, each exporting a Web-standard `GET` or `POST` that calls the shared handler in `src/handler.ts`. The handler takes its dependencies as arguments, so tests run it directly with a mocked Slack API. Any other method or path returns 404; there is no health endpoint.
+- **OAuth CSRF:** `state` is a random nonce, mirrored in an HttpOnly, Secure, `SameSite=Lax`, `__Host-` cookie with a 10-minute expiry, HMAC-signed with a key derived from `ENCRYPTION_KEY`. Wrong browser, expiry, or tampering fails. Nothing is stored.
+- **Install policy:** Enterprise Grid installs, missing scopes, and unverifiable workspaces are rejected, and the just-issued user grant is revoked unless an existing installation still uses it.
+- **Events:** the signature is checked over the raw body (5-minute window, 256 KB limit). `reaction_added` and `app_home_opened` are acknowledged with `200` and processed in `waitUntil`; requests with `X-Slack-Retry-Num` are acknowledged and ignored. `app_uninstalled` and `tokens_revoked` delete rows before the `200`, so their retries are safe.
+- **Message links:** `<workspace url>archives/<channel>/p<ts digits>`, built from validated text (the workspace URL comes from `auth.test` at install and must be `https://<name>.slack.com/`). Thread replies may open the parent conversation.
+- **Disconnect:** identity comes only from the signed payload's `team.id` and `user.id`. Exactly that row is deleted, then the user's token is revoked and Home shows Not connected. The shared bot token is never revoked by Disconnect; removing the app does that.
+- **Slack client:** `@slack/web-api` with retries off, 5-second timeouts, unfurls off, and a silent logger. Logs are allowlisted structured fields only: never tokens, codes, or message content.
 
-`npm run build` is a TypeScript check; Vercel compiles the functions in `api/` itself and serves `public/` as static files. `npm run dev` runs `vercel dev`, which needs the Vercel CLI and a linked project. Slack requires HTTPS for every URL, so live Slack testing uses the deployed site.
+Layout: `src/handler.ts` (routes), `src/db.ts` (store), `src/slack.ts` (Slack client), `src/messages.ts` (DM and Home text), `src/pages.ts` (result pages, stats image), `src/oauth-state.ts`, `src/crypto.ts`, `src/config.ts`, `src/vercel.ts` (environment wiring). Tests are in `test/`.
 
-## 2. Environment contract
+## Data
 
-All names are in [`.env.example`](../.env.example). Every variable is server-only; the website reads none.
+All tables are in the private `reactping_slack` schema with RLS on, no policies, and no `anon`/`authenticated` privileges. Do not expose the schema to the Data API.
 
-| Variable                 | Purpose                                                                                                     |
-| ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `PUBLIC_SITE_URL`        | Canonical origin. OAuth redirect URL; installs started on another host are redirected here first.           |
-| `DATABASE_URL`           | Supabase Postgres, transaction pooler (port 6543), verified TLS. SSL query parameters are refused.          |
-| `DATABASE_CA`            | Optional PEM CA when system trust does not validate the provider certificate.                               |
-| `SLACK_CLIENT_ID`        | Slack app client ID.                                                                                        |
-| `SLACK_CLIENT_SECRET`    | Slack OAuth code exchange.                                                                                  |
-| `SLACK_SIGNING_SECRET`   | Verifies Slack event and interactivity requests.                                                            |
-| `ENCRYPTION_KEY`         | 32 bytes, base64. Separate keys are derived for token encryption (`installation-tokens`) and `oauth-state`. |
-| `INCLUDE_SELF_REACTIONS` | Testing only. Default `false`.                                                                              |
+| Table           | Contents                                                                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `installations` | One row per `(team_id, user_id)`: workspace URL, AES-256-GCM bot and user tokens (associated data binds each to its row and field), times. |
+| `activity`      | `connected`, `disconnected`, and `uninstalled` per workspace, with time and install count. No user IDs.                                    |
+| `counters`      | `notifications_sent` total.                                                                                                                |
+| `feedback`      | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`), `status`, `note`.             |
 
-Removed from the contract: `PUBLIC_SUPABASE_URL`, `PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `PUBLIC_INSTALL_ENABLED`, `REACTPING_INSTALLS_ENABLED`, `PUBLIC_SITE_INDEXABLE`, `PUBLIC_SUPPORT_EMAIL`, and `DELIVERY_CRON_SECRET`. All six that existed in the connected Vercel project were deleted after the Slack-only deployment passed hosted checks; `PUBLIC_SUPPORT_EMAIL` was never set.
+`GET /api/stats` renders the workspace and notification totals as an edge-cached SVG for the homepage. Feedback `source` comes from the UTM tags in the form page's Referer. Edit feedback `status` (`new`, `viewed`, `resolved`, `declined`) and `note` in the Supabase Table Editor; a trigger maintains `status_at`.
 
-If any variable is missing or invalid, the function logs the variable names (never values) and every route returns `503 not_configured`.
+## Run locally
 
-URLs under `PUBLIC_SITE_URL`:
+See [Development](../README.md#development). `npm run build` is a TypeScript check; Vercel compiles `api/` itself and serves `public/`. `npm run dev` runs `vercel dev` (needs the Vercel CLI and a linked project). Slack requires HTTPS, so live Slack testing uses a deployed site.
 
-| Route                           | Slack setting                           |
+## Environment
+
+All names are in [`.env.example`](../.env.example). Every variable is server-only.
+
+| Variable                 | Purpose                                                                                            |
+| ------------------------ | -------------------------------------------------------------------------------------------------- |
+| `PUBLIC_SITE_URL`        | Canonical origin. OAuth redirect base; installs started on another host are redirected here first. |
+| `DATABASE_URL`           | Supabase Postgres, transaction pooler (port 6543), verified TLS. SSL query parameters are refused. |
+| `DATABASE_CA`            | Optional PEM CA when system trust does not validate the provider certificate.                      |
+| `SLACK_CLIENT_ID`        | Slack app client ID.                                                                               |
+| `SLACK_CLIENT_SECRET`    | Slack OAuth code exchange.                                                                         |
+| `SLACK_SIGNING_SECRET`   | Verifies Slack event and interactivity requests.                                                   |
+| `ENCRYPTION_KEY`         | 32 bytes, base64. Separate keys are derived for token encryption and the OAuth state cookie.       |
+| `INCLUDE_SELF_REACTIONS` | Testing only: also notify about your own reactions. Any value other than `true` means off.         |
+
+If a required variable is missing or invalid, the function logs the variable names (never values) and every route returns `503 not_configured`.
+
+## Routes
+
+| Route                           | Used by                                 |
 | ------------------------------- | --------------------------------------- |
-| `GET /api/slack/install`        | none; `/connect`'s "Continue to Slack"  |
+| `GET /api/slack/install`        | `/connect`'s "Continue to Slack"        |
 | `GET /api/slack/oauth/callback` | OAuth & Permissions → Redirect URL      |
 | `POST /api/slack/events`        | Event Subscriptions → Request URL       |
 | `POST /api/slack/interactions`  | Interactivity & Shortcuts → Request URL |
+| `POST /api/feedback`            | The `/feedback` form                    |
+| `GET /api/stats`                | The homepage stats image                |
 
-Each file in `api/` exports only its route's method, and the shared handler returns 404 for any other method or path. There is no health endpoint.
+## Self-hosting
 
-## 3. Supabase
+1. **Supabase:** create a project and run `supabase db push` to apply `supabase/migrations/` in order. Copy the transaction pooler connection string into `DATABASE_URL`.
+2. **Vercel:** import the repository with framework preset **Other**; `vercel.json` sets the install and build commands, output directory `public`, clean URLs, security headers, and a 30-second function limit. Set the variables above for Production; preview deployments cannot complete OAuth. Slack must reach production without Deployment Protection challenges. Hobby plans are for personal, non-commercial use.
+3. **Slack:** create an app from [`slack-manifest.template.yaml`](../slack-manifest.template.yaml) with `YOUR_SITE_HOST` replaced. Deploy first: Slack verifies the event URL on save. The manifest sets user scope `reactions:read`, bot scope `chat:write`, the user event `reaction_added`, bot events `app_home_opened`, `app_uninstalled`, and `tokens_revoked`, the Home tab, interactivity, and token rotation off. It can't set the icon: upload `slack-app-icon.png` (1024 px) under **Basic Information → Display Information**. To allow other workspaces, enable **Manage Distribution → Share Your App with Other Workspaces**, and share `<PUBLIC_SITE_URL>/api/slack/install` (or the site), never Slack's raw authorize link, so the state cookie is set.
+4. **Verify:** add the app, check for the welcome DM and the Home tab, then have someone else react to your message. Record what you observe in [verification](verification.md).
 
-- For a new, empty project, `supabase db push --remote --yes` applies the migration history and leaves only `reactping_slack.installations`. Do not expose that private schema to the Data API.
-- For an existing account-backed deployment, apply only additive `20261113000000_reactping_slack_installations.sql` first. Deploy and check the Slack-only version before applying cleanup `20261114000000_remove_account_backend.sql`; follow [the ordered connection guide](connection-guide.md). Do not apply all pending migrations while the old version is running.
-- The original `20261110000000_reactping.sql` stays unchanged. Its schema was inspected and removed after deployment; existing rows were not imported (there were none).
-- Supabase Auth, SMTP, Vault, `pg_cron`, and `pg_net` are no longer used by ReactPing. Its job and Vault secrets were deleted and email Auth disabled. Supabase-managed schemas and extensions were retained; no unrelated or platform-owned objects were dropped.
-
-## 4. Vercel
-
-- Framework preset **Other**. `vercel.json` sets `npm ci`, `npm run build`, output directory `public`, clean URLs, security headers, and a 30-second limit for `api/**/*.ts`. Node version comes from `engines` (`24.x`).
-- Functions use `waitUntil` from `@vercel/functions` to send DMs after acknowledging Slack, and `attachDatabasePool` for the pg pool.
-- Set the variables above for Production. Preview deployments cannot complete OAuth (the redirect and cookie belong to the canonical host).
-- Slack must reach the production URLs without Vercel Deployment Protection challenges.
-- Hobby plans are for personal, non-commercial use.
-
-## 5. Slack app
-
-Paste `slack-manifest.template.yaml` with `YOUR_SITE_HOST` replaced. It configures:
-
-- user scope `reactions:read` and bot scope `chat:write` (App Home and `views.publish` need no extra scope). Superseded November 17: bot `im:history` and the `message.im` event for DM feedback; feedback now uses the website form;
-- the user event `reaction_added`, and the bot events `app_home_opened`, `app_uninstalled`, and `tokens_revoked`;
-- the Home tab and a read-only Messages tab;
-- interactivity at `/api/slack/interactions`;
-- token rotation and org-wide deployment off.
-
-The manifest can't set the icon. Upload `slack-app-icon.png` (the site logo, 1024 px) under **Basic Information → Display Information**; the bot's DM avatar uses it.
-
-Slack verifies the event URL when it is saved, so deploy first. Unlisted public distribution is enabled for second-workspace pilots as of November 15. Workspace installation policies still apply; the app is not submitted to the Marketplace.
-
-## Behavior notes
-
-- **Identity:** `team.id` and `authed_user.id` from `oauth.v2.access`, checked against `auth.test`. Reinstalling replaces that row's tokens; nothing else changes.
-- **Filtering:** only `reaction_added` on a `message` whose `item_user` has an installation in the event's own workspace, from someone else (unless `INCLUDE_SELF_REACTIONS=true`). Messages without `item_user` are ignored.
-- **Delivery:** `200` first, then `chat.postMessage` in `waitUntil`, with no SDK retries. Requests with `X-Slack-Retry-Num` are acknowledged and ignored, so a reaction is delivered at most once per Slack delivery attempt and can be lost if the first attempt fails. Slack auth errors (`token_revoked`, `invalid_auth`, `account_inactive`, …) delete that installation unless it was reinstalled meanwhile.
-- **Message link:** `<workspace url>archives/<channel>/p<ts digits>`. For thread replies this may open the parent conversation.
-- **Home tab:** `app_home_opened` publishes the connected view for connected users. Users who never connected see Slack's default Home.
-- **Lifecycle:** `app_uninstalled` deletes every row for the workspace; `tokens_revoked` deletes the listed users' rows, or the whole workspace when the bot token is revoked.
-- **Not supported:** Enterprise Grid (rejected at OAuth) and token rotation.
-
-## Recovery
-
-**Accepted availability risk (November 15, 2026):** Supabase Free projects may pause after about a week of low activity. Removing the every-minute delivery cron also removed that regular background traffic. If this project pauses, ReactPing cannot access its database and notifications stop until the project is restored from the [Supabase dashboard](https://supabase.com/dashboard/project/ykrdmgewztwzksgwbjue). Reactions missed while paused are not backfilled. Elliot accepts this risk: do not add a keep-alive. Superseded: the old idle-week availability check is no longer a remaining launch requirement. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
+## Operations
 
 - **Missed notifications:** expected occasionally and never backfilled. Check the function logs for `notify_failed` or `background_failed`.
-- **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the `reactping_slack.installations` rows; everyone adds ReactPing to Slack again.
+- **Supabase idle pause (accepted risk, November 15, 2026):** Free projects may pause after about a week of low activity. Notifications then stop until the project is restored from the Supabase dashboard, and missed reactions are not backfilled. Elliot accepts this risk: do not add a keep-alive. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
+- **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the `installations` rows; everyone adds ReactPing again.
 - **Changed domain:** update `PUBLIC_SITE_URL`, redeploy, update the three Slack URLs, then verify a fresh reaction end to end.
+- **Not supported:** Enterprise Grid and token rotation.
+
+## References
+
+Reviewed November 13, 2026: [Vercel Node.js functions](https://vercel.com/docs/functions/runtimes/node-js), [`@vercel/functions`](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package), [Events API](https://docs.slack.dev/apis/events-api/), [`app_home_opened`](https://docs.slack.dev/reference/events/app_home_opened/), [`views.publish`](https://docs.slack.dev/reference/methods/views.publish/). Reviewed October 23, 2026: [`reaction_added`](https://docs.slack.dev/reference/events/reaction_added/), [OAuth scopes](https://docs.slack.dev/authentication/installing-with-oauth/), [`chat.postMessage`](https://docs.slack.dev/reference/methods/chat.postMessage/), [distribution](https://docs.slack.dev/app-management/distribution/).
