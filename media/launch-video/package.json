@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Renders reactping-launch.mp4 from launch.html. Run: npm i && node render.mjs video reactping-launch.mp4",
+  "dependencies": {
+    "playwright-core": "1.48.2"
+  }
+}

@@ -1,0 +1,415 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --paper: #ffffff;
+        --ink: #0f1d3a;
+        --ink-2: #44506a;
+        --signal: #1f4bff;
+        --mist: #eef2ff;
+        --react: #ffe14d;
+        --rule: #d6ddf0;
+        --sans: "Segoe UI Variable Display", "Segoe UI", Arial, sans-serif;
+      }
+      html,
+      body {
+        margin: 0;
+        width: 1920px;
+        height: 1080px;
+        overflow: hidden;
+      }
+      body {
+        background: radial-gradient(ellipse 70% 60% at 50% 45%, var(--mist), var(--paper) 75%);
+        color: var(--ink);
+        font-family: var(--sans);
+        -webkit-font-smoothing: antialiased;
+      }
+      .abs {
+        position: absolute;
+      }
+      /* Intro / outro */
+      #intro,
+      #outro {
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+      }
+      .tile {
+        width: 220px;
+        height: 220px;
+        border-radius: 999px;
+        background: var(--react);
+        border: 8px solid var(--ink);
+        box-shadow: 18px 18px 0 var(--signal);
+        display: grid;
+        place-items: center;
+        font-size: 120px;
+        line-height: 1;
+      }
+      .word {
+        display: flex;
+        align-items: center;
+        gap: 22px;
+        margin-top: 56px;
+      }
+      .word svg {
+        width: 96px;
+        height: 96px;
+      }
+      .word b {
+        font-size: 120px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1;
+      }
+      .tag {
+        font-size: 44px;
+        color: var(--ink-2);
+        margin-top: 22px;
+        font-weight: 600;
+      }
+      #outro h1 {
+        font-size: 112px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 1;
+        margin: 40px 0 26px;
+      }
+      .facts {
+        font-size: 38px;
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      .facts i {
+        font-style: normal;
+        color: var(--signal);
+        padding: 0 14px;
+      }
+      .btn {
+        margin-top: 54px;
+        background: var(--signal);
+        color: #fff;
+        font-size: 40px;
+        font-weight: 700;
+        padding: 26px 54px;
+        border-radius: 16px;
+      }
+      .url {
+        margin-top: 30px;
+        font-size: 34px;
+        color: var(--ink-2);
+        font-weight: 600;
+      }
+      /* Steps */
+      #steps {
+        inset: 0;
+      }
+      #caption {
+        left: 104px;
+        top: 0;
+        width: 420px;
+        height: 1080px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+      }
+      .cap {
+        position: absolute;
+        left: 0;
+        width: 420px;
+      }
+      .kicker {
+        display: inline-block;
+        font-size: 28px;
+        font-weight: 800;
+        color: var(--signal);
+        background: var(--mist);
+        border-radius: 999px;
+        padding: 8px 20px;
+        letter-spacing: 0.04em;
+      }
+      .cap h2 {
+        font-size: 76px;
+        font-weight: 800;
+        letter-spacing: -0.035em;
+        line-height: 0.98;
+        margin: 26px 0 22px;
+      }
+      .cap p {
+        font-size: 32px;
+        line-height: 1.35;
+        color: var(--ink-2);
+        margin: 0;
+      }
+      #card {
+        left: 568px;
+        top: 140px;
+        width: 1280px;
+        height: 800px;
+        border-radius: 22px;
+        overflow: hidden;
+        border: 5px solid var(--ink);
+        box-shadow: 16px 16px 0 var(--signal);
+        background: #1a1d21;
+        transform-origin: 50% 50%;
+      }
+      #cam {
+        left: 0;
+        top: 0;
+        width: 1280px;
+        height: 800px;
+        transform-origin: 0 0;
+      }
+      #cam img {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1280px;
+        height: 800px;
+      }
+      #typed {
+        clip-path: inset(0 100% 0 0);
+      }
+      .ring {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        margin: -20px 0 0 -20px;
+        border-radius: 999px;
+        border: 3px solid var(--react);
+        opacity: 0;
+      }
+      #spot {
+        position: absolute;
+        border-radius: 10px;
+        box-shadow:
+          0 0 0 4px var(--react),
+          0 0 0 2000px rgba(8, 14, 30, 0.55);
+        opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="intro" class="abs">
+      <div class="tile" id="iTile">🙋</div>
+      <div class="word" id="iWord">
+        <svg viewBox="0 0 32 32">
+          <path
+            fill="#0f1d3a"
+            d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z"
+          />
+          <circle cx="23" cy="9.5" r="5" fill="#ffe14d" stroke="#0f1d3a" stroke-width="2" />
+        </svg>
+        <b>ReactPing</b>
+      </div>
+      <div class="tag" id="iTag">Reaction notifications for Slack</div>
+    </div>
+
+    <div id="steps" class="abs">
+      <div id="caption" class="abs">
+        <div class="cap" id="c1">
+          <span class="kicker">01</span>
+          <h2>Ask your team.</h2>
+          <p>Post a message like you always do.</p>
+        </div>
+        <div class="cap" id="c2">
+          <span class="kicker">02</span>
+          <h2>They react.</h2>
+          <p>In a busy channel, reactions are easy to miss.</p>
+        </div>
+        <div class="cap" id="c3">
+          <span class="kicker">03</span>
+          <h2>ReactPing DMs you.</h2>
+          <p>Who reacted, the emoji, and a link back.</p>
+        </div>
+      </div>
+      <div id="card" class="abs">
+        <div id="cam" class="abs">
+          <img id="empty" src="footage/empty.png" />
+          <img id="typed" src="footage/typed.png" />
+          <img id="posted" src="footage/posted.png" />
+          <img id="r1" src="footage/r1.png" /><img id="r2" src="footage/r2.png" /><img
+            id="r3"
+            src="footage/r3.png"
+          /><img id="r4" src="footage/r4.png" />
+          <img id="dm" src="footage/dm.png" />
+          <div class="ring" id="ring"></div>
+          <div id="spot"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="outro" class="abs">
+      <div class="word" style="margin-top: 0" id="oWord">
+        <svg viewBox="0 0 32 32">
+          <path
+            fill="#0f1d3a"
+            d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z"
+          />
+          <circle cx="23" cy="9.5" r="5" fill="#ffe14d" stroke="#0f1d3a" stroke-width="2" />
+        </svg>
+        <b style="font-size: 84px">ReactPing</b>
+      </div>
+      <h1 id="oH">Never miss a reaction.</h1>
+      <div class="facts" id="oF">Free<i>·</i>Open source<i>·</i>Two permissions</div>
+      <div class="btn" id="oB">Add to Slack</div>
+      <div class="url" id="oU">reactping.vercel.app</div>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const clamp = (x) => Math.max(0, Math.min(1, x));
+      const p = (t, a, b) => clamp((t - a) / (b - a)); // progress of t through [a, b]
+      const io = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2); // ease in-out cubic
+      const out = (x) => 1 - Math.pow(1 - x, 3);
+      const back = (x) => {
+        const c = 1.9;
+        return 1 + (c + 1) * Math.pow(x - 1, 3) + c * Math.pow(x - 1, 2);
+      }; // overshoot, like the site's "land"
+      const lerp = (a, b, x) => a + (b - a) * x;
+      function rise(el, t, a, d = 0.5, dist = 40) {
+        const x = out(p(t, a, a + d));
+        el.style.opacity = x;
+        el.style.transform = `translateY(${(1 - x) * dist}px)`;
+      }
+      function show(el, on) {
+        el.style.opacity = on ? 1 : 0;
+      }
+
+      // Camera keyframes per shot: [time, centerX, centerY, zoom] in source pixels.
+      const CAM = [
+        [2.8, 640, 400, 1],
+        [3.1, 640, 400, 1],
+        [3.6, 600, 700, 1.9],
+        [5.0, 600, 700, 1.9],
+        [5.6, 640, 575, 2.0],
+        [6.6, 640, 575, 2.0],
+        [7.0, 590, 565, 2.4],
+        [9.5, 590, 565, 2.4],
+        [10.2, 470, 575, 1.55],
+        [10.8, 470, 575, 1.55],
+        [10.8, 640, 400, 1.0],
+        [11.1, 640, 400, 1.0],
+        [12.0, 700, 545, 1.75],
+        [15.4, 700, 575, 1.85],
+      ];
+      function cam(t) {
+        let k = CAM[0];
+        for (let i = 0; i < CAM.length - 1; i++) {
+          const [ta, xa, ya, za] = CAM[i],
+            [tb, xb, yb, zb] = CAM[i + 1];
+          if (t >= ta && t <= tb) {
+            const e = io(p(t, ta, tb));
+            k = [t, lerp(xa, xb, e), lerp(ya, yb, e), lerp(za, zb, e)];
+            break;
+          }
+          if (t > tb) k = CAM[i + 1];
+        }
+        const [, cx, cy, z] = k;
+        // keep the view inside the frame
+        const x = Math.min(Math.max(cx - 640 / z, 0), 1280 - 1280 / z),
+          y = Math.min(Math.max(cy - 400 / z, 0), 800 - 800 / z);
+        $("cam").style.transform = `scale(${z}) translate(${-x}px, ${-y}px)`;
+      }
+      function ring(t, at, x, y) {
+        const q = p(t, at, at + 0.55);
+        if (q <= 0 || q >= 1) return false;
+        const r = $("ring");
+        r.style.left = x + "px";
+        r.style.top = y + "px";
+        r.style.opacity = 1 - q;
+        r.style.transform = `scale(${0.6 + out(q) * 1.6})`;
+        return true;
+      }
+
+      window.render = (t) => {
+        // Intro 0–2.8
+        const inI = t < 2.9;
+        $("intro").style.display = inI ? "flex" : "none";
+        if (inI) {
+          const land = p(t, 0.15, 0.75),
+            leave = io(p(t, 2.35, 2.85));
+          $("iTile").style.transform = `scale(${land ? back(land) : 0}) rotate(${(1 - clamp(land)) * -18}deg)`;
+          rise($("iWord"), t, 0.6);
+          rise($("iTag"), t, 0.95);
+          $("intro").style.transform = `translateY(${-leave * 120}px)`;
+          $("intro").style.opacity = 1 - leave;
+        }
+        // Steps 2.8–15.6
+        const inS = t >= 2.8 && t < 15.9;
+        $("steps").style.display = inS ? "block" : "none";
+        if (inS) {
+          const enter = out(p(t, 2.8, 3.35)),
+            exit = io(p(t, 15.2, 15.8));
+          $("card").style.opacity = enter * (1 - exit);
+          $("card").style.transform = `translateY(${(1 - enter) * 80 - exit * 60}px) scale(${0.94 + 0.06 * enter})`;
+          $("caption").style.opacity = 1 - exit;
+          cam(t);
+          // captions: in with a rise, out with a fade
+          const caps = [
+            ["c1", 2.95, 6.6],
+            ["c2", 6.75, 10.8],
+            ["c3", 10.95, 99],
+          ];
+          for (const [id, a, b] of caps) {
+            const el = $(id),
+              x = out(p(t, a, a + 0.5)) * (1 - out(p(t, b - 0.2, b)));
+            el.style.opacity = x;
+            el.style.transform = `translateY(${(1 - out(p(t, a, a + 0.5))) * 40 - out(p(t, b - 0.2, b)) * 30}px)`;
+            el.style.top = "calc(50% - 160px)";
+          }
+          // which still is on screen
+          const still =
+            t < 5.0
+              ? "empty"
+              : t < 6.6
+                ? "posted"
+                : t < 7.5
+                  ? "r1"
+                  : t < 8.3
+                    ? "r2"
+                    : t < 9.1
+                      ? "r3"
+                      : t < 10.8
+                        ? "r4"
+                        : "dm";
+          for (const id of ["empty", "posted", "r1", "r2", "r3", "r4", "dm"]) show($(id), id === still);
+          // typing: reveal the real typed frame left to right over the composer text
+          const typing = t >= 3.6 && t < 5.0;
+          show($("typed"), typing);
+          if (typing) {
+            const w = lerp(385, 830, p(t, 3.65, 4.75));
+            $("typed").style.clipPath = `inset(690px ${1280 - w}px 74px 380px)`;
+          }
+          // reaction pops on the pill, then on the ReactPing badge
+          let any = false;
+          for (const at of [6.75, 7.5, 8.3, 9.1]) any = ring(t, at, 445, 580) || any;
+          any = ring(t, 10.1, 333, 580) || any;
+          if (!any) $("ring").style.opacity = 0;
+          // spotlight on one notification
+          const s = $("spot"),
+            sp = out(p(t, 12.5, 13.0));
+          Object.assign(s.style, { left: "418px", top: "474px", width: "470px", height: "50px" });
+          s.style.opacity = t >= 10.8 ? sp : 0;
+        }
+        // Outro 15.6–19
+        const inO = t >= 15.6;
+        $("outro").style.display = inO ? "flex" : "none";
+        if (inO) {
+          rise($("oWord"), t, 15.65);
+          rise($("oH"), t, 15.85);
+          rise($("oF"), t, 16.15);
+          rise($("oB"), t, 16.4);
+          rise($("oU"), t, 16.6);
+          const press = p(t, 17.4, 17.7);
+          $("oB").style.transform = `scale(${1 - Math.sin(press * Math.PI) * 0.06})`;
+        }
+      };
+      window.render(0);
+    </script>
+  </body>
+</html>
