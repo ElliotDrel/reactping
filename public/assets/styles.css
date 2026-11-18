@@ -167,13 +167,30 @@ a:hover {
   stroke-width: 2.5;
 }
 
-/* Every link to another page is a button (Elliot, Nov 17); test/site.test.ts enforces it. */
+/*
+ * Links to other pages are buttons (Elliot, Nov 17), except the header's text links; test/site.test.ts enforces it.
+ */
 .site-header nav,
 .site-footer nav {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.site-header nav {
+  gap: 0.5rem 1.5rem;
+}
+
+.site-header nav a:not(.btn) {
+  color: var(--ink-2);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.site-header nav a:not(.btn):hover {
+  color: var(--ink);
+  text-decoration: underline;
 }
 
 @media (max-width: 720px) {

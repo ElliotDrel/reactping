@@ -133,10 +133,15 @@ describe("website", () => {
     assert.ok(existsSync(new URL("public/assets/apple-touch-icon.png", root)));
   });
 
-  it("styles every link to another page as a button", () => {
-    // Elliot (Nov 17): links to other pages are buttons, never inline text. Only the logo and skip link are exempt.
+  it("styles every link to another page as a button, except the header's text links", () => {
+    // Elliot (Nov 17): links to other pages are buttons, never inline text. The header nav keeps text links (he
+    // reverted header buttons the same day); the logo and skip link are exempt too.
     for (const [file, page] of Object.entries(html)) {
-      for (const tag of page.match(/<a\b[^>]*>/g) ?? []) {
+      const header = /<nav aria-label="Main">[\s\S]*?<\/nav>/.exec(page)?.[0] ?? "";
+      for (const [href, text] of links(header)) {
+        if (text !== "Add to Slack") assert.doesNotMatch(header, new RegExp(`class="btn[^"]*" href="${href}"`), file);
+      }
+      for (const tag of page.replace(header, "").match(/<a\b[^>]*>/g) ?? []) {
         if (/class="(brand|skip-link)"/.test(tag)) continue;
         assert.match(tag, /class="btn\b/, `${file}: ${tag.replace(/\s+/g, " ")}`);
       }
