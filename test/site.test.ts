@@ -79,9 +79,10 @@ describe("website", () => {
       .replace(/<[^>]+>/g, " ")
       .split(/\s+/)
       .filter(Boolean).length;
-    // Whole-page limit was raised from 110 (Nov 16) to 150, 230, and 260 (Nov 17); now 235 words of <main> (its size
-    // when the footer gained a link back to elliotdrel.com). Long-form content belongs on /how-it-works and /security.
-    assert.ok(words <= 235, `homepage <main> has ${words} words`);
+    // Whole-page limit was raised from 110 (Nov 16) to 150, 230, and 260 (Nov 17); then 235 words of <main> (its size
+    // when the footer gained a link back to elliotdrel.com), and 265 for the search-intent Q&A "How do I get notified
+    // when someone reacts to my Slack message?" (Nov 17). Long-form content belongs on /how-it-works and /security.
+    assert.ok(words <= 265, `homepage <main> has ${words} words`);
     for (const [file, page] of Object.entries(html)) assert.doesNotMatch(page, /<script/i, file);
     const csp = JSON.parse(read("vercel.json")).headers[0].headers.find(
       (h: { key: string }) => h.key === "Content-Security-Policy",
