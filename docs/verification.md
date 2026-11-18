@@ -1,5 +1,12 @@
 # V1 verification
 
+## November 17, 2026: feedback form and Slack attribution
+
+- Website form: Elliot submitted two entries, one with name and email and one without. Both were saved as `website` with the right optional fields.
+- Slack link: Elliot opened ReactPing's Home tab, followed its feedback link, and submitted. The row was saved as `slack_home`, so the UTM tags reached the handler through the Referer in production.
+- Status: all three rows were set to `resolved` with a note; the trigger stamped `status_at` in production.
+- Live Slack app config is back to bot `chat:write` only, no `message.im` event, and a read-only Messages tab; the live install redirect requests `scope=chat:write`. Superseded: the same-day DM feedback setup (`im:history`, writable Messages tab), which was never live-tested.
+
 ## November 17, 2026: Disconnect and uninstall
 
 - Disconnect: Elliot selected Disconnect on ReactPing's Home tab in a second workspace. Logs showed `installation_disconnected` then `tokens_revoked` (installations 0, already deleted); the workspace's row was gone from `reactping_slack.installations`.
