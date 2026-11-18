@@ -69,6 +69,8 @@ Paste `slack-manifest.template.yaml` with `YOUR_SITE_HOST` replaced. It configur
 - interactivity at `/api/slack/interactions`;
 - token rotation and org-wide deployment off.
 
+The manifest can't set the icon. Upload `slack-app-icon.png` (the site logo, 1024 px) under **Basic Information → Display Information**; the bot's DM avatar uses it.
+
 Slack verifies the event URL when it is saved, so deploy first. Unlisted public distribution is enabled for second-workspace pilots as of November 15. Workspace installation policies still apply; the app is not submitted to the Marketplace.
 
 ## Behavior notes
