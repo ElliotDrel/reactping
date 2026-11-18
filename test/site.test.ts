@@ -72,15 +72,16 @@ describe("website", () => {
     const page = html["index.html"]!;
     assert.match(page, /<h1>Reaction notifications for Slack<\/h1>/);
     assert.doesNotMatch(page, /eyebrow/);
-    const words = page
-      .replace(/<head>[\s\S]*<\/head>/, "")
+    // Counts <main> only, so header and footer navigation links don't spend the content budget.
+    const words = /<main[\s\S]*<\/main>/
+      .exec(page)![0]
       .replace(/<svg[\s\S]*?<\/svg>/g, "")
       .replace(/<[^>]+>/g, " ")
       .split(/\s+/)
       .filter(Boolean).length;
-    // Raised from 110 (Nov 16), 150, and 230 (Nov 17) as Elliot added How it works, Q&A, a feedback section, and
-    // button navigation; still guards against sprawl. Long-form content belongs on /how-it-works and /security.
-    assert.ok(words <= 260, `homepage has ${words} words`);
+    // Whole-page limit was raised from 110 (Nov 16) to 150, 230, and 260 (Nov 17); now 235 words of <main> (its size
+    // when the footer gained a link back to elliotdrel.com). Long-form content belongs on /how-it-works and /security.
+    assert.ok(words <= 235, `homepage <main> has ${words} words`);
     for (const [file, page] of Object.entries(html)) assert.doesNotMatch(page, /<script/i, file);
     const csp = JSON.parse(read("vercel.json")).headers[0].headers.find(
       (h: { key: string }) => h.key === "Content-Security-Policy",

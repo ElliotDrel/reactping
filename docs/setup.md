@@ -72,7 +72,8 @@ If a required variable is missing or invalid, the function logs the variable nam
 - **Missed notifications:** expected occasionally and never backfilled. Check the function logs for `notify_failed` or `background_failed`.
 - **Supabase idle pause (accepted risk, November 15, 2026):** Free projects may pause after about a week of low activity. Notifications then stop until the project is restored from the Supabase dashboard, and missed reactions are not backfilled. Elliot accepts this risk: do not add a keep-alive. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
 - **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the `installations` rows; everyone adds ReactPing again.
-- **Changed domain:** update `PUBLIC_SITE_URL`, redeploy, update the three Slack URLs, then verify a fresh reaction end to end.
+- **Changed domain:** update `PUBLIC_SITE_URL`, redeploy, update the three Slack URLs, then verify a fresh reaction end to end. Also update the host and key file in `scripts/submit-indexnow.mjs`.
+- **IndexNow:** `.github/workflows/indexnow.yml` waits for the deploy after any push to `main` that changes `public/`, then `scripts/submit-indexnow.mjs` sends every sitemap URL to IndexNow (Bing and others; Google doesn't use it). Run it by hand from the Actions tab. A 200 or 202 means received, not indexed.
 - **Not supported:** Enterprise Grid and token rotation.
 
 ## References
