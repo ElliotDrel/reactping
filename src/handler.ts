@@ -1,6 +1,6 @@
 import type { Config } from "./config.ts";
 import { deriveKey, hmac, safeEqual } from "./crypto.ts";
-import type { FeedbackSource, Installation, Store } from "./db.ts";
+import type { FeedbackSource, Installation, ReactionOutcome, Store } from "./db.ts";
 import { log } from "./log.ts";
 import {
   DISCONNECT_ACTION,
@@ -354,19 +354,32 @@ export function createHandler(deps: Deps | null): Handler {
     return resultPage("feedback", 200, "");
   }
 
+  /** Handles one reaction, then logs and counts what happened so outages show up in /api/health. */
   async function notify(teamId: string, event: SlackEvent): Promise<void> {
+    let outcome: ReactionOutcome;
+    try {
+      outcome = await deliver(teamId, event);
+    } catch (error) {
+      outcome = "error";
+      log("error", "notify_error", { error: (error as Error)?.name });
+    }
+    log("info", "reaction", { teamId, outcome });
+    await store.countOutcome(outcome);
+  }
+
+  async function deliver(teamId: string, event: SlackEvent): Promise<ReactionOutcome> {
     const { item, user: reactorId, item_user: authorId, reaction } = event;
-    if (item?.type !== "message" || typeof item.channel !== "string" || typeof item.ts !== "string") return;
-    if (typeof reactorId !== "string" || !USER_ID.test(reactorId)) return;
-    if (typeof authorId !== "string" || !USER_ID.test(authorId)) return;
-    if (typeof reaction !== "string" || !REACTION.test(reaction)) return;
-    if (reactorId === authorId && !config.includeSelfReactions) return;
+    if (item?.type !== "message" || typeof item.channel !== "string" || typeof item.ts !== "string") return "ignored";
+    if (typeof reactorId !== "string" || !USER_ID.test(reactorId)) return "ignored";
+    if (typeof authorId !== "string" || !USER_ID.test(authorId)) return "ignored";
+    if (typeof reaction !== "string" || !REACTION.test(reaction)) return "ignored";
+    if (reactorId === authorId && !config.includeSelfReactions) return "self";
 
     // Only the message author's own installation in this same workspace is ever notified.
     const installation = await store.get(teamId, authorId);
-    if (!installation) return;
+    if (!installation) return "not_connected";
     const link = messageLink(installation.workspaceUrl, item.channel, item.ts);
-    if (!link) return;
+    if (!link) return "ignored";
     // The preview is optional: any failure to fetch it sends the plain notification. The text is never stored or logged.
     const preview = messagePreview(
       await slack.reactedMessageText(installation.userToken, item.channel, item.ts).catch(() => null),
@@ -384,9 +397,25 @@ export function createHandler(deps: Deps | null): Handler {
       if (failure.kind === "revoked" && (await store.deleteIfUnchanged(installation))) {
         await store.recordActivity(teamId, "disconnected");
       }
-      return;
+      return "failed";
     }
     await store.countNotification();
+    return "sent";
+  }
+
+  /**
+   * Outage check for the hourly GitHub Action: 503 when any DM failed in the last 2 hours, or when no reaction events
+   * arrived in 24 hours (Slack stopped sending them). Totals only, nothing about who or where.
+   */
+  async function health(): Promise<Response> {
+    const { day, recent } = await store.outcomes();
+    const events = Object.values(day).reduce((a, b) => a + b, 0);
+    const recentFailures = (recent.failed ?? 0) + (recent.error ?? 0);
+    const problem = recentFailures > 0 ? "notifications_failing" : events === 0 ? "no_events_24h" : null;
+    return new Response(JSON.stringify({ ok: !problem, problem, last24h: day }), {
+      status: problem ? 503 : 200,
+      headers: { "content-type": "application/json", "cache-control": "no-store" },
+    });
   }
 
   async function openHome(teamId: string, event: SlackEvent): Promise<void> {
@@ -463,6 +492,8 @@ export function createHandler(deps: Deps | null): Handler {
         return websiteFeedback(request);
       case "GET /api/stats":
         return statsImage(await store.stats());
+      case "GET /api/health":
+        return health();
       default:
         return plain(404, "not_found");
     }

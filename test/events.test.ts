@@ -48,7 +48,7 @@ describe("Slack events", { skip: dbSkip }, () => {
 
     it("returns 404 for unknown routes and methods", async () => {
       assert.equal((await app.handler(new Request(`${SITE}/api/slack/events`))).status, 404);
-      assert.equal((await app.handler(new Request(`${SITE}/api/health`))).status, 404);
+      assert.equal((await app.handler(new Request(`${SITE}/api/nope`))).status, 404);
     });
   });
 

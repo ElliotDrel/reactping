@@ -69,4 +69,38 @@ describe("usage counts", { skip: dbSkip }, () => {
     assert.match(svg, /2 workspaces/);
     assert.match(svg, /1 reaction notification<\/tspan> sent/);
   });
+
+  it("counts every reaction's outcome by hour and reports outages on /api/health", async () => {
+    const health = async () => {
+      const res = await app.handler(new Request(`${SITE}/api/health`));
+      assert.equal(res.headers.get("cache-control"), "no-store");
+      return [res.status, await res.json()];
+    };
+    assert.deepEqual(await health(), [503, { ok: false, problem: "no_events_24h", last24h: {} }]);
+
+    await seed(app, "T1", "UAUTHOR");
+    await signedEvent(app, reactionEvent("T1")); // sent
+    await signedEvent(app, reactionEvent("T1", { user: "UAUTHOR" })); // own reaction
+    await signedEvent(app, reactionEvent("T1", { item_user: "UNOBODY" })); // author not connected
+    await signedEvent(app, reactionEvent("T1", { item: { type: "file", file: "F1" } })); // not a message
+    await app.settle();
+    const ok = { sent: 1, self: 1, not_connected: 1, ignored: 1 };
+    assert.deepEqual(await health(), [200, { ok: true, problem: null, last24h: ok }]);
+
+    app.slack.postMessage = async () => {
+      throw new Error("boom");
+    };
+    await signedEvent(app, reactionEvent("T1"));
+    await app.settle();
+    assert.deepEqual(await health(), [
+      503,
+      { ok: false, problem: "notifications_failing", last24h: { ...ok, failed: 1 } },
+    ]);
+
+    // Failures stop alerting after 2 hours; the totals cover 24.
+    app.clock.t += 3 * 3600_000;
+    assert.deepEqual(await health(), [200, { ok: true, problem: null, last24h: { ...ok, failed: 1 } }]);
+    app.clock.t += 24 * 3600_000;
+    assert.equal((await health())[0], 503);
+  });
 });

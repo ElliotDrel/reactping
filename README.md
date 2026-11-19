@@ -12,7 +12,7 @@ Why it exists: Slack lists reactions in its Activity tab, but its [notification 
 
 - **Same workspace only.** A reaction notifies only that workspace's connected author. There is no cross-workspace routing.
 - **Slack is the account.** You are your Slack workspace ID plus user ID. No email or password.
-- **Stores no messages.** The preview is fetched when the DM is sent and never stored or logged. ReactPing stores encrypted tokens per connected person, workspace-level connect and disconnect events, and a total of notifications sent.
+- **Stores no messages.** The preview is fetched when the DM is sent and never stored or logged. ReactPing stores encrypted tokens per connected person, workspace-level connect and disconnect events, a total of notifications sent, and hourly counts of reaction outcomes for outage alerts.
 - **Best effort.** Slack's request is acknowledged immediately and the DM is sent right after. Nothing is queued, retried, or backfilled, so an occasional notification can be lost.
 - **Disconnect anytime** from ReactPing's Home tab in Slack, or remove the app from the workspace.
 
@@ -24,7 +24,7 @@ Ship criteria (all met November 17, 2026): the hosted app works end to end in mo
 
 ## How it's built
 
-TypeScript on Node 24: a static site in `public/` and six Vercel functions in `api/` sharing one handler (`src/handler.ts`), with Supabase Postgres for storage. [Setup](docs/setup.md) covers the architecture, environment, and self-hosting.
+TypeScript on Node 24: a static site in `public/` and seven Vercel functions in `api/` sharing one handler (`src/handler.ts`), with Supabase Postgres for storage. [Setup](docs/setup.md) covers the architecture, environment, and self-hosting.
 
 ## Development
 

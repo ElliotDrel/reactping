@@ -144,6 +144,37 @@ export class Store {
     await this.pool.query(`update reactping_slack.counters set value = value + 1 where name = 'notifications_sent'`);
   }
 
+  /** Adds one to this hour's total for a reaction outcome. Only the hour and outcome are stored. */
+  async countOutcome(outcome: ReactionOutcome): Promise<void> {
+    await this.pool.query(
+      `insert into reactping_slack.reaction_outcomes (hour, outcome, count)
+       values (date_trunc('hour', $1::timestamptz), $2, 1)
+       on conflict (hour, outcome) do update set count = reaction_outcomes.count + 1`,
+      [new Date(this.now()), outcome],
+    );
+  }
+
+  /** Reaction outcome totals for the last 24 hours and for the last 2 hours. */
+  async outcomes(): Promise<{ day: Record<string, number>; recent: Record<string, number> }> {
+    const { rows } = await this.pool.query(
+      `select outcome,
+              sum(count)::int as day,
+              coalesce(sum(count) filter (where hour >= date_trunc('hour', $1::timestamptz) - interval '1 hour'), 0)::int
+                as recent
+         from reactping_slack.reaction_outcomes
+        where hour > $1::timestamptz - interval '24 hours'
+        group by outcome`,
+      [new Date(this.now())],
+    );
+    const day: Record<string, number> = {};
+    const recent: Record<string, number> = {};
+    for (const row of rows as Row[]) {
+      day[String(row.outcome)] = Number(row.day);
+      recent[String(row.outcome)] = Number(row.recent);
+    }
+    return { day, recent };
+  }
+
   /** Stores one piece of feedback from the website form, with the optional name and email the person gave. */
   async saveFeedback(feedback: Feedback): Promise<void> {
     await this.pool.query(
@@ -162,6 +193,12 @@ export class Store {
     return { workspaces: Number(row.workspaces ?? 0), notifications: Number(row.notifications ?? 0) };
   }
 }
+
+/**
+ * What happened to one reaction_added event: a DM was sent, Slack refused it (failed), the code threw (error), or it
+ * was skipped because the reactor is the author, the author hasn't connected, or it isn't a reaction to a message.
+ */
+export type ReactionOutcome = "sent" | "failed" | "error" | "self" | "not_connected" | "ignored";
 
 /** Where the feedback form was opened from: the website itself, or the link in ReactPing's welcome DM or Home tab. */
 export type FeedbackSource = "website" | "slack_welcome" | "slack_home";

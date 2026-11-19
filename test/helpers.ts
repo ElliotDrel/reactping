@@ -29,6 +29,7 @@ const MIGRATIONS = [
   read("../supabase/migrations/20261117000000_reactping_activity.sql"),
   read("../supabase/migrations/20261117010000_reactping_feedback.sql"),
   read("../supabase/migrations/20261117020000_reactping_feedback_status.sql"),
+  read("../supabase/migrations/20261119000000_reactping_reaction_outcomes.sql"),
 ];
 
 export class Clock {
@@ -59,7 +60,9 @@ export function useDatabase(): { pool: () => pg.Pool } {
     for (const migration of MIGRATIONS) await pool.query(migration);
   });
   beforeEach(async () => {
-    await pool.query("truncate reactping_slack.installations, reactping_slack.activity, reactping_slack.feedback");
+    await pool.query(
+      "truncate reactping_slack.installations, reactping_slack.activity, reactping_slack.feedback, reactping_slack.reaction_outcomes",
+    );
     await pool.query("update reactping_slack.counters set value = 0");
   });
   after(async () => {
