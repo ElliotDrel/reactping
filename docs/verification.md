@@ -4,31 +4,33 @@ Automated tests mock Slack. This page records what was observed live on the host
 
 ## Live coverage
 
-| Check                                                                       | Status     | Evidence                                 |
-| --------------------------------------------------------------------------- | ---------- | ---------------------------------------- |
-| Slack verifies the event and interactivity URLs                             | Verified   | Nov 14                                   |
-| Add to Slack completes; welcome DM arrives; Home shows Connected            | Verified   | Nov 14                                   |
-| Another person's reaction in a public channel sends one DM with a link      | Verified   | Nov 14; Nov 17 (four reactors)           |
-| DM includes the message preview                                             | Verified   | Nov 16 (owner report)                    |
-| Self-reaction notifies only with `INCLUDE_SELF_REACTIONS=true`              | Verified   | Nov 14 (on); Nov 17 (off after redeploy) |
-| Second workspace: install and reaction DM                                   | Verified   | Nov 15 (owner report)                    |
-| Disconnect: row deleted, user token revoked, Home shows Not connected       | Verified   | Nov 17                                   |
-| Remove the app: all the workspace's rows deleted, `uninstalled` logged      | Verified   | Nov 17                                   |
-| Reinstall after removal works                                               | Verified   | Nov 17                                   |
-| Feedback form saves, with Slack source attribution                          | Verified   | Nov 17                                   |
-| Private channel, thread reply, 1:1 DM, group DM, Slack Connect              | Unverified |                                          |
-| Own reaction (default mode), file reaction, `reaction_removed` send nothing | Unverified |                                          |
-| Revoking the user grant in Slack deletes the row (`tokens_revoked`)         | Unverified |                                          |
-| Callback replay or another browser shows "This link expired"                | Unverified |                                          |
-| Function logs contain no tokens, codes, or message content                  | Unverified |                                          |
+| Check                                                                       | Status     | Evidence                        |
+| --------------------------------------------------------------------------- | ---------- | ------------------------------- |
+| Slack verifies the event and interactivity URLs                             | Verified   | Nov 14                          |
+| Add to Slack completes; welcome DM arrives; Home shows Connected            | Verified   | Nov 14                          |
+| Another person's reaction in a public channel sends one DM with a link      | Verified   | Nov 14; Nov 17 (four reactors)  |
+| DM includes the message preview                                             | Verified   | Nov 16 (owner report)           |
+| Self-reaction notifies only in workspaces listed in `SELF_REACTION_TEAMS`   | Verified   | Nov 19 (on, Next.js production) |
+| Second workspace: install and reaction DM                                   | Verified   | Nov 15 (owner report)           |
+| Disconnect: row deleted, user token revoked, Home shows Not connected       | Verified   | Nov 17                          |
+| Remove the app: all the workspace's rows deleted, `uninstalled` logged      | Verified   | Nov 17                          |
+| Reinstall after removal works                                               | Verified   | Nov 17                          |
+| Feedback form saves, with Slack source attribution                          | Verified   | Nov 17                          |
+| Private channel, thread reply, 1:1 DM, group DM, Slack Connect              | Unverified |                                 |
+| Own reaction (default mode), file reaction, `reaction_removed` send nothing | Unverified |                                 |
+| Revoking the user grant in Slack deletes the row (`tokens_revoked`)         | Unverified |                                 |
+| Callback replay or another browser shows "This link expired"                | Unverified |                                 |
+| Function logs contain no tokens, codes, or message content                  | Unverified |                                 |
 
 Not tested by design: Slack retries (ignored) and outage recovery (no backfill).
 
 ## Log
 
+**November 19, 2026: Next.js migration and per-workspace self-testing.** After `v1.2.0` (Next.js) deployed, every page, `/api/health`, `/api/stats`, the old-host redirect, and Add to Slack (302 to Slack with the `__Host-` cookie) checked out; an unsigned event POST returned 401. With `SELF_REACTION_TEAMS` set to the development workspace and a redeploy, a self-reaction in `#home` produced a DM with the message preview, `reaction_outcomes` logged `sent`, and the Home tab showed "Testing mode is on". This also confirms Slack events reach the Next.js API in production.
+
 **November 19, 2026: Slack alerts and poll totals.** A separate "ReactPing Alerts" app posts to a private `#reactping-alerts` channel in the development workspace. Verified live: a website feedback entry posted there (no `alert_failed`), and a `net.http_post` from Supabase using the Vault secret returned 200. The `reactping-no-events` pg_cron job runs daily at 14:00 UTC. After the deploy, a real reaction logged `outcome: sent`, and `/api/health` reported 2 sent, 1 not connected, and 1 self.
 
-**November 19, 2026: overnight gap, then outcome logging.** A user reported reaction DMs that never came between about 1:30am and 9:30am ET, and confirmed a missed reaction in that window. Vercel request logs (12-hour retention) show only one reaction event from Slack between 1:38am and 9:37am (at 4:01am), all answered 200, with no Slack retries; the database had no errors and Slack posted no incident. Conclusion: Slack did not send those events; the cause on Slack's side is unknown. DMs on reactping.com were confirmed working (the notification total rose from 13 to 26 after the move). Added `reaction_outcomes`, `/api/health`, and the hourly `health` workflow so the next gap shows whether Slack sent events and why any DM failed.
+**November 19, 2026: overnight gap, then outcome logging.** A user reported reaction DMs that never came between about 1:30am and 9:30am ET, and confirmed a missed reaction in that window. Vercel request logs (12-hour retention) show only one reaction event from Slack between 1:38am and 9:37am (at 4:01am), all answered 200, with no Slack retries; the database had no errors and Slack posted no incident. Conclusion: Slack did not send those events; the cause on Slack's side is unknown. DMs on reactping.com were confirmed working (the notification total rose from 13 to 26 after the move). Added `reaction_outcomes`, `/api/health`, and an hourly `health` workflow (superseded the same day by Slack alerts and a Supabase daily check) so the next gap shows whether Slack sent events and why any DM failed.
 
 **November 17, 2026: moved to reactping.com.** Slack verified `https://reactping.com/api/slack/events` (signed challenge) and saved the new events and interactivity URLs; the reactping.com OAuth redirect URL was added beside the old one. Live: `reactping.vercel.app` pages and `www.reactping.com` 308 to `reactping.com`, `/api/` on the old host still answers (unsigned events 401, install redirects to the new host), and `/api/slack/install` sends Slack `redirect_uri=https://reactping.com/api/slack/oauth/callback`. A real reaction on the new host is not yet observed; the multi-person test covers it.
 
