@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ReactPing changelog</title>
+    <meta
+      name="description"
+      content="Every notable change to ReactPing, the Slack app that DMs you when someone reacts to your message."
+    />
+    <link rel="canonical" href="https://reactping.com/changelog" />
+    <meta name="robots" content="max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="ReactPing" />
+    <meta property="og:url" content="https://reactping.com/changelog" />
+    <meta property="og:title" content="ReactPing changelog" />
+    <meta
+      property="og:description"
+      content="Every notable change to ReactPing, the Slack app that DMs you when someone reacts to your message."
+    />
+    <meta property="og:image" content="https://reactping.com/assets/social-card.png?v=2" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="ReactPing: reaction notifications for Slack" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ReactPing changelog" />
+    <meta
+      name="twitter:description"
+      content="Every notable change to ReactPing, the Slack app that DMs you when someone reacts to your message."
+    />
+    <meta name="twitter:image" content="https://reactping.com/assets/social-card.png?v=2" />
+    <link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
+    <meta name="theme-color" content="#ffffff" />
+    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <header class="site-header wrap">
+      <a class="brand" href="/" aria-label="ReactPing home">
+        <svg class="logo" viewBox="0 0 32 32" width="28" height="28" aria-hidden="true" focusable="false">
+          <path d="M6 5h20a4 4 0 0 1 4 4v11a4 4 0 0 1-4 4H14l-6.5 5v-5H6a4 4 0 0 1-4-4V9a4 4 0 0 1 4-4z" />
+          <circle class="logo-dot" cx="23" cy="9.5" r="5" />
+        </svg>
+        <span>ReactPing</span>
+      </a>
+      <nav aria-label="Main">
+        <a class="nav-extra" href="/how-it-works">How it works</a>
+        <a class="nav-extra" href="/security">Security</a>
+        <a href="/feedback">Feedback</a>
+        <a class="btn btn-small" href="/connect">Add to Slack</a>
+      </nav>
+    </header>
+
+    <main id="main" class="page wrap">
+      <pre class="changelog">
+# Changelog
+
+All notable changes to ReactPing are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [1.1.0] - 2026-11-19
+
+### Added
+
+- DMs show the emoji's running total when more than one person used it, so polls are easy to follow.
+- This changelog, also on the website at reactping.com/changelog.
+- Every reaction's outcome is counted hourly, including why a DM failed, so outages can be diagnosed.
+- `/api/health` reports when DMs are failing or reactions have stopped arriving.
+- Failed DMs, new feedback, and a day without reactions alert the developer in Slack.
+
+### Changed
+
+- The privacy policy covers the hourly totals and feedback alerts.
+
+## [1.0.0] - 2026-11-18
+
+Public launch.
+
+### Added
+
+- DMs include a one-line preview of the message that got the reaction.
+- Website pages: How it works, Security (each claim linked to the source lines that prove it), Privacy, and a
+  `/connect` step that explains workspaces and admin approval before Slack.
+- A feedback form on the website.
+- Homepage totals of workspaces connected and notifications sent.
+- The ReactPing logo in Slack, and a 19-second demo video.
+- Search engine indexing, a sitemap, IndexNow, `llms.txt`, and structured data.
+- A support email.
+
+### Changed
+
+- Moved to reactping.com.
+- ReactPing is free forever, MIT licensed, and the source is public.
+- "Add another workspace" goes straight to Slack's approval page.
+
+### Fixed
+
+- Link previews in iMessage, X, and Slack.
+- The self-reaction testing flag could take production down.
+
+## [0.1.0] - 2026-11-15
+
+Pilot release.
+
+### Added
+
+- A DM when someone else reacts to your Slack message, showing who reacted, the emoji, and a link back.
+- Each person adds ReactPing for themselves, per workspace. DMs stay in the workspace where the reaction happened.
+- Your own reactions don't notify you.
+- Disconnect from the app's Home tab. Uninstalling the app deletes the workspace's stored tokens.
+
+[unreleased]: https://github.com/ElliotDrel/reactping/compare/v1.1.0...HEAD
+[1.1.0]: https://github.com/ElliotDrel/reactping/compare/v1.0.0...v1.1.0
+[1.0.0]: https://github.com/ElliotDrel/reactping/compare/v0.1.0...v1.0.0
+[0.1.0]: https://github.com/ElliotDrel/reactping/releases/tag/v0.1.0
+</pre>
+    </main>
+
+    <footer class="site-footer wrap">
+      <p>Free forever. MIT licensed.</p>
+      <nav aria-label="Footer">
+        <a class="btn btn-quiet btn-small" href="/">Home</a>
+        <a class="btn btn-quiet btn-small" href="/how-it-works">How it works</a>
+        <a class="btn btn-quiet btn-small" href="/security">Security</a>
+        <a class="btn btn-quiet btn-small" href="/privacy">Privacy</a>
+        <a class="btn btn-quiet btn-small" href="/feedback">Feedback</a>
+        <a class="btn btn-quiet btn-small" href="/changelog">Changelog</a>
+        <a class="btn btn-quiet btn-small" href="https://github.com/ElliotDrel/reactping">Source code</a>
+        <a class="btn btn-quiet btn-small" href="https://elliotdrel.com/projects/reactping">Made by Elliot Drel</a>
+      </nav>
+    </footer>
+  </body>
+</html>

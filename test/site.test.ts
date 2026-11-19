@@ -123,7 +123,14 @@ describe("website", () => {
 
   it("gives every shareable page complete link-preview tags with absolute URLs to real files", () => {
     // iMessage, X, and Slack drop or shrink previews when og:image is relative, missing, or not 1200x630.
-    for (const file of ["index.html", "how-it-works.html", "security.html", "privacy.html", "connect.html"]) {
+    for (const file of [
+      "index.html",
+      "how-it-works.html",
+      "security.html",
+      "privacy.html",
+      "connect.html",
+      "changelog.html",
+    ]) {
       const page = html[file]!;
       const meta = (key: string) => new RegExp(`(?:property|name)="${key}"\\s+content="([^"]+)"`).exec(page)?.[1];
       for (const key of ["og:title", "og:description", "og:url", "og:image", "twitter:card", "twitter:image"]) {
@@ -223,6 +230,14 @@ describe("website", () => {
     }
     const section = /<section[^>]*id="feedback"[\s\S]*?<\/section>/.exec(html["index.html"]!)![0];
     assert.deepEqual(links(section), [["/feedback", "Send feedback"]]);
+  });
+
+  it("shows CHANGELOG.md on /changelog exactly as written, with the release in package.json", () => {
+    const shown = /<pre class="changelog">\n?([\s\S]*?)<\/pre>/.exec(html["changelog.html"]!)![1]!;
+    const unescaped = shown.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
+    assert.equal(unescaped, read("CHANGELOG.md"), "run npm run changelog");
+    const latest = /^## \[(\d+\.\d+\.\d+)\]/m.exec(read("CHANGELOG.md"))![1];
+    assert.equal(JSON.parse(read("package.json")).version, latest, "package.json version is the latest release");
   });
 
   it("only links to files that exist in the repository", () => {
