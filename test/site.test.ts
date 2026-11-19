@@ -22,7 +22,7 @@ const pages = [...builtFiles.keys()];
 
 /** Next's own runtime: chunks served from /_next/static/, its chunk loader, and inline Server Components payloads. */
 const NEXT_SCRIPT =
-  /<script src="\/_next\/static\/chunks\/[\w.-]+\.js"[^>]*><\/script>|<script id="_R_">\(globalThis\["TURBOPACK"\][\s\S]*?<\/script>|<script>\(?self\.__next_f[\s\S]*?<\/script>/g;
+  /<script src="\/_next\/static\/(?:immutable\/)?chunks\/[\w.-]+\.js"[^>]*><\/script>|<script id="_R_">\(globalThis\["TURBOPACK"\][\s\S]*?<\/script>|<script>\(?self\.__next_f[\s\S]*?<\/script>/g;
 const JSON_LD = /<script type="application\/ld\+json">[\s\S]*?<\/script>/g;
 // The rules below read the page's markup. Next's inline payload repeats that markup as escaped strings, so it goes.
 const html = Object.fromEntries([...builtFiles].map(([f, page]) => [f, page.replace(NEXT_SCRIPT, "")]));
