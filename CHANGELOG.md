@@ -13,7 +13,7 @@ Changelog page.
 
 ### Changed
 
-- **Changelog page.** reactping.com/changelog is formatted, and each change links to its commit.
+- **Changelog page.** reactping.com/changelog is formatted, and each change links to its commit. [3b0587a](https://github.com/ElliotDrel/reactping/commit/3b0587a)
 
 ## [1.1.1] - 2026-11-19
 
