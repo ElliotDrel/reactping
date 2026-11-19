@@ -36,7 +36,7 @@ export default function Security() {
           your message in the same workspace, then sends your DM.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L400-L434`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L401-L435`}>
             See the event handling
           </a>
           <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L119-L168`}>

@@ -136,12 +136,17 @@ describe("Slack events", { skip: dbSkip }, () => {
       );
     });
 
-    it("includes self-reactions only in testing mode", async () => {
-      const testing = startApp(db.pool(), { includeSelfReactions: true });
+    it("includes self-reactions only in workspaces listed for testing", async () => {
+      const testing = startApp(db.pool(), { selfReactionTeams: ["T1"] });
       await seed(testing, "T1", "UAUTHOR");
+      await seed(testing, "T2", "UAUTHOR");
       await signedEvent(testing, reactionEvent("T1", { user: "UAUTHOR" }));
+      await signedEvent(testing, reactionEvent("T2", { user: "UAUTHOR" }));
       await testing.settle();
-      assert.equal(testing.slack.callsTo("postMessage").length, 1);
+      assert.deepEqual(
+        testing.slack.callsTo("postMessage").map((c) => c.args[0]),
+        ["xoxb-T1"],
+      );
     });
 
     it("drops the installation when Slack says its credentials are dead, and otherwise just logs", async () => {

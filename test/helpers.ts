@@ -143,7 +143,7 @@ export function makeConfig(overrides: Partial<Config> = {}): Config {
     slackClientSecret: "client-secret",
     slackSigningSecret: SIGNING_SECRET,
     encryptionKey: randomBytes(32),
-    includeSelfReactions: false,
+    selfReactionTeams: [],
     ...overrides,
   };
 }

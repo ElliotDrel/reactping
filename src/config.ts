@@ -8,8 +8,8 @@ export interface Config {
   slackSigningSecret: string;
   /** 32-byte master key. Purpose-specific keys are derived from it (token encryption, OAuth state cookie). */
   encryptionKey: Buffer;
-  /** Testing only: also notify about reactions you add to your own messages. */
-  includeSelfReactions: boolean;
+  /** Testing only: workspaces where your reactions to your own messages also notify you. */
+  selfReactionTeams: string[];
   /** Optional Slack incoming webhook for operator alerts (new feedback, failed DMs). */
   alertWebhookUrl?: string;
 }
@@ -56,13 +56,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     }
   };
 
-  // A testing-only flag must never take the service down (Nov 17: a dashboard value the old strict check rejected
-  // made every route 503). Accept true in any case, with or without quotes; anything else means off, the safe
-  // default. When it's on, the Home tab says "Testing mode is on", so a value that didn't take is visible.
-  const selfReactions = (env.INCLUDE_SELF_REACTIONS ?? "")
-    .trim()
-    .replace(/^(["'])(.*)\1$/, "$2")
-    .toLowerCase();
+  // A testing-only setting must never take the service down (Nov 17: a dashboard value the old strict check rejected
+  // made every route 503). Workspace IDs separated by commas or spaces; anything that isn't one is ignored. In a
+  // listed workspace the Home tab says "Testing mode is on", so a value that didn't take is visible.
+  const selfReactionTeams = (env.SELF_REACTION_TEAMS ?? "")
+    .split(/[\s,"']+/)
+    .filter((id) => /^T[A-Z0-9]{1,31}$/.test(id));
 
   const encryptionKey = Buffer.from(
     read("ENCRYPTION_KEY", (v) => {
@@ -78,8 +77,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     slackClientSecret: read("SLACK_CLIENT_SECRET"),
     slackSigningSecret: read("SLACK_SIGNING_SECRET"),
     encryptionKey,
-    includeSelfReactions: selfReactions === "true",
-    // Optional, and like the flag above it never takes the service down: anything but a Slack webhook URL means off.
+    selfReactionTeams,
+    // Optional, and like the setting above it never takes the service down: anything but a Slack webhook URL means off.
     alertWebhookUrl: env.ALERT_WEBHOOK_URL?.trim().startsWith("https://hooks.slack.com/")
       ? env.ALERT_WEBHOOK_URL.trim()
       : undefined,

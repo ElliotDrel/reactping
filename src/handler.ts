@@ -160,11 +160,12 @@ export function createHandler(deps: Deps | null): Handler {
     );
   }
 
-  function home(installation: Pick<Installation, "botToken" | "userId">, connected: boolean): Promise<void> {
+  function home(installation: Pick<Installation, "botToken" | "userId" | "teamId">, connected: boolean): Promise<void> {
+    const includeSelfReactions = config.selfReactionTeams.includes(installation.teamId);
     return slack.publishHome(
       installation.botToken,
       installation.userId,
-      homeView({ connected, siteUrl: config.siteUrl, includeSelfReactions: config.includeSelfReactions }),
+      homeView({ connected, siteUrl: config.siteUrl, includeSelfReactions }),
     );
   }
 
@@ -403,7 +404,7 @@ export function createHandler(deps: Deps | null): Handler {
     if (typeof reactorId !== "string" || !USER_ID.test(reactorId)) return "ignored";
     if (typeof authorId !== "string" || !USER_ID.test(authorId)) return "ignored";
     if (typeof reaction !== "string" || !REACTION.test(reaction)) return "ignored";
-    if (reactorId === authorId && !config.includeSelfReactions) return "self";
+    if (reactorId === authorId && !config.selfReactionTeams.includes(teamId)) return "self";
 
     // Only the message author's own installation in this same workspace is ever notified.
     const installation = await store.get(teamId, authorId);

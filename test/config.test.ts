@@ -22,15 +22,12 @@ function config(overrides: Record<string, string | undefined> = {}) {
 }
 
 describe("server configuration", () => {
-  it("excludes self-reactions unless testing is enabled, and never fails configuration over the flag", () => {
-    assert.equal(config().includeSelfReactions, false);
-    for (const on of ["true", "TRUE", " True\n", '"true"', "'true'"]) {
-      assert.equal(config({ INCLUDE_SELF_REACTIONS: on }).includeSelfReactions, true, JSON.stringify(on));
-    }
-    // Anything unclear means off, the safe default, rather than a site-wide 503.
-    for (const off of ["false", "yes", "1", "tru", ""]) {
-      assert.equal(config({ INCLUDE_SELF_REACTIONS: off }).includeSelfReactions, false, JSON.stringify(off));
-    }
+  it("turns on self-reactions only for listed workspaces, and never fails configuration over the setting", () => {
+    assert.deepEqual(config().selfReactionTeams, []);
+    assert.deepEqual(config({ SELF_REACTION_TEAMS: " T1, T2 T3\n" }).selfReactionTeams, ["T1", "T2", "T3"]);
+    assert.deepEqual(config({ SELF_REACTION_TEAMS: '"T1"' }).selfReactionTeams, ["T1"]);
+    // Anything that isn't a workspace ID is ignored, the safe default, rather than a site-wide 503.
+    assert.deepEqual(config({ SELF_REACTION_TEAMS: "true, U1, t1, all" }).selfReactionTeams, []);
   });
 
   it("has no install gate: removed launch flags are ignored", () => {
@@ -40,7 +37,7 @@ describe("server configuration", () => {
       "databaseCa",
       "databaseUrl",
       "encryptionKey",
-      "includeSelfReactions",
+      "selfReactionTeams",
       "siteUrl",
       "slackClientId",
       "slackClientSecret",
