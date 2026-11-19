@@ -7,4 +7,5 @@
 - Never commit credentials or log Slack tokens, OAuth codes, or raw message content.
 - Enforce workspace/user isolation: v1 delivers only within the reaction's workspace and has no cross-workspace routing.
 - Format staged files and run typecheck, lint, build, and existing tests before code pushes.
+- For each user-visible change, add an entry to `CHANGELOG.md` in the existing format.
 - The repository is public (Elliot approved November 16, 2026). Never commit credentials, workspace/user IDs, or tester names.
