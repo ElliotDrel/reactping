@@ -39,7 +39,7 @@ export function parseDatabaseUrl(value: string): string {
 }
 
 /** Loads server configuration. Never throws: a missing or invalid value makes every route report not configured. */
-export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConfigResult {
+export function loadConfig(env: Record<string, string | undefined> = process.env): ConfigResult {
   const problems: string[] = [];
   /** Reads a required value; `parse` validates it and may normalize it. */
   const read = (name: string, parse: (value: string) => string | void = () => {}): string => {

@@ -13,7 +13,7 @@ import {
 } from "../src/messages.ts";
 import { createOAuthState, OAUTH_STATE_TTL_SECONDS, verifyOAuthState } from "../src/oauth-state.ts";
 
-process.env.NODE_ENV = "test";
+Object.assign(process.env, { NODE_ENV: "test" }); // Next types NODE_ENV as read-only.
 
 const NOW = 1_800_000_000_000;
 

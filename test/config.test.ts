@@ -4,7 +4,7 @@ import { loadConfig } from "../src/config.ts";
 import { createPool } from "../src/db.ts";
 import { createHandler } from "../src/handler.ts";
 
-process.env.NODE_ENV = "test";
+Object.assign(process.env, { NODE_ENV: "test" }); // Next types NODE_ENV as read-only.
 
 const env = {
   PUBLIC_SITE_URL: "https://reactping.example.test",

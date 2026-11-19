@@ -2,20 +2,30 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import pg from "pg";
-import { renderChangelog } from "../scripts/build-changelog.ts";
 import { homeView } from "../src/messages.ts";
 import { CONNECT_PATH, resultPage, type Outcome } from "../src/pages.ts";
 import { Browser, startApp } from "./helpers.ts";
 
 const root = new URL("../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, root), "utf8");
-// changelog.html is built from CHANGELOG.md at deploy, so tests render it fresh instead of reading a stale build.
-const pages = [
-  ...new Set([...readdirSync(new URL("public/", root)).filter((f) => f.endsWith(".html")), "changelog.html"]),
-];
-const html = Object.fromEntries(
-  pages.map((f) => [f, f === "changelog.html" ? renderChangelog() : read(`public/${f}`)]),
+
+// Pages are checked as Next prerenders them, byte for byte what the site serves, so `npm run build` must run first
+// (`npm run check` does). Keys are the old file names: index.html is /, 404.html is the not-found page.
+const BUILT = new URL(".next/server/app/", root);
+if (!existsSync(BUILT)) throw new Error("No Next build to test: run `npm run build` first.");
+const builtFiles = new Map(
+  readdirSync(BUILT)
+    .filter((f) => f.endsWith(".html") && (!f.startsWith("_") || f === "_not-found.html"))
+    .map((f) => [f === "_not-found.html" ? "404.html" : f, readFileSync(new URL(f, BUILT), "utf8")]),
 );
+const pages = [...builtFiles.keys()];
+
+/** Next's own runtime: chunks served from /_next/static/, its chunk loader, and inline Server Components payloads. */
+const NEXT_SCRIPT =
+  /<script src="\/_next\/static\/chunks\/[\w.-]+\.js"[^>]*><\/script>|<script id="_R_">\(globalThis\["TURBOPACK"\][\s\S]*?<\/script>|<script>\(?self\.__next_f[\s\S]*?<\/script>/g;
+const JSON_LD = /<script type="application\/ld\+json">[\s\S]*?<\/script>/g;
+// The rules below read the page's markup. Next's inline payload repeats that markup as escaped strings, so it goes.
+const html = Object.fromEntries([...builtFiles].map(([f, page]) => [f, page.replace(NEXT_SCRIPT, "")]));
 
 /** [href, visible text] for every link in a page. */
 function links(page: string): [string, string][] {
@@ -43,7 +53,7 @@ const SOURCE_LINKS: Record<string, RegExp[]> = {
     /primary key \(team_id, user_id\)/,
   ],
   "src/db.ts#L82-L83": [/encrypt\(this\.tokenKey, install\.botToken/, /encrypt\(this\.tokenKey, install\.userToken/],
-  "vercel.json#L17-L18": [/Content-Security-Policy/, /default-src 'none'/],
+  "vercel.json#L14-L15": [/Content-Security-Policy/, /default-src 'none'/],
 };
 
 describe("website", () => {
@@ -59,7 +69,7 @@ describe("website", () => {
       }
     }
     assert.ok(count >= 3);
-    assert.ok(existsSync(new URL("public/connect.html", root)), "cleanUrls serves /connect from connect.html");
+    assert.ok(builtFiles.has("connect.html"), "Next prerenders /connect");
   });
 
   it("explains workspace choice, repeats, self-connection, and admin approval before continuing to OAuth", () => {
@@ -74,7 +84,7 @@ describe("website", () => {
     assert.match(page, /Everyone connects for themselves/);
   });
 
-  it("keeps the homepage short, script-free, and headed by the product name without an eyebrow", () => {
+  it("keeps the homepage short and headed by the product name without an eyebrow", () => {
     const page = html["index.html"]!;
     assert.match(page, /<h1>Reaction notifications for Slack<\/h1>/);
     assert.doesNotMatch(page, /eyebrow/);
@@ -89,19 +99,20 @@ describe("website", () => {
     // when the footer gained a link back to elliotdrel.com), and 265 for the search-intent Q&A "How do I get notified
     // when someone reacts to my Slack message?" (Nov 17). Long-form content belongs on /how-it-works and /security.
     assert.ok(words <= 265, `homepage <main> has ${words} words`);
-    // JSON-LD is data, not code: browsers never run it, so the CSP still blocks every script.
-    for (const [file, page] of Object.entries(html)) {
-      assert.doesNotMatch(
-        page.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/g, ""),
-        /<script/i,
-        file,
-      );
+  });
+
+  it("runs no scripts except Next's own, and lets the CSP load scripts only from this site", () => {
+    // JSON-LD is data, not code: browsers never run it. Anything else, like analytics or a third-party embed, fails.
+    for (const [file, page] of builtFiles) {
+      assert.match(page, NEXT_SCRIPT, `${file} has no Next runtime; did the NEXT_SCRIPT pattern drift?`);
+      assert.doesNotMatch(page.replace(NEXT_SCRIPT, "").replace(JSON_LD, ""), /<script/i, file);
     }
     const csp = JSON.parse(read("vercel.json")).headers[0].headers.find(
       (h: { key: string }) => h.key === "Content-Security-Policy",
     ).value;
     assert.match(csp, /default-src 'none'/);
-    assert.doesNotMatch(csp, /script-src/);
+    // Next's runtime needs inline scripts and its own chunks; nothing may come from another origin.
+    assert.equal(/script-src ([^;]+)/.exec(csp)?.[1], "'self' 'unsafe-inline'");
   });
 
   it("links privacy claims to source lines that still say what the claim needs", () => {
@@ -150,7 +161,7 @@ describe("website", () => {
       }
       const image = new URL(meta("og:image")!).pathname;
       assert.ok(existsSync(new URL(`public${image}`, root)), `${file} og:image ${image} does not exist`);
-      assert.match(page, /<link rel="apple-touch-icon" href="\/assets\/apple-touch-icon\.png" \/>/, file);
+      assert.match(page, /<link rel="apple-touch-icon" href="\/assets\/apple-touch-icon\.png"\s*\/>/, file);
     }
     assert.ok(existsSync(new URL("public/assets/apple-touch-icon.png", root)));
   });
@@ -181,9 +192,12 @@ describe("website", () => {
   it("keeps structured data and llms.txt true to the visible site", () => {
     // Search engines penalize JSON-LD that says something the page doesn't, so the FAQ must match word for word.
     const page = html["index.html"]!;
+    // React escapes ' and " in text, which JSON-LD keeps literal.
     const text = (s: string) =>
       s
         .replace(/<[^>]+>/g, "")
+        .replace(/&#x27;/g, "'")
+        .replace(/&quot;/g, '"')
         .replace(/\s+/g, " ")
         .trim();
     const ld = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(page)![1]!);

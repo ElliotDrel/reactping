@@ -344,7 +344,7 @@ export function createHandler(deps: Deps | null): Handler {
   }
 
   /**
-   * Where the form was opened from. The site runs no scripts, so the form can't copy its own URL's UTM tags into a
+   * Where the form was opened from. With no client code, the form can't copy its own URL's UTM tags into a
    * field; instead the browser's Referer (the form page's full URL under strict-origin-when-cross-origin) carries
    * them. Anything else, including a missing or foreign Referer, counts as the website.
    */
@@ -355,7 +355,7 @@ export function createHandler(deps: Deps | null): Handler {
     return SLACK_FEEDBACK_MEDIUMS.get(url.searchParams.get("utm_medium") ?? "") ?? "website";
   }
 
-  /** The website's feedback form: a plain HTML POST, no scripts. Name and email are optional. */
+  /** The website's feedback form: a plain HTML POST, no client code. Name and email are optional. */
   async function websiteFeedback(request: Request): Promise<Response> {
     const raw = await readBody(request, 32 * 1024);
     if (raw === null) return plain(413, "too_large");

@@ -90,7 +90,7 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, sla
 const plural = (n: number, one: string, many: string) => `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 /**
- * The homepage's live counters as an SVG image: the site runs no scripts, so an <img> is the simplest way to show
+ * The homepage's live counters as an SVG image: with no client code of its own, an <img> is the simplest way to show
  * a number that changes. Contains only two totals; cached at the edge so page views rarely reach the database.
  */
 export function statsImage(stats: { workspaces: number; notifications: number }): Response {

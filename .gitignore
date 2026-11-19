@@ -14,5 +14,8 @@ Thumbs.db
 # Local Supabase CLI link state
 supabase/.temp/
 
-# Built from CHANGELOG.md by npm run build
-public/changelog.html
+
+# Next.js
+.next/
+next-env.d.ts
+*.tsbuildinfo

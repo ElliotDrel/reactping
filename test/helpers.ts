@@ -9,7 +9,7 @@ import { Store, type Installation } from "../src/db.ts";
 import { createHandler, type Handler } from "../src/handler.ts";
 import type { OAuthResult, ReactedMessage, SlackApi } from "../src/slack.ts";
 
-process.env.NODE_ENV = "test";
+Object.assign(process.env, { NODE_ENV: "test" }); // Next types NODE_ENV as read-only.
 
 export const SIGNING_SECRET = "test-signing-secret";
 export const SITE = "https://reactping.example.test";

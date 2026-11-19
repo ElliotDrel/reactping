@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { createSlackApi, SlackCallError } from "../src/slack.ts";
 
-process.env.NODE_ENV = "test";
+Object.assign(process.env, { NODE_ENV: "test" }); // Next types NODE_ENV as read-only.
 
 type Handler = (method: string, body: URLSearchParams) => Response;
 
