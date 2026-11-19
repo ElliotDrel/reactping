@@ -136,8 +136,14 @@ describe("notification text", () => {
     assert.equal(messagePreview("Deployed\n\nto  prod"), "Deployed to prod");
     assert.equal(
       messagePreview("hi <@U123> see <https://x.test|the doc> & <!here>"),
-      "hi @U123 see the doc &amp; !here",
+      "hi <@U123> see the doc &amp; @here",
     );
+    // Mentions render as names (Nov 19: a DM showed a raw "@U…" ID); labels are dropped, Slack fills them in.
+    assert.equal(messagePreview("<@W9|bo> in <#C1|general> and <#C2|>"), "<@W9> in <#C1> and <#C2>");
+    assert.equal(messagePreview("ping <!subteam^S1|@devs> <!channel>"), "ping @devs @channel");
+    assert.equal(messagePreview("fake \uE000@U1\uE001 a <b"), "fake @U1 a &lt;b", "typed tokens stay plain text");
+    const cutMention = messagePreview(`${"x".repeat(155)}<@U1234567890>`)!;
+    assert.equal(cutMention, `${"x".repeat(155)}…`, "a mention cut in half is dropped, not shown as a broken ID");
     assert.equal(messagePreview("a <b"), "a &lt;b");
     assert.equal(messagePreview(""), null);
     assert.equal(messagePreview("   "), null);

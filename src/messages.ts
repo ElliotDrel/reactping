@@ -39,21 +39,30 @@ export function messageLink(workspaceUrl: string, channel: string, ts: string): 
 export const PREVIEW_CHARS = 160;
 
 /**
- * One line of a message's text for the DM: Slack markup reduced to its label (`<url|label>` -> label,
- * `<@U1>` -> @U1), whitespace collapsed, cut at a word boundary with an ellipsis, then escaped.
+ * One line of a message's text for the DM, whitespace collapsed, cut at a word boundary with an ellipsis, then
+ * escaped. User and channel mentions stay Slack markup (`<@U1>`, `<#C1>`) so Slack shows names, not IDs; they
+ * can't notify anyone from a DM the mentioned people aren't in. Other markup becomes plain text: `<url|label>` ->
+ * label, `<!here>` -> @here, `<url>` -> url. Mentions ride through cutting and escaping as \uE000…\uE001 tokens.
  */
 export function messagePreview(text: string | null | undefined): string | null {
   if (!text) return null;
   const plain = text
+    .replace(/[\uE000\uE001]/g, "")
+    .replace(/<([@#][UWC][A-Z0-9]+)(?:\|[^<>]*)?>/g, "\uE000$1\uE001")
     .replace(/<([^<>|]*)\|([^<>]*)>/g, "$2")
+    .replace(/<!([^<>]*)>/g, "@$1")
     .replace(/<([^<>]*)>/g, "$1")
     .replace(/\s+/g, " ")
     .trim();
   if (!plain) return null;
-  if (plain.length <= PREVIEW_CHARS) return escapeMrkdwn(plain);
-  const cut = plain.slice(0, PREVIEW_CHARS);
-  const space = cut.lastIndexOf(" ");
-  return `${escapeMrkdwn((space > PREVIEW_CHARS / 2 ? cut.slice(0, space) : cut).trimEnd())}…`;
+  let preview = plain;
+  if (plain.length > PREVIEW_CHARS) {
+    const cut = plain.slice(0, PREVIEW_CHARS);
+    const space = cut.lastIndexOf(" ");
+    // A cut through a mention token drops the partial token rather than showing a broken ID.
+    preview = `${(space > PREVIEW_CHARS / 2 ? cut.slice(0, space) : cut).replace(/\uE000[^\uE001]*$/, "").trimEnd()}…`;
+  }
+  return escapeMrkdwn(preview).replace(/\uE000([^\uE001]+)\uE001/g, "<$1>");
 }
 
 export function reactionNotification(
