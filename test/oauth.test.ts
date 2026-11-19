@@ -36,6 +36,16 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.equal(res.headers.get("set-cookie"), null);
     });
 
+    it("trusts the Host header when Next builds request.url from its own listener", async () => {
+      // Under Next, request.url can be http://localhost:3000/... even when the browser asked for the real domain.
+      const host = { host: new URL(SITE).host };
+      const real = await app.handler(new Request("http://localhost:3000/api/slack/install", { headers: host }));
+      assert.match(real.headers.get("location")!, /^https:\/\/slack\.com\/oauth\/v2\/authorize/);
+      const preview = { host: "reactping-preview.vercel.app" };
+      const moved = await app.handler(new Request("http://localhost:3000/api/slack/install", { headers: preview }));
+      assert.equal(moved.headers.get("location"), `${SITE}/api/slack/install`);
+    });
+
     it("needs no sign-in or launch flag", async () => {
       const res = await app.handler(new Request(`${SITE}/api/slack/install`));
       assert.equal(res.status, 302);

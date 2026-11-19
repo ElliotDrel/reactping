@@ -36,7 +36,7 @@ export default function Security() {
           your message in the same workspace, then sends your DM.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L399-L433`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L400-L434`}>
             See the event handling
           </a>
           <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L119-L168`}>
@@ -69,7 +69,7 @@ export default function Security() {
           ReactPing to Slack. The site's security policy blocks scripts from any other site.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}vercel.json#L14-L15`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}vercel.json#L9-L10`}>
             See the policy
           </a>
         </p>

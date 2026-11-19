@@ -31,7 +31,7 @@ function getHandler(): Handler {
   }));
 }
 
-/** Entry used by every file in api/: Vercel routes by file path, the shared handler checks method and path. */
+/** Entry for src/app/api/[...path]/route.ts: the shared handler checks method and path. */
 export function handle(request: Request): Promise<Response> {
   return getHandler()(request);
 }

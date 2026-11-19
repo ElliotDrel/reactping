@@ -186,7 +186,8 @@ export function createHandler(deps: Deps | null): Handler {
 
   function install(request: Request): Response {
     // The state cookie is host-only, so the flow must start on the host Slack redirects back to.
-    if (new URL(request.url).host !== siteHost) {
+    // Next can build request.url from its own listener (localhost), so trust the Host header the client sent.
+    if ((request.headers.get("host") ?? new URL(request.url).host) !== siteHost) {
       return new Response(null, {
         status: 302,
         headers: { ...NO_STORE, location: `${config.siteUrl}/api/slack/install` },

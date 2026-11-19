@@ -21,10 +21,6 @@ export function pageMetadata({ title, description, path }: { title: string; desc
       images: [{ url: SOCIAL_CARD, width: 1200, height: 630, alt: "ReactPing: reaction notifications for Slack" }],
     },
     twitter: { card: "summary_large_image", title, description, images: [SOCIAL_CARD] },
-    icons: {
-      icon: { url: "/assets/favicon.svg", type: "image/svg+xml" },
-      apple: "/assets/apple-touch-icon.png",
-    },
   } satisfies Metadata;
 }
 

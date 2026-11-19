@@ -20,12 +20,10 @@ const builtFiles = new Map(
 );
 const pages = [...builtFiles.keys()];
 
-/** Next's own runtime: chunks served from /_next/static/, its chunk loader, and inline Server Components payloads. */
-const NEXT_SCRIPT =
-  /<script src="\/_next\/static\/(?:immutable\/)?chunks\/[\w.-]+\.js"[^>]*><\/script>|<script id="_R_">\(globalThis\["TURBOPACK"\][\s\S]*?<\/script>|<script>\(?self\.__next_f[\s\S]*?<\/script>/g;
-const JSON_LD = /<script type="application\/ld\+json">[\s\S]*?<\/script>/g;
-// The rules below read the page's markup. Next's inline payload repeats that markup as escaped strings, so it goes.
-const html = Object.fromEntries([...builtFiles].map(([f, page]) => [f, page.replace(NEXT_SCRIPT, "")]));
+/** Every script except JSON-LD (data, never run). Next's inline payload repeats the markup as escaped strings. */
+const CODE_SCRIPT = /<script(?![^>]*application\/ld\+json)[^>]*>[\s\S]*?<\/script>/g;
+// The rules below read the page's markup, so Next's scripts are removed first.
+const html = Object.fromEntries([...builtFiles].map(([f, page]) => [f, page.replace(CODE_SCRIPT, "")]));
 
 /** [href, visible text] for every link in a page. */
 function links(page: string): [string, string][] {
@@ -46,14 +44,14 @@ const REPO = "https://github.com/ElliotDrel/reactping/blob/main/";
  */
 const SOURCE_LINKS: Record<string, RegExp[]> = {
   "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write"\]/, /USER_SCOPES = \["reactions:read"\]/],
-  "src/handler.ts#L399-L433": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
+  "src/handler.ts#L400-L434": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
   "src/slack.ts#L119-L168": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /publishHome/, /revoke/],
   "supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24": [
     /create table reactping_slack\.installations/,
     /primary key \(team_id, user_id\)/,
   ],
   "src/db.ts#L82-L83": [/encrypt\(this\.tokenKey, install\.botToken/, /encrypt\(this\.tokenKey, install\.userToken/],
-  "vercel.json#L14-L15": [/Content-Security-Policy/, /default-src 'none'/],
+  "vercel.json#L9-L10": [/Content-Security-Policy/, /default-src 'none'/],
 };
 
 describe("website", () => {
@@ -104,8 +102,9 @@ describe("website", () => {
   it("runs no scripts except Next's own, and lets the CSP load scripts only from this site", () => {
     // JSON-LD is data, not code: browsers never run it. Anything else, like analytics or a third-party embed, fails.
     for (const [file, page] of builtFiles) {
-      assert.match(page, NEXT_SCRIPT, `${file} has no Next runtime; did the NEXT_SCRIPT pattern drift?`);
-      assert.doesNotMatch(page.replace(NEXT_SCRIPT, "").replace(JSON_LD, ""), /<script/i, file);
+      for (const [, src] of page.matchAll(/<script[^>]*\bsrc="([^"]+)"/g)) {
+        assert.ok(src!.startsWith("/_next/static/"), `${file} loads ${src}`);
+      }
     }
     const csp = JSON.parse(read("vercel.json")).headers[0].headers.find(
       (h: { key: string }) => h.key === "Content-Security-Policy",

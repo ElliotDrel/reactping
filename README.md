@@ -24,7 +24,7 @@ Ship criteria (all met November 17, 2026): the hosted app works end to end in mo
 
 ## How it's built
 
-TypeScript on Node 24: a Next.js App Router app on Vercel. The pages in `src/app/` are prerendered at build time, and seven API route handlers in `src/app/api/` share one handler (`src/handler.ts`), with Supabase Postgres for storage. [Setup](docs/setup.md) covers the architecture, environment, and self-hosting.
+TypeScript on Node 24: a Next.js App Router app on Vercel. The pages in `src/app/` are prerendered at build time, and one catch-all API route (`src/app/api/[...path]/route.ts`) passes every request to one handler (`src/handler.ts`), with Supabase Postgres for storage. [Setup](docs/setup.md) covers the architecture, environment, and self-hosting.
 
 ## Development
 
