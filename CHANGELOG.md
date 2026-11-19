@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Next.js site.** The website and API run on Next.js with the same pages and links, and the site now says it runs no analytics or third-party scripts instead of no scripts at all.
+
 ## [1.1.2] - 2026-11-19
 
 Changelog page.

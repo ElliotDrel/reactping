@@ -24,7 +24,7 @@ Ship criteria (all met November 17, 2026): the hosted app works end to end in mo
 
 ## How it's built
 
-TypeScript on Node 24: a static site in `public/` and seven Vercel functions in `api/` sharing one handler (`src/handler.ts`), with Supabase Postgres for storage. [Setup](docs/setup.md) covers the architecture, environment, and self-hosting.
+TypeScript on Node 24: a Next.js App Router app on Vercel. The pages in `src/app/` are prerendered at build time, and seven API route handlers in `src/app/api/` share one handler (`src/handler.ts`), with Supabase Postgres for storage. [Setup](docs/setup.md) covers the architecture, environment, and self-hosting.
 
 ## Development
 
@@ -34,7 +34,7 @@ Requires Node 24+ and Docker for the database tests.
 npm ci
 npm run db:test:start                 # disposable Postgres on 127.0.0.1:54329
 export TEST_DATABASE_URL=postgres://postgres:postgres@127.0.0.1:54329/postgres
-npm run check                         # format:check, typecheck, lint, build (tsc), test
+npm run check                         # format:check, typecheck, lint, build (next build), test
 npm run db:test:stop
 ```
 
