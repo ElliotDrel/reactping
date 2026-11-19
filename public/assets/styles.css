@@ -546,14 +546,51 @@ a:hover {
   margin-bottom: 0.4rem;
 }
 
-.changelog {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  font:
-    0.9375rem/1.6 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    Consolas,
-    monospace;
-  color: var(--ink);
+/* Changelog: one section per release, rendered from CHANGELOG.md */
+
+.release {
+  border-top: 2px solid var(--rule);
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+}
+
+.release h2 {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0;
+}
+
+.release-date {
+  color: var(--ink-2);
+  font-size: 1rem;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+.release .anchor {
+  margin-left: auto;
+}
+
+.release h2 + p {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.release h3 {
+  color: var(--ink-2);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  margin: 1.5rem 0 0.5rem;
+  text-transform: uppercase;
+}
+
+.release .commit {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8rem;
+  font-weight: 400;
+  margin-left: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  vertical-align: 0.1em;
 }

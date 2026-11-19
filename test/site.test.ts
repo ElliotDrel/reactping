@@ -2,14 +2,20 @@ import assert from "node:assert/strict";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import pg from "pg";
+import { renderChangelog } from "../scripts/build-changelog.ts";
 import { homeView } from "../src/messages.ts";
 import { CONNECT_PATH, resultPage, type Outcome } from "../src/pages.ts";
 import { Browser, startApp } from "./helpers.ts";
 
 const root = new URL("../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, root), "utf8");
-const pages = readdirSync(new URL("public/", root)).filter((f) => f.endsWith(".html"));
-const html = Object.fromEntries(pages.map((f) => [f, read(`public/${f}`)]));
+// changelog.html is built from CHANGELOG.md at deploy, so tests render it fresh instead of reading a stale build.
+const pages = [
+  ...new Set([...readdirSync(new URL("public/", root)).filter((f) => f.endsWith(".html")), "changelog.html"]),
+];
+const html = Object.fromEntries(
+  pages.map((f) => [f, f === "changelog.html" ? renderChangelog() : read(`public/${f}`)]),
+);
 
 /** [href, visible text] for every link in a page. */
 function links(page: string): [string, string][] {
@@ -232,12 +238,14 @@ describe("website", () => {
     assert.deepEqual(links(section), [["/feedback", "Send feedback"]]);
   });
 
-  it("shows CHANGELOG.md on /changelog exactly as written, with the release in package.json", () => {
-    const shown = /<pre class="changelog">\n?([\s\S]*?)<\/pre>/.exec(html["changelog.html"]!)![1]!;
-    const unescaped = shown.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&amp;/g, "&");
-    assert.equal(unescaped, read("CHANGELOG.md"), "run npm run changelog");
-    const latest = /^## \[(\d+\.\d+\.\d+)\]/m.exec(read("CHANGELOG.md"))![1];
-    assert.equal(JSON.parse(read("package.json")).version, latest, "package.json version is the latest release");
+  it("renders every released version of CHANGELOG.md on /changelog, newest first", () => {
+    const released = [...read("CHANGELOG.md").matchAll(/^## \[(\d+\.\d+\.\d+)\] - \d{4}-\d{2}-\d{2}$/gm)].map(
+      (m) => m[1],
+    );
+    const shown = [...html["changelog.html"]!.matchAll(/<section class="release" id="v([\d.]+)">/g)].map((m) => m[1]);
+    assert.ok(released.length >= 4);
+    assert.deepEqual(shown, released);
+    assert.doesNotMatch(html["changelog.html"]!, /Unreleased|<!-- releases -->/);
   });
 
   it("only links to files that exist in the repository", () => {
