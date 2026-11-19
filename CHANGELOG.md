@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-19
+
+Next.js site.
+
 ### Changed
 
-- **Next.js site.** The website and API run on Next.js with the same pages and links, and the site now says it runs no analytics or third-party scripts instead of no scripts at all.
+- **Next.js site.** The website and API run on Next.js with the same pages and links, and the site now says it runs no analytics or third-party scripts instead of no scripts at all. [aa118f2](https://github.com/ElliotDrel/reactping/commit/aa118f2) [e34dccd](https://github.com/ElliotDrel/reactping/commit/e34dccd)
 
 ## [1.1.2] - 2026-11-19
 
@@ -79,7 +83,8 @@ Pilot release.
 - **Per person, per workspace.** Each person adds ReactPing for themselves. DMs stay in the workspace where the reaction happened. [5f6d336](https://github.com/ElliotDrel/reactping/commit/5f6d336)
 - **Disconnect.** Disconnect from the app's Home tab. Uninstalling the app deletes the workspace's stored tokens. [5f6d336](https://github.com/ElliotDrel/reactping/commit/5f6d336)
 
-[unreleased]: https://github.com/ElliotDrel/reactping/compare/v1.1.2...HEAD
+[unreleased]: https://github.com/ElliotDrel/reactping/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/ElliotDrel/reactping/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/ElliotDrel/reactping/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/ElliotDrel/reactping/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/ElliotDrel/reactping/compare/v1.0.0...v1.1.0
