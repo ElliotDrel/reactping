@@ -10,6 +10,8 @@ export interface Config {
   encryptionKey: Buffer;
   /** Testing only: also notify about reactions you add to your own messages. */
   includeSelfReactions: boolean;
+  /** Optional Slack incoming webhook for operator alerts (new feedback, failed DMs). */
+  alertWebhookUrl?: string;
 }
 
 export type ConfigResult = { ok: true; config: Config } | { ok: false; problems: string[] };
@@ -77,6 +79,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ConfigResult {
     slackSigningSecret: read("SLACK_SIGNING_SECRET"),
     encryptionKey,
     includeSelfReactions: selfReactions === "true",
+    // Optional, and like the flag above it never takes the service down: anything but a Slack webhook URL means off.
+    alertWebhookUrl: env.ALERT_WEBHOOK_URL?.trim().startsWith("https://hooks.slack.com/")
+      ? env.ALERT_WEBHOOK_URL.trim()
+      : undefined,
   };
   return problems.length ? { ok: false, problems } : { ok: true, config };
 }

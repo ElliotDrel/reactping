@@ -37,16 +37,17 @@ See [Development](../README.md#development). `npm run build` is a TypeScript che
 
 All names are in [`.env.example`](../.env.example). Every variable is server-only.
 
-| Variable                 | Purpose                                                                                            |
-| ------------------------ | -------------------------------------------------------------------------------------------------- |
-| `PUBLIC_SITE_URL`        | Canonical origin. OAuth redirect base; installs started on another host are redirected here first. |
-| `DATABASE_URL`           | Supabase Postgres, transaction pooler (port 6543), verified TLS. SSL query parameters are refused. |
-| `DATABASE_CA`            | Optional PEM CA when system trust does not validate the provider certificate.                      |
-| `SLACK_CLIENT_ID`        | Slack app client ID.                                                                               |
-| `SLACK_CLIENT_SECRET`    | Slack OAuth code exchange.                                                                         |
-| `SLACK_SIGNING_SECRET`   | Verifies Slack event and interactivity requests.                                                   |
-| `ENCRYPTION_KEY`         | 32 bytes, base64. Separate keys are derived for token encryption and the OAuth state cookie.       |
-| `INCLUDE_SELF_REACTIONS` | Testing only: also notify about your own reactions. Any value other than `true` means off.         |
+| Variable                 | Purpose                                                                                              |
+| ------------------------ | ---------------------------------------------------------------------------------------------------- |
+| `PUBLIC_SITE_URL`        | Canonical origin. OAuth redirect base; installs started on another host are redirected here first.   |
+| `DATABASE_URL`           | Supabase Postgres, transaction pooler (port 6543), verified TLS. SSL query parameters are refused.   |
+| `DATABASE_CA`            | Optional PEM CA when system trust does not validate the provider certificate.                        |
+| `SLACK_CLIENT_ID`        | Slack app client ID.                                                                                 |
+| `SLACK_CLIENT_SECRET`    | Slack OAuth code exchange.                                                                           |
+| `SLACK_SIGNING_SECRET`   | Verifies Slack event and interactivity requests.                                                     |
+| `ENCRYPTION_KEY`         | 32 bytes, base64. Separate keys are derived for token encryption and the OAuth state cookie.         |
+| `INCLUDE_SELF_REACTIONS` | Testing only: also notify about your own reactions. Any value other than `true` means off.           |
+| `ALERT_WEBHOOK_URL`      | Optional Slack incoming webhook for operator alerts. Anything but a `hooks.slack.com` URL means off. |
 
 If a required variable is missing or invalid, the function logs the variable names (never values) and every route returns `503 not_configured`.
 
@@ -60,7 +61,7 @@ If a required variable is missing or invalid, the function logs the variable nam
 | `POST /api/slack/interactions`  | Interactivity & Shortcuts → Request URL |
 | `POST /api/feedback`            | The `/feedback` form                    |
 | `GET /api/stats`                | The homepage stats image                |
-| `GET /api/health`               | The hourly outage check                 |
+| `GET /api/health`               | Outage summary (runbook)                |
 
 ## Self-hosting
 
@@ -76,7 +77,7 @@ If a required variable is missing or invalid, the function logs the variable nam
 - **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the `installations` rows; everyone adds ReactPing again.
 - **Changed domain:** update `PUBLIC_SITE_URL`, redeploy, update the three Slack URLs, then verify a fresh reaction end to end. Also update the host and key file in `scripts/submit-indexnow.mjs`.
 - **IndexNow:** `.github/workflows/indexnow.yml` waits for the deploy after any push to `main` that changes `public/`, then `scripts/submit-indexnow.mjs` sends every sitemap URL to IndexNow (Bing and others; Google doesn't use it). Run it by hand from the Actions tab. A 200 or 202 means received, not indexed.
-- **Outage alerts:** every reaction event logs one `reaction` line with its outcome and adds to `reaction_outcomes`. `.github/workflows/health.yml` calls `GET /api/health` hourly; it returns 503, and the failed run emails the repo owner, when any DM failed or errored in the last 2 hours or no reaction events arrived in 24 hours. The JSON shows the last 24 hours by outcome. Vercel keeps runtime logs for only an hour on the Hobby plan, so check soon after an alert.
+- **Outage alerts:** every reaction event logs one `reaction` line with its outcome and adds to `reaction_outcomes`. Alerts go to a private Slack channel through an incoming webhook (a separate "ReactPing Alerts" app, so ReactPing's own scopes don't change): the app posts each new feedback and each failed DM (the same failure at most once per 30 minutes per instance), and a daily Supabase cron job (`supabase/ops/daily-alert.sql`, pg_cron + pg_net, webhook URL in Vault as `reactping_alert_webhook`) posts when no reaction events arrived in 24 hours. `GET /api/health` summarizes the last 24 hours by outcome. Vercel keeps runtime logs for only an hour on the Hobby plan, so check soon after an alert.
 - **Search consoles:** reactping.com is a Domain property in Google Search Console, verified by a Cloudflare TXT record (keep it), and imported into Bing Webmaster Tools from there. Both have `sitemap.xml`.
 - **Not supported:** Enterprise Grid and token rotation.
 

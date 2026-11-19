@@ -53,9 +53,10 @@ describe("Slack client adapter", () => {
     assert.match(requests[0]!.raw, /U1/);
   });
 
-  it("reads the reacted-to message's text with the user token via reactions.get", async () => {
-    const { slack, requests } = api(() => json({ ok: true, type: "message", message: { text: "hello" } }));
-    assert.equal(await slack.reactedMessageText("xoxp-1", "C1", "1.000100"), "hello");
+  it("reads the reacted-to message's text and emoji totals with the user token via reactions.get", async () => {
+    const message = { text: "hello", reactions: [{ name: "tada", count: 3, users: ["U1", "U2", "U3"] }] };
+    const { slack, requests } = api(() => json({ ok: true, type: "message", message }));
+    assert.deepEqual(await slack.reactedMessage("xoxp-1", "C1", "1.000100"), { text: "hello", counts: { tada: 3 } });
     assert.equal(requests[0]!.method, "reactions.get");
     assert.equal(requests[0]!.auth, "Bearer xoxp-1");
     assert.equal(requests[0]!.body.get("channel"), "C1");

@@ -4,6 +4,7 @@ import type { FeedbackSource, Installation, ReactionOutcome, Store } from "./db.
 import { log } from "./log.ts";
 import {
   DISCONNECT_ACTION,
+  escapeMrkdwn,
   homeView,
   messageLink,
   messagePreview,
@@ -28,8 +29,13 @@ export interface Deps {
   slack: SlackApi;
   /** Runs work after the response is sent (on Vercel: start it and hand the promise to waitUntil). */
   background: (task: () => Promise<unknown>) => void;
+  /** Posts to the operator's alerts channel; omitted when no webhook is configured. */
+  alert?: (text: string) => Promise<void>;
   now?: () => number;
 }
+
+/** The same failure alerts at most once per 30 minutes per instance, so an outage doesn't flood the channel. */
+const ALERT_REPEAT_MS = 30 * 60_000;
 
 export type Handler = (request: Request) => Promise<Response>;
 
@@ -126,6 +132,17 @@ export function createHandler(deps: Deps | null): Handler {
   const cookieName = secure ? "__Host-reactping_oauth" : "reactping_oauth";
   const redirectUri = `${config.siteUrl}/api/slack/oauth/callback`;
   const siteHost = new URL(config.siteUrl).host;
+  const lastAlert = new Map<string, number>();
+
+  /** Sends an operator alert after the response; `key` limits repeats of the same failure. */
+  function alertOps(text: string, key?: string): void {
+    if (!deps!.alert) return;
+    if (key) {
+      if (now() - (lastAlert.get(key) ?? -Infinity) < ALERT_REPEAT_MS) return;
+      lastAlert.set(key, now());
+    }
+    background("alert", () => deps!.alert!(text));
+  }
 
   function stateCookie(value: string, maxAge: number): string {
     return `${cookieName}=${value}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${secure ? "; Secure" : ""}`;
@@ -353,6 +370,9 @@ export function createHandler(deps: Deps | null): Handler {
       email: field(form.get("email"), 254),
     });
     log("info", "feedback_saved", { source });
+    const email = field(form.get("email"), 254);
+    const quoted = escapeMrkdwn(message).replace(/\n/g, "\n>");
+    alertOps(`New ReactPing feedback (${source})${email ? ` from ${escapeMrkdwn(email)}` : ""}:\n>${quoted}`);
     return resultPage("feedback", 200, "");
   }
 
@@ -370,6 +390,9 @@ export function createHandler(deps: Deps | null): Handler {
       log("error", "notify_error", { error: outcome });
     }
     log("info", "reaction", { teamId, outcome });
+    if (/^(failed|error):/.test(outcome)) {
+      alertOps(`ReactPing DM ${outcome} in workspace ${teamId}. See "When DMs go missing" in docs/setup.md.`, outcome);
+    }
     await store.countOutcome(outcome);
   }
 
@@ -386,15 +409,15 @@ export function createHandler(deps: Deps | null): Handler {
     if (!installation) return "not_connected";
     const link = messageLink(installation.workspaceUrl, item.channel, item.ts);
     if (!link) return "ignored";
-    // The preview is optional: any failure to fetch it sends the plain notification. The text is never stored or logged.
-    const preview = messagePreview(
-      await slack.reactedMessageText(installation.userToken, item.channel, item.ts).catch(() => null),
-    );
+    // The preview and total are optional: any failure to fetch them sends the plain notification. Never stored or logged.
+    const message = await slack.reactedMessage(installation.userToken, item.channel, item.ts).catch(() => null);
+    const preview = messagePreview(message?.text ?? null);
+    const total = message?.counts[reaction];
     try {
       await slack.postMessage(
         installation.botToken,
         installation.userId,
-        reactionNotification(reactorId, reaction, link, preview),
+        reactionNotification(reactorId, reaction, link, preview, total),
       );
     } catch (error) {
       const failure = classifySlackError(error);
@@ -410,8 +433,8 @@ export function createHandler(deps: Deps | null): Handler {
   }
 
   /**
-   * Outage check for the hourly GitHub Action: 503 when any DM failed in the last 2 hours, or when no reaction events
-   * arrived in 24 hours (Slack stopped sending them). Totals only, nothing about who or where.
+   * Outage summary for the "When DMs go missing" runbook: 503 when any DM failed in the last 2 hours, or when no
+   * reaction events arrived in 24 hours (Slack stopped sending them). Totals only, nothing about who or where.
    */
   async function health(): Promise<Response> {
     const { day, recent } = await store.outcomes();

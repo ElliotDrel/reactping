@@ -7,7 +7,7 @@ import type { Config } from "../src/config.ts";
 import { hmac } from "../src/crypto.ts";
 import { Store, type Installation } from "../src/db.ts";
 import { createHandler, type Handler } from "../src/handler.ts";
-import type { OAuthResult, SlackApi } from "../src/slack.ts";
+import type { OAuthResult, ReactedMessage, SlackApi } from "../src/slack.ts";
 
 process.env.NODE_ENV = "test";
 
@@ -112,9 +112,10 @@ export class FakeSlack implements SlackApi {
     this.record("revoke", token);
   }
   messageText: string | null = null;
-  async reactedMessageText(userToken: string, channel: string, ts: string): Promise<string | null> {
-    this.record("reactedMessageText", userToken, channel, ts);
-    return this.messageText;
+  reactionCounts: Record<string, number> = {};
+  async reactedMessage(userToken: string, channel: string, ts: string): Promise<ReactedMessage> {
+    this.record("reactedMessage", userToken, channel, ts);
+    return { text: this.messageText, counts: this.reactionCounts };
   }
 }
 
@@ -153,6 +154,8 @@ export interface TestApp {
   slack: FakeSlack;
   clock: Clock;
   config: Config;
+  /** Messages posted to the operator alerts webhook. */
+  alerts: string[];
   /** Work deferred past the response. It starts only in settle(), proving the response never waited for it. */
   pending: (() => Promise<unknown>)[];
   settle: () => Promise<void>;
@@ -164,6 +167,7 @@ export function startApp(pool: pg.Pool, overrides: Partial<Config> = {}): TestAp
   const slack = new FakeSlack();
   const config = makeConfig(overrides);
   const pending: (() => Promise<unknown>)[] = [];
+  const alerts: string[] = [];
   const handler = createHandler({
     config,
     store,
@@ -172,6 +176,9 @@ export function startApp(pool: pg.Pool, overrides: Partial<Config> = {}): TestAp
     background: (task) => {
       pending.push(task);
     },
+    alert: async (text) => {
+      alerts.push(text);
+    },
   });
   return {
     handler,
@@ -179,9 +186,11 @@ export function startApp(pool: pg.Pool, overrides: Partial<Config> = {}): TestAp
     slack,
     clock,
     config,
+    alerts,
     pending,
     settle: async () => {
-      for (const task of pending.splice(0)) await task();
+      // Drains work that background tasks queue themselves (an alert after a failed DM).
+      while (pending.length) for (const task of pending.splice(0)) await task();
     },
   };
 }

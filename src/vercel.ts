@@ -1,4 +1,5 @@
 import { attachDatabasePool, waitUntil } from "@vercel/functions";
+import { postAlert } from "./alert.ts";
 import { loadConfig } from "./config.ts";
 import { deriveKey } from "./crypto.ts";
 import { createPool, Store } from "./db.ts";
@@ -26,6 +27,7 @@ function getHandler(): Handler {
     store: new Store(pool, deriveKey(config.encryptionKey, "installation-tokens")),
     slack: createSlackApi({ clientId: config.slackClientId, clientSecret: config.slackClientSecret }),
     background: (task) => waitUntil(task()),
+    alert: config.alertWebhookUrl ? (text) => postAlert(config.alertWebhookUrl!, text) : undefined,
   }));
 }
 

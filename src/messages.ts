@@ -61,8 +61,12 @@ export function reactionNotification(
   reaction: string,
   link: string,
   preview?: string | null,
+  total?: number,
 ): string {
-  const line = `<@${escapeMrkdwn(reactorId)}> reacted :${escapeMrkdwn(reaction)}: to <${escapeMrkdwn(link)}|your message>`;
+  const emoji = `:${escapeMrkdwn(reaction)}:`;
+  // The running total makes "react if you're coming" polls readable from the DM alone.
+  const count = total && total > 1 ? ` · ${total} ${emoji} total` : "";
+  const line = `<@${escapeMrkdwn(reactorId)}> reacted ${emoji} to <${escapeMrkdwn(link)}|your message>${count}`;
   return preview ? `${line}\n>"${preview}"` : line;
 }
 

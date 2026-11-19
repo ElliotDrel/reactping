@@ -30,6 +30,12 @@ export interface OAuthResult {
   userTokenType: string | null;
 }
 
+/** Text of a reacted-to message and how many times each emoji is on it. */
+export interface ReactedMessage {
+  text: string | null;
+  counts: Record<string, number>;
+}
+
 export interface SlackApi {
   oauthAccess(code: string, redirectUri: string): Promise<OAuthResult>;
   /** Workspace ID and URL that a bot token belongs to. */
@@ -37,8 +43,8 @@ export interface SlackApi {
   postMessage(botToken: string, channel: string, text: string): Promise<void>;
   publishHome(botToken: string, userId: string, view: View): Promise<void>;
   revoke(token: string): Promise<void>;
-  /** Text of the reacted-to message (reactions.get with the author's user token), used only for the DM preview. */
-  reactedMessageText(userToken: string, channel: string, ts: string): Promise<string | null>;
+  /** The reacted-to message (reactions.get with the author's user token), for the DM preview and emoji totals. */
+  reactedMessage(userToken: string, channel: string, ts: string): Promise<ReactedMessage>;
 }
 
 const REVOKED_ERRORS = new Set([
@@ -153,9 +159,11 @@ export function createSlackApi(options: {
       await call(() => client.auth.revoke({ token }));
     },
 
-    async reactedMessageText(userToken, channel, ts) {
+    async reactedMessage(userToken, channel, ts) {
       const res = await call(() => client.reactions.get({ token: userToken, channel, timestamp: ts }));
-      return text(res.message?.text);
+      const counts: Record<string, number> = {};
+      for (const r of res.message?.reactions ?? []) if (r.name && r.count) counts[r.name] = r.count;
+      return { text: text(res.message?.text), counts };
     },
   };
 }

@@ -36,6 +36,7 @@ describe("server configuration", () => {
   it("has no install gate: removed launch flags are ignored", () => {
     const loaded = config({ PUBLIC_INSTALL_ENABLED: "false", REACTPING_INSTALLS_ENABLED: "false" });
     assert.deepEqual(Object.keys(loaded).sort(), [
+      "alertWebhookUrl",
       "databaseCa",
       "databaseUrl",
       "encryptionKey",

@@ -38,6 +38,15 @@ describe("feedback", { skip: dbSkip }, () => {
     ]);
   });
 
+  it("posts each new feedback to the alerts channel, escaped, after responding", async () => {
+    await post({ message: "Line one <!channel>\nLine two", email: "sam@example.test" });
+    assert.deepEqual(app.alerts, []);
+    await app.settle();
+    assert.deepEqual(app.alerts, [
+      "New ReactPing feedback (website) from sam@example.test:\n>Line one &lt;!channel&gt;\n>Line two",
+    ]);
+  });
+
   it("records which Slack link opened the form, and treats anything else as the website", async () => {
     await post({ message: "a" }, feedbackLink(SITE, "welcome_dm"));
     await post({ message: "b" }, feedbackLink(SITE, "home_tab"));

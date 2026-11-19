@@ -80,16 +80,25 @@ describe("Slack events", { skip: dbSkip }, () => {
       app.slack.messageText = "Deployed to prod";
       await signedEvent(app, reactionEvent("T1", { reaction: "tada" }));
       await app.settle();
-      const [fetch] = app.slack.callsTo("reactedMessageText");
+      const [fetch] = app.slack.callsTo("reactedMessage");
       assert.deepEqual(fetch!.args, ["xoxp-T1-UAUTHOR", "C123ABC", "1700000000.000100"]);
       assert.match(String(dms()[0]![2]), /\|your message>\n>"Deployed to prod"$/);
 
-      app.slack.reactedMessageText = async () => {
+      app.slack.reactedMessage = async () => {
         throw new Error("missing_scope");
       };
       await signedEvent(app, reactionEvent("T1", { reaction: "tada" }));
       await app.settle();
       assert.match(String(dms()[1]![2]), /\|your message>$/);
+    });
+
+    it("shows the emoji's running total on the message, for polls, once there is more than one", async () => {
+      app.slack.reactionCounts = { tada: 1, white_check_mark: 5 };
+      await signedEvent(app, reactionEvent("T1", { reaction: "tada" }));
+      await signedEvent(app, reactionEvent("T1", { reaction: "white_check_mark" }));
+      await app.settle();
+      assert.match(String(dms()[0]![2]), /\|your message>$/);
+      assert.match(String(dms()[1]![2]), /\|your message> · 5 :white_check_mark: total$/);
     });
 
     it("ignores Slack retries without doing the work again", async () => {
@@ -148,6 +157,22 @@ describe("Slack events", { skip: dbSkip }, () => {
       await signedEvent(app, reactionEvent("T1"));
       await app.settle();
       assert.equal(await app.store.get("T1", "UAUTHOR"), undefined);
+    });
+
+    it("alerts the operator about a failed DM once per 30 minutes per failure, with no message content", async () => {
+      app.slack.postMessage = async () => {
+        throw new SlackCallError("failed", "channel_not_found");
+      };
+      await signedEvent(app, reactionEvent("T1"));
+      await signedEvent(app, reactionEvent("T1"));
+      await app.settle();
+      assert.deepEqual(app.alerts, [
+        'ReactPing DM failed:channel_not_found in workspace T1. See "When DMs go missing" in docs/setup.md.',
+      ]);
+      app.clock.t += 31 * 60_000;
+      await signedEvent(app, reactionEvent("T1"));
+      await app.settle();
+      assert.equal(app.alerts.length, 2);
     });
 
     it("keeps a fresh reinstall when an older request's DM fails as revoked", async () => {
