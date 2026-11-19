@@ -19,13 +19,13 @@ Layout: `src/handler.ts` (routes), `src/db.ts` (store), `src/slack.ts` (Slack cl
 
 All tables are in the private `reactping_slack` schema with RLS on, no policies, and no `anon`/`authenticated` privileges. Do not expose the schema to the Data API.
 
-| Table               | Contents                                                                                                                                   |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `installations`     | One row per `(team_id, user_id)`: workspace URL, AES-256-GCM bot and user tokens (associated data binds each to its row and field), times. |
-| `activity`          | `connected`, `disconnected`, and `uninstalled` per workspace, with time and install count. No user IDs.                                    |
-| `counters`          | `notifications_sent` total.                                                                                                                |
-| `reaction_outcomes` | Hourly counts of what happened to each reaction event (`sent`, `failed`, `error`, `self`, `not_connected`, `ignored`). No IDs.             |
-| `feedback`          | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`), `status`, `note`.             |
+| Table               | Contents                                                                                                                                                    |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `installations`     | One row per `(team_id, user_id)`: workspace URL, AES-256-GCM bot and user tokens (associated data binds each to its row and field), times.                  |
+| `activity`          | `connected`, `disconnected`, and `uninstalled` per workspace, with time and install count. No user IDs.                                                     |
+| `counters`          | `notifications_sent` total.                                                                                                                                 |
+| `reaction_outcomes` | Hourly counts of what happened to each reaction event: `sent`, `failed:<Slack error>`, `error:<name>`, `self`, `not_connected`, `ignored`, `retry`. No IDs. |
+| `feedback`          | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`), `status`, `note`.                              |
 
 `GET /api/stats` renders the workspace and notification totals as an edge-cached SVG for the homepage. Feedback `source` comes from the UTM tags in the form page's Referer. Edit feedback `status` (`new`, `viewed`, `resolved`, `declined`) and `note` in the Supabase Table Editor; a trigger maintains `status_at`.
 
@@ -79,6 +79,12 @@ If a required variable is missing or invalid, the function logs the variable nam
 - **Outage alerts:** every reaction event logs one `reaction` line with its outcome and adds to `reaction_outcomes`. `.github/workflows/health.yml` calls `GET /api/health` hourly; it returns 503, and the failed run emails the repo owner, when any DM failed or errored in the last 2 hours or no reaction events arrived in 24 hours. The JSON shows the last 24 hours by outcome. Vercel keeps runtime logs for only an hour on the Hobby plan, so check soon after an alert.
 - **Search consoles:** reactping.com is a Domain property in Google Search Console, verified by a Cloudflare TXT record (keep it), and imported into Bing Webmaster Tools from there. Both have `sitemap.xml`.
 - **Not supported:** Enterprise Grid and token rotation.
+
+### When DMs go missing
+
+1. **[`/api/health`](https://reactping.com/api/health)** shows the last 24 hours by outcome. `failed:<code>` is Slack's refusal (for example `failed:channel_not_found`); `error:<name>` is a bug or database failure; many `retry` means responses took over 3 seconds.
+2. **Hour by hour:** `select hour, outcome, count from reactping_slack.reaction_outcomes where hour > now() - interval '2 days' order by hour;` An hour with no rows means Slack sent no reaction events then. Compare against the time the person says a reaction was missed: no row means Slack never sent it (check [Slack status](https://slack-status.com/)); `not_connected` or `self` means it was skipped by design; `failed`/`error` is ours to fix.
+3. **Details within the hour:** `vercel logs --since 1h` has one `reaction` line per event with the workspace ID and outcome, plus `notify_failed` and `notify_error`. Vercel Hobby keeps runtime logs for 1 hour and request logs (`vercel logs requests`) for 12.
 
 ## References
 

@@ -98,7 +98,7 @@ describe("Slack events", { skip: dbSkip }, () => {
         "x-slack-retry-reason": "http_timeout",
       });
       assert.equal(res.status, 200);
-      assert.equal(app.pending.length, 0);
+      assert.equal(app.pending.length, 1); // only counting the retry
       await app.settle();
       assert.equal(dms().length, 0);
     });

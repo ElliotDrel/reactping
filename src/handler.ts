@@ -317,6 +317,8 @@ export function createHandler(deps: Deps | null): Handler {
     // Notifications are best effort: acknowledge now, work after the response, never act on a retry.
     if (request.headers.has("x-slack-retry-num")) {
       log("info", "retry_ignored", { reason: (request.headers.get("x-slack-retry-reason") ?? "").slice(0, 40) });
+      // Counted so slow responses (Slack retries after 3 seconds) show up in /api/health.
+      if (event.type === "reaction_added") background("retry", () => store.countOutcome("retry"));
       return plain(200);
     }
     if (event.type === "reaction_added") background("reaction", () => notify(teamId, event));
@@ -360,8 +362,12 @@ export function createHandler(deps: Deps | null): Handler {
     try {
       outcome = await deliver(teamId, event);
     } catch (error) {
-      outcome = "error";
-      log("error", "notify_error", { error: (error as Error)?.name });
+      outcome = `error:${
+        String((error as Error)?.name)
+          .replace(/[^A-Za-z]/g, "")
+          .slice(0, 60) || "Error"
+      }`;
+      log("error", "notify_error", { error: outcome });
     }
     log("info", "reaction", { teamId, outcome });
     await store.countOutcome(outcome);
@@ -397,7 +403,7 @@ export function createHandler(deps: Deps | null): Handler {
       if (failure.kind === "revoked" && (await store.deleteIfUnchanged(installation))) {
         await store.recordActivity(teamId, "disconnected");
       }
-      return "failed";
+      return `failed:${failure.message.slice(0, 60)}`;
     }
     await store.countNotification();
     return "sent";
@@ -410,7 +416,9 @@ export function createHandler(deps: Deps | null): Handler {
   async function health(): Promise<Response> {
     const { day, recent } = await store.outcomes();
     const events = Object.values(day).reduce((a, b) => a + b, 0);
-    const recentFailures = (recent.failed ?? 0) + (recent.error ?? 0);
+    const recentFailures = Object.entries(recent)
+      .filter(([outcome]) => /^(failed|error):/.test(outcome))
+      .reduce((sum, [, count]) => sum + count, 0);
     const problem = recentFailures > 0 ? "notifications_failing" : events === 0 ? "no_events_24h" : null;
     return new Response(JSON.stringify({ ok: !problem, problem, last24h: day }), {
       status: problem ? 503 : 200,

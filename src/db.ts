@@ -195,10 +195,12 @@ export class Store {
 }
 
 /**
- * What happened to one reaction_added event: a DM was sent, Slack refused it (failed), the code threw (error), or it
- * was skipped because the reactor is the author, the author hasn't connected, or it isn't a reaction to a message.
+ * What happened to one reaction_added event: a DM was sent; Slack refused it (`failed:` + Slack's error code); the code
+ * threw (`error:` + the error's name); it was skipped because the reactor is the author, the author hasn't connected,
+ * or it isn't a reaction to a message; or it was a Slack retry, which is never acted on.
  */
-export type ReactionOutcome = "sent" | "failed" | "error" | "self" | "not_connected" | "ignored";
+export type ReactionOutcome =
+  "sent" | "self" | "not_connected" | "ignored" | "retry" | `failed:${string}` | `error:${string}`;
 
 /** Where the feedback form was opened from: the website itself, or the link in ReactPing's welcome DM or Home tab. */
 export type FeedbackSource = "website" | "slack_welcome" | "slack_home";

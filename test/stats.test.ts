@@ -83,8 +83,9 @@ describe("usage counts", { skip: dbSkip }, () => {
     await signedEvent(app, reactionEvent("T1", { user: "UAUTHOR" })); // own reaction
     await signedEvent(app, reactionEvent("T1", { item_user: "UNOBODY" })); // author not connected
     await signedEvent(app, reactionEvent("T1", { item: { type: "file", file: "F1" } })); // not a message
+    await signedEvent(app, reactionEvent("T1"), { "x-slack-retry-num": "1" }); // Slack retry, never acted on
     await app.settle();
-    const ok = { sent: 1, self: 1, not_connected: 1, ignored: 1 };
+    const ok = { sent: 1, self: 1, not_connected: 1, ignored: 1, retry: 1 };
     assert.deepEqual(await health(), [200, { ok: true, problem: null, last24h: ok }]);
 
     app.slack.postMessage = async () => {
@@ -94,12 +95,15 @@ describe("usage counts", { skip: dbSkip }, () => {
     await app.settle();
     assert.deepEqual(await health(), [
       503,
-      { ok: false, problem: "notifications_failing", last24h: { ...ok, failed: 1 } },
+      { ok: false, problem: "notifications_failing", last24h: { ...ok, "failed:request_failed": 1 } },
     ]);
 
     // Failures stop alerting after 2 hours; the totals cover 24.
     app.clock.t += 3 * 3600_000;
-    assert.deepEqual(await health(), [200, { ok: true, problem: null, last24h: { ...ok, failed: 1 } }]);
+    assert.deepEqual(await health(), [
+      200,
+      { ok: true, problem: null, last24h: { ...ok, "failed:request_failed": 1 } },
+    ]);
     app.clock.t += 24 * 3600_000;
     assert.equal((await health())[0], 503);
   });
