@@ -1,0 +1,54 @@
+import { SeverityNumber } from "@opentelemetry/api-logs";
+import { OTLPLogExporter } from "@opentelemetry/exporter-logs-otlp-http";
+import { resourceFromAttributes } from "@opentelemetry/resources";
+import { BatchLogRecordProcessor, LoggerProvider } from "@opentelemetry/sdk-logs";
+
+type LogAttribute = string | number | boolean;
+type LogLevel = "info" | "warn" | "error";
+
+const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+const host = process.env.NEXT_PUBLIC_POSTHOG_HOST;
+const isNodeRuntime = process.env.NEXT_RUNTIME === "nodejs";
+
+if (isNodeRuntime && (!token || !host) && process.env.NODE_ENV !== "production") {
+  const missingVariable = token ? "NEXT_PUBLIC_POSTHOG_HOST" : "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN";
+  console.error(
+    `${missingVariable} variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once ${missingVariable} is configured`,
+  );
+}
+
+const posthogLogProvider =
+  isNodeRuntime && token && host
+    ? new LoggerProvider({
+        resource: resourceFromAttributes({ "service.name": "reactping" }),
+        processors: [
+          new BatchLogRecordProcessor({
+            exporter: new OTLPLogExporter({
+              url: `${host.replace(/\/$/, "")}/i/v1/logs`,
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+              },
+            }),
+          }),
+        ],
+      })
+    : undefined;
+
+const posthogLogger = posthogLogProvider?.getLogger("reactping-posthog-logs");
+
+const severityByLevel = {
+  info: SeverityNumber.INFO,
+  warn: SeverityNumber.WARN,
+  error: SeverityNumber.ERROR,
+} as const;
+
+export function logToPostHog(level: LogLevel, body: string, attributes: Record<string, LogAttribute> = {}): void {
+  posthogLogger?.emit({ body, severityNumber: severityByLevel[level], attributes });
+}
+
+export async function flushPostHogLogs(): Promise<void> {
+  await posthogLogProvider?.forceFlush().catch(() => {});
+}
+
+export function register(): void {}

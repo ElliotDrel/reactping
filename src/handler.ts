@@ -1,3 +1,4 @@
+import { flushPostHogLogs, logToPostHog } from "../instrumentation.ts";
 import type { Config } from "./config.ts";
 import { deriveKey, hmac, safeEqual } from "./crypto.ts";
 import type { FeedbackSource, Installation, ReactionOutcome, Store } from "./db.ts";
@@ -160,6 +161,15 @@ export function createHandler(deps: Deps | null): Handler {
     );
   }
 
+  function posthogLog(
+    level: "info" | "warn" | "error",
+    message: string,
+    attributes: Record<string, string | number | boolean>,
+  ): void {
+    logToPostHog(level, message, attributes);
+    background("posthog_logs", flushPostHogLogs);
+  }
+
   function home(installation: Pick<Installation, "botToken" | "userId" | "teamId">, connected: boolean): Promise<void> {
     const includeSelfReactions = config.selfReactionTeams.includes(installation.teamId);
     return slack.publishHome(
@@ -282,6 +292,7 @@ export function createHandler(deps: Deps | null): Handler {
 
     const installation = await store.upsert({ teamId, userId, workspaceUrl, botToken, userToken });
     log("info", "installation_connected", { teamId });
+    posthogLog("info", "slack_installation_connected", { installation_status: "connected" });
     background("activity", () => store.recordActivity(teamId, "connected"));
     background("welcome", async () => {
       await slack.postMessage(installation.botToken, installation.userId, welcomeText(config.siteUrl));
@@ -372,6 +383,7 @@ export function createHandler(deps: Deps | null): Handler {
       email: field(form.get("email"), 254),
     });
     log("info", "feedback_saved", { source });
+    posthogLog("info", "website_feedback_saved", { source });
     const email = field(form.get("email"), 254);
     const quoted = escapeMrkdwn(message).replace(/\n/g, "\n>");
     alertOps(`New ReactPing feedback (${source})${email ? ` from ${escapeMrkdwn(email)}` : ""}:\n>${quoted}`);
@@ -491,6 +503,7 @@ export function createHandler(deps: Deps | null): Handler {
     // Local deletion first, so delivery stops even if Slack is slow or the revoke fails.
     const removed = await store.delete(teamId, userId);
     log("info", "installation_disconnected", { teamId, found: Boolean(removed) });
+    posthogLog("info", "slack_installation_disconnected", { installation_found: Boolean(removed) });
     if (removed) {
       background("disconnect", () => afterDisconnect(removed));
       background("activity", () => store.recordActivity(teamId, "disconnected"));

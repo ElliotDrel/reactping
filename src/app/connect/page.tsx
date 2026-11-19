@@ -1,3 +1,4 @@
+import { ConnectButton } from "./connect-button.tsx";
 import { Footer, Header, pageMetadata } from "../site.tsx";
 
 export const metadata = pageMetadata({
@@ -29,9 +30,7 @@ export default function Connect() {
           Everyone connects for themselves; teammates can share this page. If your workspace requires admin approval,
           Slack lets you request it. Connect once it's approved.
         </p>
-        <a className="btn btn-large" href="/api/slack/install">
-          Continue to Slack
-        </a>
+        <ConnectButton />
       </main>
 
       <Footer />
