@@ -1,3 +1,4 @@
+// PostHog website analytics: page views, referrers, UTM tags, and ?r= short links. Off when the token isn't set.
 import { posthog } from "posthog-js";
 
 const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
@@ -8,12 +9,7 @@ if (token && host) {
     api_host: host,
     defaults: "2026-08-30",
     capture_exceptions: true,
-    debug: process.env.NODE_ENV === "development",
+    // reactping.com/?r=elliot counts like utm_source=elliot, so shared links stay short.
+    custom_campaign_params: ["r"],
   });
-} else if (process.env.NODE_ENV === "development") {
-  const missingVariable = token ? "NEXT_PUBLIC_POSTHOG_HOST" : "NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN";
-
-  throw new Error(
-    `${missingVariable} variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once ${missingVariable} is configured`,
-  );
 }

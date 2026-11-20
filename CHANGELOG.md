@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Website analytics.** PostHog counts website visits, where they came from (including `?r=` short links), and completed installs. It never sees Slack messages.
+
 ## [1.2.0] - 2026-11-19
 
 Next.js site.

@@ -64,6 +64,7 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.equal(res.headers.get("referrer-policy"), "no-referrer");
       assert.match(res.headers.get("set-cookie")!, /Max-Age=0/);
       assert.equal(app.slack.callsTo("postMessage").length, 0, "welcome waits for waitUntil");
+      assert.equal(app.installs.length, 0, "analytics waits for waitUntil");
 
       const stored = await app.store.get("T1", "UAUTHOR");
       assert.deepEqual(
@@ -72,6 +73,7 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       );
 
       await app.settle();
+      assert.equal(app.installs.length, 1, "the completed install is recorded once");
       const [welcome] = app.slack.callsTo("postMessage");
       assert.deepEqual(welcome!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
       assert.match(String(welcome!.args[2]), /best effort/);

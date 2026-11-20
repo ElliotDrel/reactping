@@ -44,7 +44,7 @@ const REPO = "https://github.com/ElliotDrel/reactping/blob/main/";
  */
 const SOURCE_LINKS: Record<string, RegExp[]> = {
   "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write"\]/, /USER_SCOPES = \["reactions:read"\]/],
-  "src/handler.ts#L401-L435": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
+  "src/handler.ts#L404-L438": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
   "src/slack.ts#L119-L168": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /publishHome/, /revoke/],
   "supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24": [
     /create table reactping_slack\.installations/,
@@ -99,8 +99,8 @@ describe("website", () => {
     assert.ok(words <= 265, `homepage <main> has ${words} words`);
   });
 
-  it("runs no scripts except Next's own, and lets the CSP load scripts only from this site", () => {
-    // JSON-LD is data, not code: browsers never run it. Anything else, like analytics or a third-party embed, fails.
+  it("loads only Next's own script files, and lets the CSP reach only this site and PostHog", () => {
+    // PostHog is bundled into Next's chunks, so pages still load no script file from another origin.
     for (const [file, page] of builtFiles) {
       for (const [, src] of page.matchAll(/<script[^>]*\bsrc="([^"]+)"/g)) {
         assert.ok(src!.startsWith("/_next/static/"), `${file} loads ${src}`);
@@ -110,8 +110,9 @@ describe("website", () => {
       (h: { key: string }) => h.key === "Content-Security-Policy",
     ).value;
     assert.match(csp, /default-src 'none'/);
-    // Next's runtime needs inline scripts and its own chunks; nothing may come from another origin.
-    assert.equal(/script-src ([^;]+)/.exec(csp)?.[1], "'self' 'unsafe-inline'");
+    // Next's runtime needs inline scripts; PostHog loads its extensions and sends events to *.posthog.com.
+    assert.equal(/script-src ([^;]+)/.exec(csp)?.[1], "'self' 'unsafe-inline' https://*.posthog.com");
+    assert.equal(/connect-src ([^;]+)/.exec(csp)?.[1], "'self' https://*.posthog.com");
   });
 
   it("links privacy claims to source lines that still say what the claim needs", () => {

@@ -156,6 +156,8 @@ export interface TestApp {
   config: Config;
   /** Messages posted to the operator alerts webhook. */
   alerts: string[];
+  /** Cookie headers passed to the install analytics hook, one per completed install. */
+  installs: (string | null)[];
   /** Work deferred past the response. It starts only in settle(), proving the response never waited for it. */
   pending: (() => Promise<unknown>)[];
   settle: () => Promise<void>;
@@ -168,6 +170,7 @@ export function startApp(pool: pg.Pool, overrides: Partial<Config> = {}): TestAp
   const config = makeConfig(overrides);
   const pending: (() => Promise<unknown>)[] = [];
   const alerts: string[] = [];
+  const installs: (string | null)[] = [];
   const handler = createHandler({
     config,
     store,
@@ -179,6 +182,9 @@ export function startApp(pool: pg.Pool, overrides: Partial<Config> = {}): TestAp
     alert: async (text) => {
       alerts.push(text);
     },
+    analytics: async (cookies) => {
+      installs.push(cookies);
+    },
   });
   return {
     handler,
@@ -187,6 +193,7 @@ export function startApp(pool: pg.Pool, overrides: Partial<Config> = {}): TestAp
     clock,
     config,
     alerts,
+    installs,
     pending,
     settle: async () => {
       // Drains work that background tasks queue themselves (an alert after a failed DM).
