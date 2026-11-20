@@ -1,2 +1,8 @@
 [mcp_servers.posthog]
 url = "https://mcp.posthog.com/mcp"
+
+[mcp_servers.supabase]
+url = "https://mcp.supabase.com/mcp?project_ref=ykrdmgewztwzksgwbjue"
+
+[mcp_servers.vercel]
+url = "https://mcp.vercel.com"
