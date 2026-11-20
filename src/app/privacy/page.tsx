@@ -46,21 +46,23 @@ export default function Privacy() {
         <h2>How we use it</h2>
         <p>
           Only to deliver reaction notifications and manage your connection. Notifications stay in the workspace where
-          the reaction happened. No advertising, analytics, or sale of data.
+          the reaction happened. No advertising or sale of data.
         </p>
 
         <h2>Security and cookies</h2>
         <p>
           Access tokens are encrypted with AES-256-GCM. While you add ReactPing, one signed, HttpOnly cookie links
-          Slack's approval to your browser; it expires after 10 minutes and is cleared when you return. This website
-          runs no analytics or third-party scripts.
+          Slack's approval to your browser; it expires after 10 minutes and is cleared when you return. The website uses
+          PostHog to count visits and see which links bring people here; PostHog sets its own cookie and never receives
+          your Slack messages or tokens.
         </p>
 
         <h2>Service providers</h2>
         <p>
           Vercel hosts the website and API. Supabase stores connection records. Slack sends reaction events and delivers
-          DMs. They may keep operational logs such as IP addresses and request times. ReactPing's own logs contain
-          workspace IDs and error codes, never tokens, authorization codes, or message content.
+          DMs. PostHog counts website visits and installs. They may keep operational logs such as IP addresses and
+          request times. ReactPing's own logs contain workspace IDs and error codes, never tokens, authorization codes,
+          or message content.
         </p>
 
         <h2>Disconnect and delete</h2>

@@ -139,7 +139,7 @@ export default function Home() {
               </div>
               <div>
                 <dt>No tracking</dt>
-                <dd>No analytics or third-party scripts.</dd>
+                <dd>Nothing you do in Slack.</dd>
               </div>
             </dl>
             <p>

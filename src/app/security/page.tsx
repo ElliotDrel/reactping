@@ -36,7 +36,7 @@ export default function Security() {
           your message in the same workspace, then sends your DM.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L401-L435`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L404-L438`}>
             See the event handling
           </a>
           <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L119-L168`}>
@@ -65,8 +65,9 @@ export default function Security() {
 
         <h2>No tracking</h2>
         <p>
-          No analytics, no third-party scripts, and no cookies except one short-lived cookie that secures adding
-          ReactPing to Slack. The site's security policy blocks scripts from any other site.
+          ReactPing never tracks what you do in Slack. The website counts visits and installs with PostHog, which sets
+          its own cookie and never receives Slack messages or tokens. The site's security policy allows scripts only
+          from this site and PostHog.
         </p>
         <p className="actions">
           <a className="btn btn-quiet btn-small" href={`${CODE}vercel.json#L9-L10`}>

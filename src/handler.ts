@@ -31,6 +31,8 @@ export interface Deps {
   background: (task: () => Promise<unknown>) => void;
   /** Posts to the operator's alerts channel; omitted when no webhook is configured. */
   alert?: (text: string) => Promise<void>;
+  /** Records a completed install in website analytics, given the request's Cookie header; omitted when off. */
+  analytics?: (cookieHeader: string | null) => Promise<void>;
   now?: () => number;
 }
 
@@ -282,6 +284,7 @@ export function createHandler(deps: Deps | null): Handler {
 
     const installation = await store.upsert({ teamId, userId, workspaceUrl, botToken, userToken });
     log("info", "installation_connected", { teamId });
+    if (deps!.analytics) background("analytics", () => deps!.analytics!(request.headers.get("cookie")));
     background("activity", () => store.recordActivity(teamId, "connected"));
     background("welcome", async () => {
       await slack.postMessage(installation.botToken, installation.userId, welcomeText(config.siteUrl));

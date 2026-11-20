@@ -1,5 +1,6 @@
 import { attachDatabasePool, waitUntil } from "@vercel/functions";
 import { postAlert } from "./alert.ts";
+import { captureInstall } from "./analytics.ts";
 import { loadConfig } from "./config.ts";
 import { deriveKey } from "./crypto.ts";
 import { createPool, Store } from "./db.ts";
@@ -19,6 +20,9 @@ function getHandler(): Handler {
     return (handler = createHandler(null));
   }
   const { config } = loaded;
+  // The same public token and host the browser SDK uses (instrumentation-client.ts).
+  const posthogToken = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+  const posthogHost = process.env.NEXT_PUBLIC_POSTHOG_HOST;
   const pool = createPool(config.databaseUrl, config.databaseCa);
   // Lets Fluid compute release idle clients before an instance suspends.
   attachDatabasePool(pool);
@@ -28,6 +32,8 @@ function getHandler(): Handler {
     slack: createSlackApi({ clientId: config.slackClientId, clientSecret: config.slackClientSecret }),
     background: (task) => waitUntil(task()),
     alert: config.alertWebhookUrl ? (text) => postAlert(config.alertWebhookUrl!, text) : undefined,
+    analytics:
+      posthogToken && posthogHost ? (cookies) => captureInstall(posthogToken, posthogHost, cookies) : undefined,
   }));
 }
 
