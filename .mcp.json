@@ -2,7 +2,7 @@
   "mcpServers": {
     "posthog": {
       "type": "http",
-      "url": "https://mcp.posthog.com/mcp"
+      "url": "https://mcp.posthog.com/mcp?project_id=751212"
     },
     "supabase": {
       "type": "http",
@@ -10,7 +10,7 @@
     },
     "vercel": {
       "type": "http",
-      "url": "https://mcp.vercel.com"
+      "url": "https://mcp.vercel.com/elliot-drels-projects/reactping"
     }
   }
 }

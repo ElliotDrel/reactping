@@ -1,8 +1,8 @@
 [mcp_servers.posthog]
-url = "https://mcp.posthog.com/mcp"
+url = "https://mcp.posthog.com/mcp?project_id=751212"
 
 [mcp_servers.supabase]
 url = "https://mcp.supabase.com/mcp?project_ref=ykrdmgewztwzksgwbjue"
 
 [mcp_servers.vercel]
-url = "https://mcp.vercel.com"
+url = "https://mcp.vercel.com/elliot-drels-projects/reactping"
