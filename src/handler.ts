@@ -1,3 +1,5 @@
+import type { PostHog } from "posthog-node";
+import { flushPosthogLogs, posthogLog } from "../instrumentation.ts";
 import type { Config } from "./config.ts";
 import { deriveKey, hmac, safeEqual } from "./crypto.ts";
 import type { FeedbackSource, Installation, ReactionOutcome, Store } from "./db.ts";
@@ -27,6 +29,8 @@ export interface Deps {
   config: Config;
   store: Store;
   slack: SlackApi;
+  /** Optional server client; the app continues to serve when PostHog is not configured. */
+  posthog?: PostHog;
   /** Runs work after the response is sent (on Vercel: start it and hand the promise to waitUntil). */
   background: (task: () => Promise<unknown>) => void;
   /** Posts to the operator's alerts channel; omitted when no webhook is configured. */
@@ -51,6 +55,9 @@ const REACTION = /^[a-z0-9_+'\-:]{1,100}$/;
 const OAUTH_CODE = /^[A-Za-z0-9._-]{1,256}$/;
 
 const NO_STORE = { "cache-control": "no-store", "x-content-type-options": "nosniff" };
+
+/** A Slack user ID is only unique within a workspace, so both stable IDs form the analytics identity. */
+export const slackDistinctId = (teamId: string, userId: string): string => `slack:${teamId}:${userId}`;
 
 function plain(status: number, body = ""): Response {
   return new Response(body, { status, headers: { ...NO_STORE, "content-type": "text/plain; charset=utf-8" } });
@@ -158,6 +165,29 @@ export function createHandler(deps: Deps | null): Handler {
         }),
       ),
     );
+  }
+
+  /** Runs user-owned work in a fresh context so captures and exception autocapture inherit its stable identity. */
+  function withSlackUser<T>(teamId: string, userId: string, task: () => T): T {
+    if (!deps!.posthog) return task();
+    return deps!.posthog.withContext({ distinctId: slackDistinctId(teamId, userId) }, task, { fresh: true });
+  }
+
+  /** Captures an outcome and keeps the serverless invocation alive long enough for its bounded flush. */
+  function capture(event: string, properties?: Record<string, string | number | boolean>): void {
+    if (!deps!.posthog) return;
+    deps!.posthog.capture({ event, properties });
+    background("posthog_flush", async () => {
+      await deps!.posthog!.flush().catch(() => {});
+    });
+  }
+
+  /** Exports only the purpose-written operational lines below, after the response has been sent. */
+  function captureLog(message: string, attributes: Record<string, string | number | boolean> = {}): void {
+    posthogLog(message, attributes);
+    background("posthog_log_flush", async () => {
+      await flushPosthogLogs().catch(() => {});
+    });
   }
 
   function home(installation: Pick<Installation, "botToken" | "userId" | "teamId">, connected: boolean): Promise<void> {
@@ -268,27 +298,33 @@ export function createHandler(deps: Deps | null): Handler {
       return page(400, "scopes");
     }
 
-    let workspaceUrl: string | null = null;
-    try {
-      const identity = await slack.authTest(botToken);
-      if (identity.teamId === teamId) workspaceUrl = parseWorkspaceUrl(identity.url);
-    } catch (e) {
-      log("warn", "auth_test_failed", { error: classifySlackError(e).message });
-    }
-    if (!workspaceUrl) {
-      await revokeRejectedGrant(result);
-      return page(502, "failed");
-    }
+    return withSlackUser(teamId, userId, async () => {
+      let workspaceUrl: string | null = null;
+      try {
+        const identity = await slack.authTest(botToken);
+        if (identity.teamId === teamId) workspaceUrl = parseWorkspaceUrl(identity.url);
+      } catch (e) {
+        log("warn", "auth_test_failed", { error: classifySlackError(e).message });
+      }
+      if (!workspaceUrl) {
+        await revokeRejectedGrant(result);
+        return page(502, "failed");
+      }
 
-    const installation = await store.upsert({ teamId, userId, workspaceUrl, botToken, userToken });
-    log("info", "installation_connected", { teamId });
-    background("activity", () => store.recordActivity(teamId, "connected"));
-    background("welcome", async () => {
-      await slack.postMessage(installation.botToken, installation.userId, welcomeText(config.siteUrl));
-      await home(installation, true);
+      const installation = await store.upsert({ teamId, userId, workspaceUrl, botToken, userToken });
+      log("info", "installation_connected", { teamId });
+      capture("slack_installation_connected");
+      captureLog("slack_installation_connected", { outcome: "connected" });
+      background("activity", () => store.recordActivity(teamId, "connected"));
+      background("welcome", () =>
+        withSlackUser(teamId, userId, async () => {
+          await slack.postMessage(installation.botToken, installation.userId, welcomeText(config.siteUrl));
+          await home(installation, true);
+        }),
+      );
+      const appId = result.appId && APP_ID.test(result.appId) ? result.appId : null;
+      return page(200, "connected", appId ? `https://slack.com/app_redirect?app=${appId}&team=${teamId}` : undefined);
     });
-    const appId = result.appId && APP_ID.test(result.appId) ? result.appId : null;
-    return page(200, "connected", appId ? `https://slack.com/app_redirect?app=${appId}&team=${teamId}` : undefined);
   }
 
   // Events
@@ -340,8 +376,12 @@ export function createHandler(deps: Deps | null): Handler {
       if (event.type === "reaction_added") background("retry", () => store.countOutcome("retry"));
       return plain(200);
     }
-    if (event.type === "reaction_added") background("reaction", () => notify(teamId, event));
-    else if (event.type === "app_home_opened") background("home", () => openHome(teamId, event));
+    const itemUser = event.item_user;
+    if (event.type === "reaction_added" && typeof itemUser === "string" && USER_ID.test(itemUser)) {
+      background("reaction", () => withSlackUser(teamId, itemUser, () => notify(teamId, event)));
+    } else if (event.type === "app_home_opened") {
+      background("home", () => openHome(teamId, event));
+    }
     return plain(200);
   }
 
@@ -372,6 +412,8 @@ export function createHandler(deps: Deps | null): Handler {
       email: field(form.get("email"), 254),
     });
     log("info", "feedback_saved", { source });
+    capture("feedback_submitted", { source });
+    captureLog("feedback_submitted", { source });
     const email = field(form.get("email"), 254);
     const quoted = escapeMrkdwn(message).replace(/\n/g, "\n>");
     alertOps(`New ReactPing feedback (${source})${email ? ` from ${escapeMrkdwn(email)}` : ""}:\n>${quoted}`);
@@ -431,6 +473,8 @@ export function createHandler(deps: Deps | null): Handler {
       return `failed:${failure.message.slice(0, 60)}`;
     }
     await store.countNotification();
+    capture("reaction_notification_delivered");
+    captureLog("reaction_notification_delivered", { outcome: "sent" });
     return "sent";
   }
 
@@ -453,8 +497,10 @@ export function createHandler(deps: Deps | null): Handler {
 
   async function openHome(teamId: string, event: SlackEvent): Promise<void> {
     if (event.tab !== "home" || typeof event.user !== "string" || !USER_ID.test(event.user)) return;
-    const installation = await store.get(teamId, event.user);
-    if (installation) await home(installation, true);
+    return withSlackUser(teamId, event.user, async () => {
+      const installation = await store.get(teamId, event.user as string);
+      if (installation) await home(installation, true);
+    });
   }
 
   // Interactions
@@ -488,14 +534,17 @@ export function createHandler(deps: Deps | null): Handler {
       (userTeam === undefined || userTeam === teamId);
     if (!valid || !payload.actions?.some((a) => a.action_id === DISCONNECT_ACTION)) return plain(200);
 
-    // Local deletion first, so delivery stops even if Slack is slow or the revoke fails.
-    const removed = await store.delete(teamId, userId);
-    log("info", "installation_disconnected", { teamId, found: Boolean(removed) });
-    if (removed) {
-      background("disconnect", () => afterDisconnect(removed));
-      background("activity", () => store.recordActivity(teamId, "disconnected"));
-    }
-    return plain(200);
+    return withSlackUser(teamId, userId, async () => {
+      // Local deletion first, so delivery stops even if Slack is slow or the revoke fails.
+      const removed = await store.delete(teamId, userId);
+      log("info", "installation_disconnected", { teamId, found: Boolean(removed) });
+      if (removed) {
+        capture("slack_installation_disconnected");
+        background("disconnect", () => withSlackUser(teamId, userId, () => afterDisconnect(removed)));
+        background("activity", () => store.recordActivity(teamId, "disconnected"));
+      }
+      return plain(200);
+    });
   }
 
   async function afterDisconnect(removed: Installation): Promise<void> {
