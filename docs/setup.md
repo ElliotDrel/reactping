@@ -35,19 +35,21 @@ See [Development](../README.md#development). `npm run build` runs `next build`, 
 
 ## Environment
 
-All names are in [`.env.example`](../.env.example). Every variable is server-only.
+All names are in [`.env.example`](../.env.example). Every variable is server-only except the two `NEXT_PUBLIC_POSTHOG_*` ones, which Next builds into the browser bundle and are public by design.
 
-| Variable               | Purpose                                                                                                           |
-| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `PUBLIC_SITE_URL`      | Canonical origin. OAuth redirect base; installs started on another host are redirected here first.                |
-| `DATABASE_URL`         | Supabase Postgres, transaction pooler (port 6543), verified TLS. SSL query parameters are refused.                |
-| `DATABASE_CA`          | Optional PEM CA when system trust does not validate the provider certificate.                                     |
-| `SLACK_CLIENT_ID`      | Slack app client ID.                                                                                              |
-| `SLACK_CLIENT_SECRET`  | Slack OAuth code exchange.                                                                                        |
-| `SLACK_SIGNING_SECRET` | Verifies Slack event and interactivity requests.                                                                  |
-| `ENCRYPTION_KEY`       | 32 bytes, base64. Separate keys are derived for token encryption and the OAuth state cookie.                      |
-| `SELF_REACTION_TEAMS`  | Testing only: workspace IDs, comma-separated, where your own reactions also notify you. Anything else is ignored. |
-| `ALERT_WEBHOOK_URL`    | Optional Slack incoming webhook for operator alerts. Anything but a `hooks.slack.com` URL means off.              |
+| Variable                            | Purpose                                                                                                           |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `PUBLIC_SITE_URL`                   | Canonical origin. OAuth redirect base; installs started on another host are redirected here first.                |
+| `DATABASE_URL`                      | Supabase Postgres, transaction pooler (port 6543), verified TLS. SSL query parameters are refused.                |
+| `DATABASE_CA`                       | Optional PEM CA when system trust does not validate the provider certificate.                                     |
+| `SLACK_CLIENT_ID`                   | Slack app client ID.                                                                                              |
+| `SLACK_CLIENT_SECRET`               | Slack OAuth code exchange.                                                                                        |
+| `SLACK_SIGNING_SECRET`              | Verifies Slack event and interactivity requests.                                                                  |
+| `ENCRYPTION_KEY`                    | 32 bytes, base64. Separate keys are derived for token encryption and the OAuth state cookie.                      |
+| `SELF_REACTION_TEAMS`               | Testing only: workspace IDs, comma-separated, where your own reactions also notify you. Anything else is ignored. |
+| `ALERT_WEBHOOK_URL`                 | Optional Slack incoming webhook for operator alerts. Anything but a `hooks.slack.com` URL means off.              |
+| `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` | Optional PostHog project token (public). Unset means no website analytics and no install event.                   |
+| `NEXT_PUBLIC_POSTHOG_HOST`          | PostHog ingest host, e.g. `https://us.i.posthog.com`. Required with the token.                                    |
 
 If a required variable is missing or invalid, the function logs the variable names (never values) and every route returns `503 not_configured`.
 

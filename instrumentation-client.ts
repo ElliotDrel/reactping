@@ -9,6 +9,8 @@ if (token && host) {
     api_host: host,
     defaults: "2026-08-30",
     capture_exceptions: true,
+    // The privacy page promises visit counts and referrers, not recordings of what visitors do.
+    disable_session_recording: true,
     // reactping.com/?r=elliot counts like utm_source=elliot, so shared links stay short.
     custom_campaign_params: ["r"],
   });
