@@ -7,9 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-20
+
+Website analytics.
+
 ### Added
 
-- **Website analytics.** PostHog counts website visits, where they came from (including `?r=` short links), and completed installs. It never sees Slack messages.
+- **Website analytics.** PostHog counts website visits, where they came from (including `?r=` short links), and completed installs. It never sees Slack messages. [2e6055e](https://github.com/ElliotDrel/reactping/commit/2e6055e)
 
 ## [1.2.0] - 2026-11-19
 
@@ -87,7 +91,8 @@ Pilot release.
 - **Per person, per workspace.** Each person adds ReactPing for themselves. DMs stay in the workspace where the reaction happened. [5f6d336](https://github.com/ElliotDrel/reactping/commit/5f6d336)
 - **Disconnect.** Disconnect from the app's Home tab. Uninstalling the app deletes the workspace's stored tokens. [5f6d336](https://github.com/ElliotDrel/reactping/commit/5f6d336)
 
-[unreleased]: https://github.com/ElliotDrel/reactping/compare/v1.2.0...HEAD
+[unreleased]: https://github.com/ElliotDrel/reactping/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/ElliotDrel/reactping/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/ElliotDrel/reactping/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/ElliotDrel/reactping/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/ElliotDrel/reactping/compare/v1.1.0...v1.1.1
