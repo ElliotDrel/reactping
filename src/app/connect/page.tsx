@@ -30,6 +30,11 @@ export default function Connect() {
           Everyone connects for themselves; teammates can share this page. If your workspace requires admin approval,
           Slack lets you request it. Connect once it's approved.
         </p>
+        <p className="note">
+          On a phone, open this page in Safari or Chrome and finish Slack's approval in the same browser. Once
+          connected, you can open the Slack app to receive reaction DMs. If Slack won't let you finish on your phone,
+          connect on a computer; you only need to connect once per workspace.
+        </p>
         <ConnectButton />
       </main>
 
