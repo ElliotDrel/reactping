@@ -1,6 +1,6 @@
-import { ErrorCode, LogLevel, WebClient, type Logger, type View, type WebClientOptions } from "@slack/web-api";
+import { ErrorCode, LogLevel, WebClient, type Logger, type View, type WebClientOptions, type ChatPostMessageArguments } from "@slack/web-api";
 
-export const BOT_SCOPES = ["chat:write"];
+export const BOT_SCOPES = ["chat:write", "app_mentions:read", "commands"];
 export const USER_SCOPES = ["reactions:read"];
 export const SLACK_TIMEOUT_MS = 5_000;
 
@@ -36,11 +36,16 @@ export interface ReactedMessage {
   counts: Record<string, number>;
 }
 
+export type SlackMessage = Pick<ChatPostMessageArguments, "blocks"> & { text: string };
+
 export interface SlackApi {
   oauthAccess(code: string, redirectUri: string): Promise<OAuthResult>;
   /** Workspace ID and URL that a bot token belongs to. */
   authTest(botToken: string): Promise<{ teamId: string | null; url: string | null }>;
-  postMessage(botToken: string, channel: string, text: string): Promise<void>;
+  postMessage(botToken: string, channel: string, text: string, options?: { blocks?: SlackMessage["blocks"]; threadTs?: string }): Promise<void>;
+  postEphemeral(botToken: string, channel: string, user: string, message: SlackMessage, threadTs?: string): Promise<void>;
+  openView(botToken: string, triggerId: string, view: View): Promise<void>;
+  respond(url: string, message: SlackMessage, visibility: "ephemeral" | "in_channel"): Promise<void>;
   publishHome(botToken: string, userId: string, view: View): Promise<void>;
   revoke(token: string): Promise<void>;
   /** The reacted-to message (reactions.get with the author's user token), for the DM preview and emoji totals. */
@@ -145,10 +150,40 @@ export function createSlackApi(options: {
       return { teamId: text(res.team_id), url: text(res.url) };
     },
 
-    async postMessage(botToken, channel, message) {
+    async postMessage(botToken, channel, message, options) {
       await call(() =>
-        client.chat.postMessage({ token: botToken, channel, text: message, unfurl_links: false, unfurl_media: false }),
+        client.chat.postMessage({
+          token: botToken,
+          channel,
+          text: message,
+          ...(options?.blocks ? { blocks: options.blocks } : {}),
+          ...(options?.threadTs ? { thread_ts: options.threadTs } : {}),
+          unfurl_links: false,
+          unfurl_media: false,
+        }),
       );
+    },
+    async postEphemeral(botToken, channel, user, message, threadTs) {
+      await call(() => client.chat.postEphemeral({ token: botToken, channel, user, ...message, thread_ts: threadTs }));
+    },
+    async openView(botToken, triggerId, view) {
+      await call(() => client.views.open({ token: botToken, trigger_id: triggerId, view }));
+    },
+    async respond(url, message, visibility) {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...message, response_type: visibility, replace_original: false, unfurl_links: false, unfurl_media: false }),
+        redirect: "error",
+        signal: AbortSignal.timeout(SLACK_TIMEOUT_MS),
+      });
+      if (!res.ok) throw new SlackCallError("failed", "response_failed");
+      const body = (await res.text()).trim();
+      if (body !== "ok" && body !== "") {
+        let ok = false;
+        try { ok = JSON.parse(body).ok === true; } catch { /* unexpected response */ }
+        if (!ok) throw new SlackCallError("failed", "response_failed");
+      }
     },
 
     async publishHome(botToken, userId, view) {

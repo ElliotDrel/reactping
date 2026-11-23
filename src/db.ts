@@ -95,6 +95,34 @@ export class Store {
     return rows[0] ? this.toInstallation(rows[0] as Row) : undefined;
   }
 
+  async saveWorkspace(teamId: string, botToken: string, appId: string | null): Promise<void> {
+    await this.pool.query(
+      `insert into reactping_slack.workspace_bots (team_id, bot_token, app_id) values ($1, $2, $3)
+       on conflict (team_id) do update set bot_token = excluded.bot_token, app_id = excluded.app_id`,
+      [teamId, encrypt(this.tokenKey, botToken, `workspace-bot:${teamId}`), appId],
+    );
+  }
+
+  async workspaceBot(teamId: string): Promise<{ botToken: string; appId: string | null } | undefined> {
+    const { rows } = await this.pool.query("select bot_token, app_id from reactping_slack.workspace_bots where team_id = $1", [teamId]);
+    if (rows[0]) return {
+      botToken: decrypt(this.tokenKey, String(rows[0].bot_token), `workspace-bot:${teamId}`),
+      appId: rows[0].app_id as string | null,
+    };
+    const legacy = await this.pool.query(`select * from ${TABLE} where team_id = $1 order by updated_at desc limit 1`, [teamId]);
+    return legacy.rows[0] ? { botToken: this.toInstallation(legacy.rows[0] as Row).botToken, appId: null } : undefined;
+  }
+
+  async claimEngagement(digest: string): Promise<boolean> {
+    const now = new Date(this.now());
+    await this.pool.query("delete from reactping_slack.engagement_receipts where expires_at <= $1", [now]);
+    const result = await this.pool.query(
+      "insert into reactping_slack.engagement_receipts (digest, expires_at) values ($1, $2) on conflict do nothing",
+      [digest, new Date(now.getTime() + 10 * 60_000)],
+    );
+    return result.rowCount === 1;
+  }
+
   /** Deletes exactly this installation and returns it (for revoking its user grant), if it existed. */
   async delete(teamId: string, userId: string): Promise<Installation | undefined> {
     const { rows } = await this.pool.query(`delete from ${TABLE} where team_id = $1 and user_id = $2 returning *`, [
@@ -125,6 +153,7 @@ export class Store {
 
   /** Deletes every installation in one workspace (app uninstalled or bot token revoked). */
   async deleteTeam(teamId: string): Promise<number> {
+    await this.pool.query("delete from reactping_slack.workspace_bots where team_id = $1", [teamId]);
     const result = await this.pool.query(`delete from ${TABLE} where team_id = $1`, [teamId]);
     return result.rowCount ?? 0;
   }

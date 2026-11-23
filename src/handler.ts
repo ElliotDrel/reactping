@@ -12,7 +12,9 @@ import {
   reactionNotification,
   welcomeText,
 } from "./messages.ts";
-import { createOAuthState, OAUTH_STATE_TTL_SECONDS, verifyOAuthState } from "./oauth-state.ts";
+import { createOAuthState, oauthWorkspace, OAUTH_STATE_TTL_SECONDS, verifyOAuthState } from "./oauth-state.ts";
+import { createEngagement, type Interaction } from "./engagement.ts";
+import { welcomeMenu } from "./menu.ts";
 import { resultPage, statsImage } from "./pages.ts";
 import {
   BOT_SCOPES,
@@ -109,6 +111,13 @@ interface SlackEvent {
   item?: { type?: unknown; channel?: unknown; ts?: unknown };
   tab?: unknown;
   tokens?: { oauth?: unknown; bot?: unknown };
+  text?: unknown;
+  channel?: unknown;
+  ts?: unknown;
+  thread_ts?: unknown;
+  bot_id?: unknown;
+  subtype?: unknown;
+  user_team?: unknown;
 }
 
 const MAX_FEEDBACK = 5000;
@@ -135,6 +144,7 @@ export function createHandler(deps: Deps | null): Handler {
   const redirectUri = `${config.siteUrl}/api/slack/oauth/callback`;
   const siteHost = new URL(config.siteUrl).host;
   const lastAlert = new Map<string, number>();
+  const engagement = createEngagement(store, slack, config.siteUrl, deriveKey(config.encryptionKey, "engagement-receipts"));
 
   /** Sends an operator alert after the response; `key` limits repeats of the same failure. */
   function alertOps(text: string, key?: string): void {
@@ -188,21 +198,24 @@ export function createHandler(deps: Deps | null): Handler {
   // Install
 
   function install(request: Request): Response {
+    const hint = new URL(request.url).searchParams.get("team");
+    if (hint !== null && !TEAM_ID.test(hint)) return plain(400, "invalid_workspace");
     // The state cookie is host-only, so the flow must start on the host Slack redirects back to.
     // Next can build request.url from its own listener (localhost), so trust the Host header the client sent.
     if ((request.headers.get("host") ?? new URL(request.url).host) !== siteHost) {
       return new Response(null, {
         status: 302,
-        headers: { ...NO_STORE, location: `${config.siteUrl}/api/slack/install` },
+        headers: { ...NO_STORE, location: `${config.siteUrl}/api/slack/install${hint ? `?team=${hint}` : ""}` },
       });
     }
-    const { state, cookie } = createOAuthState(stateKey, now());
+    const { state, cookie } = createOAuthState(stateKey, now(), hint ?? undefined);
     const authorize = new URL("https://slack.com/oauth/v2/authorize");
     authorize.searchParams.set("client_id", config.slackClientId);
     authorize.searchParams.set("scope", BOT_SCOPES.join(","));
     authorize.searchParams.set("user_scope", USER_SCOPES.join(","));
     authorize.searchParams.set("redirect_uri", redirectUri);
     authorize.searchParams.set("state", state);
+    if (hint) authorize.searchParams.set("team", hint);
     return new Response(null, {
       status: 302,
       headers: { ...NO_STORE, location: authorize.href, "set-cookie": stateCookie(cookie, OAUTH_STATE_TTL_SECONDS) },
@@ -231,7 +244,9 @@ export function createHandler(deps: Deps | null): Handler {
     if (!verifyOAuthState(stateKey, readCookie(request, cookieName), url.searchParams.get("state"), now())) {
       return page(400, "expired");
     }
+    const expectedTeam = oauthWorkspace(readCookie(request, cookieName));
     const error = url.searchParams.get("error");
+    if (error === "app_not_admin_approved" || error === "admin_approval_required") return page(403, "approval");
     if (error) return page(error === "access_denied" ? 200 : 400, error === "access_denied" ? "cancelled" : "failed");
     const code = url.searchParams.get("code");
     if (!code || !OAUTH_CODE.test(code)) return page(400, "failed");
@@ -240,7 +255,9 @@ export function createHandler(deps: Deps | null): Handler {
     try {
       result = await slack.oauthAccess(code, redirectUri);
     } catch (e) {
-      log("warn", "oauth_exchange_failed", { error: classifySlackError(e).message });
+      const failure = classifySlackError(e);
+      if (failure.message === "app_not_admin_approved" || failure.message === "admin_approval_required") return page(403, "approval");
+      log("warn", "oauth_exchange_failed", { error: failure.message });
       return page(502, "failed");
     }
 
@@ -262,6 +279,10 @@ export function createHandler(deps: Deps | null): Handler {
       await revokeRejectedGrant(result);
       return page(502, "failed");
     }
+    if (expectedTeam && teamId !== expectedTeam) {
+      await revokeRejectedGrant(result);
+      return page(400, "workspace");
+    }
     if (
       !USER_SCOPES.every((s) => result.userScopes.includes(s)) ||
       !BOT_SCOPES.every((s) => result.botScopes.includes(s))
@@ -282,15 +303,22 @@ export function createHandler(deps: Deps | null): Handler {
       return page(502, "failed");
     }
 
+    const existing = await store.get(teamId, userId);
     const installation = await store.upsert({ teamId, userId, workspaceUrl, botToken, userToken });
+    const appId = result.appId && APP_ID.test(result.appId) ? result.appId : null;
+    await store.saveWorkspace(teamId, botToken, appId);
+    if (existing && expectedTeam) {
+      background("home", () => home(installation, true));
+      return page(200, "already", appId ? { appId, teamId } : undefined);
+    }
     log("info", "installation_connected", { teamId });
     if (deps!.analytics) background("analytics", () => deps!.analytics!(request.headers.get("cookie")));
     background("activity", () => store.recordActivity(teamId, "connected"));
     background("welcome", async () => {
-      await slack.postMessage(installation.botToken, installation.userId, welcomeText(config.siteUrl));
+      const welcome = welcomeMenu(config.siteUrl, welcomeText(config.siteUrl));
+      await slack.postMessage(installation.botToken, installation.userId, welcome.text, { blocks: welcome.blocks });
       await home(installation, true);
     });
-    const appId = result.appId && APP_ID.test(result.appId) ? result.appId : null;
     return page(200, "connected", appId ? { appId, teamId } : undefined);
   }
 
@@ -299,7 +327,7 @@ export function createHandler(deps: Deps | null): Handler {
   async function events(request: Request): Promise<Response> {
     const raw = await signedBody(request);
     if (raw instanceof Response) return raw;
-    let body: { type?: unknown; challenge?: unknown; team_id?: unknown; event?: SlackEvent };
+    let body: { type?: unknown; challenge?: unknown; team_id?: unknown; event?: SlackEvent; event_id?: unknown; api_app_id?: unknown };
     try {
       body = JSON.parse(raw);
     } catch {
@@ -345,6 +373,7 @@ export function createHandler(deps: Deps | null): Handler {
     }
     if (event.type === "reaction_added") background("reaction", () => notify(teamId, event));
     else if (event.type === "app_home_opened") background("home", () => openHome(teamId, event));
+    else if (event.type === "app_mention") background("mention", () => engagement.mention(teamId, event, body.api_app_id, body.event_id));
     return plain(200);
   }
 
@@ -462,16 +491,17 @@ export function createHandler(deps: Deps | null): Handler {
 
   // Interactions
 
+  async function commands(request: Request): Promise<Response> {
+    const raw = await signedBody(request);
+    if (raw instanceof Response) return raw;
+    if (!request.headers.has("x-slack-retry-num")) background("command", () => engagement.slash(new URLSearchParams(raw), raw));
+    return plain(200);
+  }
+
   async function interactions(request: Request): Promise<Response> {
     const raw = await signedBody(request);
     if (raw instanceof Response) return raw;
-    let payload: {
-      type?: unknown;
-      team?: { id?: unknown } | null;
-      user?: { id?: unknown; team_id?: unknown } | null;
-      is_enterprise_install?: unknown;
-      actions?: { action_id?: unknown }[];
-    };
+    let payload: Interaction;
     try {
       payload = JSON.parse(new URLSearchParams(raw).get("payload") ?? "");
     } catch {
@@ -489,7 +519,16 @@ export function createHandler(deps: Deps | null): Handler {
       typeof userId === "string" &&
       USER_ID.test(userId) &&
       (userTeam === undefined || userTeam === teamId);
-    if (!valid || !payload.actions?.some((a) => a.action_id === DISCONNECT_ACTION)) return plain(200);
+    if (!valid || !payload.actions?.some((a) => a.action_id === DISCONNECT_ACTION)) {
+      if (request.headers.has("x-slack-retry-num")) return plain(200);
+      if (payload.type === "block_actions" && payload.actions?.[0]?.action_id === "rp_share" &&
+          (payload.actions[0].value === "welcome" || !(payload.channel?.id ?? payload.container?.channel_id))) {
+        await engagement.openShare(payload, raw);
+      } else {
+        background("engagement", () => engagement.action(payload, raw));
+      }
+      return plain(200);
+    }
 
     // Local deletion first, so delivery stops even if Slack is slow or the revoke fails.
     const removed = await store.delete(teamId, userId);
@@ -522,6 +561,8 @@ export function createHandler(deps: Deps | null): Handler {
         return callback(request);
       case "POST /api/slack/events":
         return events(request);
+      case "POST /api/slack/commands":
+        return commands(request);
       case "POST /api/slack/interactions":
         return interactions(request);
       case "POST /api/feedback":

@@ -1,11 +1,23 @@
 /** The small HTML pages the OAuth callback returns. Static text and Slack links built from validated IDs. */
 
-export type Outcome = "connected" | "cancelled" | "expired" | "failed" | "enterprise" | "scopes" | "feedback";
+export type Outcome = "connected" | "cancelled" | "expired" | "failed" | "enterprise" | "scopes" | "feedback" | "already" | "approval" | "workspace";
 
 const COPY: Record<Outcome, { title: string; body: string }> = {
   connected: {
-    title: "ReactPing is connected",
-    body: "Check Slack for a welcome DM from ReactPing. From now on, when someone else reacts to one of your messages in this workspace, you'll get a DM there. To disconnect, open ReactPing's Home tab in Slack.",
+    title: "You're connected!",
+    body: "You'll now receive reaction notifications.",
+  },
+  already: {
+    title: "You're already connected!",
+    body: "ReactPing is actively monitoring reactions to your messages.",
+  },
+  approval: {
+    title: "Administrator approval required",
+    body: "Your workspace requires approval before you can connect ReactPing.",
+  },
+  workspace: {
+    title: "Wrong workspace",
+    body: "Return to Slack and open the connection link for the workspace you want to connect.",
   },
   cancelled: {
     title: "Nothing was installed",
@@ -57,18 +69,18 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, des
   const actions =
     outcome === "feedback"
       ? [`<a class="btn btn-large" href="/">Back to ReactPing</a>`]
-      : outcome === "connected"
+      : outcome === "connected" || outcome === "already"
         ? [
             app && team
-              ? `<a class="btn btn-large" href="slack://app?team=${team}&amp;id=${app}&amp;tab=messages">Open Slack app</a>`
+              ? `<a class="btn btn-large" href="slack://app?team=${team}&amp;id=${app}&amp;tab=messages">${outcome === "already" ? "Open ReactPing in Slack" : "Open Slack"}</a>`
               : "",
             app && team
               ? `<a class="btn btn-quiet btn-large" href="https://slack.com/app_redirect?app=${app}&amp;team=${team}">Open via Slack website</a>`
               : "",
-            `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>`,
+            outcome === "connected" ? `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>` : "",
           ]
         : [
-            `<a class="btn btn-large" href="${CONNECT_PATH}">Try again</a>`,
+            `<a class="btn btn-large" href="${CONNECT_PATH}">${outcome === "approval" ? "Request approval in Slack" : "Try again"}</a>`,
             `<a class="btn btn-quiet btn-large" href="/">Back to ReactPing</a>`,
           ];
   const html = `<!doctype html>
@@ -84,6 +96,7 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, des
   <body>
     <header class="site-header wrap"><a class="brand" href="/">ReactPing</a></header>
     <main id="main" class="page wrap">
+      ${outcome === "connected" || outcome === "already" ? '<p aria-hidden="true">✅</p>' : ""}
       <h1>${title}</h1>
       <p class="lede">${body}</p>
       <div class="actions">${actions.join("")}</div>
