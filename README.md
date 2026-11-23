@@ -6,7 +6,7 @@ A Slack app that DMs you when someone reacts to your messages. Free forever and 
 
 ## What it does
 
-When someone else reacts to a message you wrote, ReactPing's bot DMs you the emoji, who reacted, a link to the message, and a one-line preview of it. It asks for two permissions: user `reactions:read` and bot `chat:write`.
+When someone else reacts to a message you wrote, ReactPing's bot DMs you the emoji, who reacted, a link to the message, and a one-line preview of it. It asks for user `reactions:read` and bot `chat:write`, `app_mentions:read`, and `commands`.
 
 Why it exists: Slack lists reactions in its Activity tab, but its [notification settings](https://slack.com/help/articles/360025446073-Guide-to-Slack-notifications) alert you for DMs, mentions, thread replies, and keywords, not reactions. ReactPing fills that gap.
 

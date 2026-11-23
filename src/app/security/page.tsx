@@ -3,7 +3,7 @@ import { Footer, Header, pageMetadata } from "../site.tsx";
 export const metadata = pageMetadata({
   title: "How ReactPing protects your messages",
   description:
-    "ReactPing asks Slack for three permissions, never stores your messages, encrypts its tokens, and runs no tracking. Every claim links to the code.",
+    "ReactPing asks Slack for four permissions, never stores your messages, encrypts its tokens, and runs no tracking. Every claim links to the code.",
   path: "/security",
 });
 
@@ -22,30 +22,30 @@ export default function Security() {
           source, and every claim below links to the exact code.
         </p>
 
-        <h2>Two permissions</h2>
-        <p>ReactPing asks Slack to see reactions and to send you a DM. Nothing else.</p>
+        <h2>Four permissions</h2>
+        <p>ReactPing asks Slack to see reactions, send messages, respond to mentions, and accept slash commands.</p>
         <p className="actions">
           <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L3-L4`}>
             See the permissions
           </a>
         </p>
 
-        <h2>Reactions only</h2>
+        <h2>Reactions and direct interactions</h2>
         <p>
-          No other data is needed. When someone reacts to your message, ReactPing checks it's someone else's reaction to
+          Only reactions and explicit app interactions are processed. When someone reacts to your message, ReactPing checks it's someone else's reaction to
           your message in the same workspace, then sends your DM.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L404-L438`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L433-L466`}>
             See the event handling
           </a>
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L119-L168`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L124-L202`}>
             See every Slack call it makes
           </a>
         </p>
 
         <h2>Minimal storage</h2>
-        <p>One database table: your Slack workspace and user IDs, the workspace URL, and encrypted access tokens.</p>
+        <p>Slack IDs, workspace URL, encrypted access tokens, and short-lived replay-prevention digests. A workspace bot grant remains until the app is removed.</p>
         <p className="actions">
           <a
             className="btn btn-quiet btn-small"

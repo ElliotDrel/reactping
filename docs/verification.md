@@ -61,3 +61,10 @@ Not tested by design: Slack retries (ignored) and outage recovery (no backfill).
 **November 13, 2026: Slack-only version deployed.** Hosted checks without Slack calls passed: pages and security headers, 404s for removed routes, install redirect with a Secure HttpOnly cookie, callback without a cookie 400, unsigned or badly signed Slack requests 401. The previous account-backed backend (Supabase Auth, delivery cron, Vault secrets, unused Vercel variables) was then removed.
 
 Earlier builds (an October SQLite service and a November account-backed version) are in git history.
+
+## Interactive onboarding — pending live acceptance (#5)
+
+- Verify connected/unconnected bare mention, test (success/failure), share (thread and public), feedback, welcome DM button order, and unknown command menus.
+- Verify /reactping and /reactping install in channels and person-to-person DMs; confirm response URL fallback and no public personal status. Test modal destination selection and selectable copy link.
+- Verify teammate-specific OAuth, workspace hint/mismatch, already connected, cancellation and admin approval, on desktop/iOS/Android. Reauthorize old installations and confirm disconnect/uninstall and reaction delivery still work.
+- Confirm Slack notification settings permit the test push before claiming mobile push coverage. No live verification yet.

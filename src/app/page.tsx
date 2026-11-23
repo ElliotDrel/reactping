@@ -126,12 +126,12 @@ export default function Home() {
             <p className="privacy-intro">Open source. Check the code.</p>
             <dl className="claims">
               <div>
-                <dt>Two permissions</dt>
-                <dd>See reactions. Send you a DM.</dd>
+                <dt>Four permissions</dt>
+                <dd>Reactions, messages, mentions, commands.</dd>
               </div>
               <div>
-                <dt>Reactions only</dt>
-                <dd>No other data is needed.</dd>
+                <dt>Explicit interactions</dt>
+                <dd>No message history.</dd>
               </div>
               <div>
                 <dt>Minimal storage</dt>

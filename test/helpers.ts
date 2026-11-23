@@ -7,7 +7,7 @@ import type { Config } from "../src/config.ts";
 import { hmac } from "../src/crypto.ts";
 import { Store, type Installation } from "../src/db.ts";
 import { createHandler, type Handler } from "../src/handler.ts";
-import type { OAuthResult, ReactedMessage, SlackApi } from "../src/slack.ts";
+import type { OAuthResult, ReactedMessage, SlackApi, SlackMessage } from "../src/slack.ts";
 
 Object.assign(process.env, { NODE_ENV: "test" }); // Next types NODE_ENV as read-only.
 
@@ -31,6 +31,7 @@ const MIGRATIONS = [
   read("../supabase/migrations/20261117020000_reactping_feedback_status.sql"),
   read("../supabase/migrations/20261119000000_reactping_reaction_outcomes.sql"),
   read("../supabase/migrations/20261119010000_reactping_outcome_reasons.sql"),
+  read("../supabase/migrations/20261123000000_reactping_engagement.sql"),
 ];
 
 export class Clock {
@@ -62,7 +63,7 @@ export function useDatabase(): { pool: () => pg.Pool } {
   });
   beforeEach(async () => {
     await pool.query(
-      "truncate reactping_slack.installations, reactping_slack.activity, reactping_slack.feedback, reactping_slack.reaction_outcomes",
+      "truncate reactping_slack.installations, reactping_slack.activity, reactping_slack.feedback, reactping_slack.reaction_outcomes, reactping_slack.workspace_bots, reactping_slack.engagement_receipts",
     );
     await pool.query("update reactping_slack.counters set value = 0");
   });
@@ -102,8 +103,17 @@ export class FakeSlack implements SlackApi {
     this.record("authTest", botToken);
     return { teamId: /^xoxb-(T[A-Z0-9]+)/.exec(botToken)?.[1] ?? null, url: this.workspaceUrl };
   }
-  async postMessage(botToken: string, channel: string, text: string): Promise<void> {
-    this.record("postMessage", botToken, channel, text);
+  async postMessage(botToken: string, channel: string, text: string, options?: { blocks?: SlackMessage["blocks"]; threadTs?: string }): Promise<void> {
+    this.record("postMessage", botToken, channel, text, ...(options ? [options] : []));
+  }
+  async postEphemeral(botToken: string, channel: string, user: string, message: SlackMessage, threadTs?: string): Promise<void> {
+    this.record("postEphemeral", botToken, channel, user, message, threadTs);
+  }
+  async openView(botToken: string, triggerId: string, view: View): Promise<void> {
+    this.record("openView", botToken, triggerId, view);
+  }
+  async respond(url: string, message: SlackMessage, visibility: "ephemeral" | "in_channel"): Promise<void> {
+    this.record("respond", url, message, visibility);
   }
   async publishHome(botToken: string, userId: string, view: View): Promise<void> {
     this.record("publishHome", botToken, userId, view);
@@ -126,7 +136,7 @@ export function oauthResult(teamId: string, userId: string, overrides: Partial<O
     enterpriseId: null,
     isEnterpriseInstall: false,
     botToken: `xoxb-${teamId}`,
-    botScopes: ["chat:write"],
+    botScopes: ["chat:write", "app_mentions:read", "commands"],
     userId,
     userToken: `xoxp-${teamId}-${userId}`,
     userScopes: ["reactions:read"],

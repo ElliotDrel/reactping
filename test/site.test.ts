@@ -43,9 +43,9 @@ const REPO = "https://github.com/ElliotDrel/reactping/blob/main/";
  * link is updated, so a privacy claim can never point readers at the wrong lines.
  */
 const SOURCE_LINKS: Record<string, RegExp[]> = {
-  "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write"\]/, /USER_SCOPES = \["reactions:read"\]/],
-  "src/handler.ts#L404-L438": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
-  "src/slack.ts#L119-L168": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /publishHome/, /revoke/],
+  "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write", "app_mentions:read", "commands"\]/, /USER_SCOPES = \["reactions:read"\]/],
+  "src/handler.ts#L433-L466": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
+  "src/slack.ts#L124-L202": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /publishHome/, /revoke/],
   "supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24": [
     /create table reactping_slack\.installations/,
     /primary key \(team_id, user_id\)/,
@@ -282,7 +282,7 @@ describe("OAuth result pages", () => {
     assert.match(html, /Notify me on mobile/);
     assert.deepEqual(page, [
       ["/", "ReactPing"],
-      ["slack://app?team=T1&amp;id=A1&amp;tab=messages", "Open Slack app"],
+      ["slack://app?team=T1&amp;id=A1&amp;tab=messages", "Open Slack"],
       ["https://slack.com/app_redirect?app=A1&amp;team=T1", "Open via Slack website"],
       // Elliot: skip /connect here; the person just went through it, so go straight to Slack's approval page.
       ["/api/slack/install", "Add another workspace"],

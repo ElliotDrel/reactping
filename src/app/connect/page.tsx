@@ -20,7 +20,7 @@ export default function Connect() {
             top-right corner and switch it if needed.
           </li>
           <li>
-            <strong>Select Allow.</strong> ReactPing asks for two permissions: see reactions and send you a DM.
+            <strong>Select Allow.</strong> ReactPing asks to see reactions, send messages, respond to mentions, and accept commands.
           </li>
           <li>
             <strong>Repeat for each workspace</strong> where you want notifications.

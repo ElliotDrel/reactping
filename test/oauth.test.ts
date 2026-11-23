@@ -15,7 +15,7 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.equal(res.status, 302);
       const location = new URL(res.headers.get("location")!);
       assert.equal(location.origin + location.pathname, "https://slack.com/oauth/v2/authorize");
-      assert.equal(location.searchParams.get("scope"), "chat:write");
+      assert.equal(location.searchParams.get("scope"), "chat:write,app_mentions:read,commands");
       assert.equal(location.searchParams.get("user_scope"), "reactions:read");
       assert.equal(location.searchParams.get("redirect_uri"), `${SITE}/api/slack/oauth/callback`);
       const state = location.searchParams.get("state")!;
@@ -58,7 +58,7 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       const res = await browser.connect("T1", "UAUTHOR");
       assert.equal(res.status, 200);
       const html = await res.text();
-      assert.match(html, /ReactPing is connected/);
+      assert.match(html, /You're connected!/);
       assert.match(html, /https:\/\/slack\.com\/app_redirect\?app=AREACTPING&amp;team=T1/);
       assert.match(html, /slack:\/\/app\?team=T1&amp;id=AREACTPING&amp;tab=messages/);
       assert.match(html, /Notify me on mobile/);

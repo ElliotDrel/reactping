@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Interactive Slack onboarding.** Mention ReactPing or use `/reactping` for private help, test notifications, feedback and shareable workspace-specific install cards. Use `/reactping install` or `@ReactPing install` to share directly.
+
+### Added
+
 - **Mobile onboarding.** Open ReactPing's Messages tab in the native Slack app after connecting, with a browser fallback and instructions for mobile notification timing.
 
 ## [1.3.0] - 2026-11-20
