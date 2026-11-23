@@ -232,7 +232,7 @@ export type ReactionOutcome =
   "sent" | "self" | "not_connected" | "ignored" | "retry" | `failed:${string}` | `error:${string}`;
 
 /** Where the feedback form was opened from: the website itself, or the link in ReactPing's welcome DM or Home tab. */
-export type FeedbackSource = "website" | "slack_welcome" | "slack_home";
+export type FeedbackSource = "website" | "slack_welcome" | "slack_home" | "slack_menu";
 
 export interface Feedback {
   source: FeedbackSource;

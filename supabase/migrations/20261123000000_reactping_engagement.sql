@@ -13,3 +13,8 @@ create table reactping_slack.engagement_receipts (
 create index on reactping_slack.engagement_receipts (expires_at);
 alter table reactping_slack.engagement_receipts enable row level security;
 revoke all on reactping_slack.workspace_bots, reactping_slack.engagement_receipts from public, anon, authenticated;
+
+-- Distinguish feedback opened from the interactive menu.
+alter table reactping_slack.feedback drop constraint feedback_source_check;
+alter table reactping_slack.feedback
+  add constraint feedback_source_check check (source in ('website', 'slack_welcome', 'slack_home', 'slack_menu'));

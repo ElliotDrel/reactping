@@ -62,10 +62,11 @@ export const INSTALL_PATH = "/api/slack/install";
 
 type SlackDestination = { appId: string; teamId: string };
 
-export function resultPage(outcome: Outcome, status: number, cookie: string, destination?: SlackDestination): Response {
+export function resultPage(outcome: Outcome, status: number, cookie: string, destination?: SlackDestination, hint?: string): Response {
   const { title, body } = COPY[outcome];
   const app = destination && encodeURIComponent(destination.appId);
   const team = destination && encodeURIComponent(destination.teamId);
+  const approvalLink = hint && /^T[A-Z0-9]{1,31}$/.test(hint) ? `${INSTALL_PATH}?team=${hint}` : INSTALL_PATH;
   const actions =
     outcome === "feedback"
       ? [`<a class="btn btn-large" href="/">Back to ReactPing</a>`]
@@ -80,7 +81,7 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, des
             outcome === "connected" ? `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>` : "",
           ]
         : [
-            `<a class="btn btn-large" href="${CONNECT_PATH}">${outcome === "approval" ? "Request approval in Slack" : "Try again"}</a>`,
+            `<a class="btn btn-large" href="${outcome === "approval" ? approvalLink : CONNECT_PATH}">${outcome === "approval" ? "Request approval in Slack" : "Try again"}</a>`,
             `<a class="btn btn-quiet btn-large" href="/">Back to ReactPing</a>`,
           ];
   const html = `<!doctype html>

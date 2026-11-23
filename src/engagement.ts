@@ -16,6 +16,7 @@ export type Interaction = {
   actions?: { action_id?: unknown; value?: unknown }[];
   channel?: { id?: unknown };
   container?: { channel_id?: unknown; thread_ts?: unknown };
+  message?: { thread_ts?: unknown };
   response_url?: unknown;
   trigger_id?: unknown;
   view?: { callback_id?: unknown; state?: { values?: { destination?: { conversation?: { selected_conversation?: unknown } } } } };
@@ -44,7 +45,7 @@ export function createEngagement(store: Store, slack: SlackApi, site: string, ke
     }
     await slack.postMessage(bot.botToken, ctx.user, message.text, { blocks: message.blocks });
   }
-  async function share(ctx: Context): Promise<void> {
+  async function share(ctx: Context, confirm = false): Promise<void> {
     const card = installCard(site, ctx.team);
     try {
       if (ctx.response) await slack.respond(ctx.response, card, "in_channel");
@@ -57,7 +58,7 @@ export function createEngagement(store: Store, slack: SlackApi, site: string, ke
       await privateReply(ctx, shareFallback(site, ctx.team));
       return;
     }
-    await privateReply(ctx, { text: "✅ Shared successfully!" });
+    if (confirm) await privateReply(ctx, { text: "✅ Shared successfully!" });
   }
   async function test(ctx: Context): Promise<void> {
     const installation = await store.get(ctx.team, ctx.user);
@@ -95,7 +96,7 @@ export function createEngagement(store: Store, slack: SlackApi, site: string, ke
     if (!valid(team, TEAM) || !valid(user, USER) || payload.is_enterprise_install === true ||
         (payload.user?.team_id !== undefined && payload.user.team_id !== team)) return;
     const channel = payload.channel?.id ?? payload.container?.channel_id;
-    const thread = payload.container?.thread_ts;
+    const thread = payload.container?.thread_ts ?? payload.message?.thread_ts;
     return { team, user, channel: valid(channel, CHANNEL) ? channel : undefined,
       thread: valid(thread, TS) ? thread : undefined, app: valid(payload.api_app_id, APP) ? payload.api_app_id : undefined,
       response: responseUrl(payload.response_url), welcome: payload.actions?.[0]?.value === "welcome" };
@@ -131,7 +132,7 @@ export function createEngagement(store: Store, slack: SlackApi, site: string, ke
     if (action === "rp_test") { await test(ctx); return; }
     if (!await store.get(ctx.team, ctx.user)) { await privateReply(ctx, menu(site, ctx.team, false)); return; }
     if (ctx.welcome || !ctx.channel) { await privateReply(ctx, shareFallback(site, ctx.team)); return; }
-    await share(ctx);
+    await share(ctx, true);
   }
   return { mention, slash, action, openShare };
 }

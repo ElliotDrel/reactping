@@ -25,7 +25,7 @@ All tables are in the private `reactping_slack` schema with RLS on, no policies,
 | `activity`          | `connected`, `disconnected`, and `uninstalled` per workspace, with time and install count. No user IDs.                                                     |
 | `counters`          | `notifications_sent` total.                                                                                                                                 |
 | `reaction_outcomes` | Hourly counts of what happened to each reaction event: `sent`, `failed:<Slack error>`, `error:<name>`, `self`, `not_connected`, `ignored`, `retry`. No IDs. |
-| `feedback`          | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`), `status`, `note`.                              |
+| `feedback`          | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`, `slack_menu`), `status`, `note`.                              |
 
 `GET /api/stats` renders the workspace and notification totals as an edge-cached SVG for the homepage. Feedback `source` comes from the UTM tags in the form page's Referer. Edit feedback `status` (`new`, `viewed`, `resolved`, `declined`) and `note` in the Supabase Table Editor; a trigger maintains `status_at`.
 

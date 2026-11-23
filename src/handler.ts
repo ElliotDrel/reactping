@@ -125,6 +125,7 @@ const MAX_FEEDBACK = 5000;
 const SLACK_FEEDBACK_MEDIUMS = new Map<string, FeedbackSource>([
   ["welcome_dm", "slack_welcome"],
   ["home_tab", "slack_home"],
+  ["mention_menu", "slack_menu"],
 ]);
 /** Trimmed text, or undefined when blank; cut to `max` characters. */
 const field = (value: unknown, max: number): string | undefined => {
@@ -237,8 +238,8 @@ export function createHandler(deps: Deps | null): Handler {
   async function callback(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const clear = stateCookie("", 0);
-    const page = (status: number, outcome: Parameters<typeof resultPage>[0], link?: { appId: string; teamId: string }) =>
-      resultPage(outcome, status, clear, link);
+    const page = (status: number, outcome: Parameters<typeof resultPage>[0], link?: { appId: string; teamId: string }, hint?: string) =>
+      resultPage(outcome, status, clear, link, hint);
 
     // Wrong browser, expired, forged, or tampered state all look the same.
     if (!verifyOAuthState(stateKey, readCookie(request, cookieName), url.searchParams.get("state"), now())) {
@@ -246,7 +247,7 @@ export function createHandler(deps: Deps | null): Handler {
     }
     const expectedTeam = oauthWorkspace(readCookie(request, cookieName));
     const error = url.searchParams.get("error");
-    if (error === "app_not_admin_approved" || error === "admin_approval_required") return page(403, "approval");
+    if (error === "app_not_admin_approved" || error === "admin_approval_required") return page(403, "approval", undefined, expectedTeam);
     if (error) return page(error === "access_denied" ? 200 : 400, error === "access_denied" ? "cancelled" : "failed");
     const code = url.searchParams.get("code");
     if (!code || !OAUTH_CODE.test(code)) return page(400, "failed");
@@ -256,7 +257,7 @@ export function createHandler(deps: Deps | null): Handler {
       result = await slack.oauthAccess(code, redirectUri);
     } catch (e) {
       const failure = classifySlackError(e);
-      if (failure.message === "app_not_admin_approved" || failure.message === "admin_approval_required") return page(403, "approval");
+      if (failure.message === "app_not_admin_approved" || failure.message === "admin_approval_required") return page(403, "approval", undefined, expectedTeam);
       log("warn", "oauth_exchange_failed", { error: failure.message });
       return page(502, "failed");
     }

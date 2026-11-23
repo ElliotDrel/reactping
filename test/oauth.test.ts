@@ -97,6 +97,43 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       }
     });
 
+    it("preselects the shared workspace and rejects a different authorized workspace", async () => {
+      const browser = new Browser(app);
+      const res = await browser.request("/api/slack/install?team=T1");
+      const url = new URL(res.headers.get("location")!);
+      assert.equal(url.searchParams.get("team"), "T1");
+      app.slack.oauthResults.set("wrong-team", oauthResult("T2", "UOTHER"));
+      const mismatch = await browser.callback({ code: "wrong-team", state: url.searchParams.get("state")! });
+      assert.equal(mismatch.status, 400);
+      assert.match(await mismatch.text(), /Wrong workspace/);
+      assert.equal(await app.store.get("T2", "UOTHER"), undefined);
+    });
+
+    it("shared link authorizes the clicking user without repeating welcome", async () => {
+      await seed(app, "T1", "UAUTHOR");
+      const browser = new Browser(app);
+      app.slack.oauthResults.set("new-user", oauthResult("T1", "UOTHER"));
+      const first = await browser.callback({ code: "new-user", state: await browser.beginInstall("T1") });
+      assert.equal(first.status, 200);
+      await app.settle();
+      assert.ok(await app.store.get("T1", "UAUTHOR"));
+      assert.ok(await app.store.get("T1", "UOTHER"));
+      assert.equal(app.slack.callsTo("postMessage").length, 1);
+      app.slack.oauthResults.set("repeat-user", oauthResult("T1", "UOTHER"));
+      const again = await browser.callback({ code: "repeat-user", state: await browser.beginInstall("T1") });
+      assert.match(await again.text(), /You're already connected!/);
+      await app.settle();
+      assert.equal(app.slack.callsTo("postMessage").length, 1);
+    });
+
+    it("keeps the originating workspace on admin approval retry", async () => {
+      const browser = new Browser(app);
+      const result = await browser.callback({ error: "app_not_admin_approved", state: await browser.beginInstall("T1") });
+      assert.equal(result.status, 403);
+      assert.match(await result.text(), /href="\/api\/slack\/install\?team=T1">Request approval in Slack/);
+      assert.equal(app.slack.callsTo("oauthAccess").length, 0);
+    });
+
     it("keeps each workspace and user separate and replaces tokens on reinstall", async () => {
       await new Browser(app).connect("T1", "UAUTHOR");
       await new Browser(app).connect("T2", "UAUTHOR");

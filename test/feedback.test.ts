@@ -53,9 +53,10 @@ describe("feedback", { skip: dbSkip }, () => {
     await post({ message: "c" }, `${SITE}/feedback?utm_source=slack&utm_medium=__proto__`);
     await post({ message: "d" }, "https://elsewhere.test/feedback?utm_source=slack&utm_medium=welcome_dm");
     await post({ message: "e" }, "not a url");
+    await post({ message: "f" }, `${SITE}/feedback?utm_source=slack&utm_medium=mention_menu`);
     assert.deepEqual(
       (await saved()).map((row) => row.source),
-      ["slack_welcome", "slack_home", "website", "website", "website"],
+      ["slack_welcome", "slack_home", "website", "website", "website", "slack_menu"],
     );
   });
 

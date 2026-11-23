@@ -50,6 +50,27 @@ describe("signed Slack engagement", { skip: dbSkip }, () => {
     await app.settle();
     assert.equal(app.slack.calls.length, 0);
   });
+  it("posts a chosen destination card only through its Slack-issued response URL", async () => {
+    const payload = {
+      type: "view_submission", team: { id: "T1" }, user: { id: "UAUTHOR", team_id: "T1" },
+      view: { callback_id: "reactping_share_destination", state: { values: { destination: { conversation: { selected_conversation: "D123ABC" } } } } },
+      response_urls: [{ block_id: "destination", action_id: "conversation", channel_id: "D123ABC", response_url: "https://hooks.slack.com/app/AREACTPING/123/abc" }],
+    };
+    await signedAction(app, payload);
+    await signedAction(app, payload);
+    await app.settle();
+    assert.equal(app.slack.callsTo("respond").length, 1);
+    assert.equal(app.slack.callsTo("respond")[0]!.args[2], "in_channel");
+    assert.match(JSON.stringify(app.slack.callsTo("respond")), /Never miss a reaction/);
+  });
+  it("keeps the bot grant after last personal disconnect, removes it on uninstall", async () => {
+    await app.store.saveWorkspace("T1", "xoxb-T1", "AREACTPING");
+    await app.store.delete("T1", "UAUTHOR");
+    assert.equal((await app.store.workspaceBot("T1"))?.botToken, "xoxb-T1");
+    await signedEvent(app, eventEnvelope("T1", { type: "app_uninstalled" }));
+    await app.settle();
+    assert.equal(await app.store.workspaceBot("T1"), undefined);
+  });
   it("reports failed tests and opens a share modal from welcome", async () => {
     app.slack.postMessage = async () => { throw new Error("failed"); };
     await signedAction(app, action("rp_test"));

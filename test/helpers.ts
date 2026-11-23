@@ -302,8 +302,8 @@ export class Browser {
   }
 
   /** Starts Add to Slack and returns the state Slack would echo back. */
-  async beginInstall(): Promise<string> {
-    const res = await this.request("/api/slack/install");
+  async beginInstall(team?: string): Promise<string> {
+    const res = await this.request(team ? `/api/slack/install?team=${team}` : "/api/slack/install");
     if (res.status !== 302) throw new Error(`install failed: ${res.status}`);
     return new URL(res.headers.get("location")!).searchParams.get("state")!;
   }
