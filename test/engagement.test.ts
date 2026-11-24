@@ -49,7 +49,7 @@ describe("Slack mentions, /reactping, and menu buttons", { skip: dbSkip }, () =>
     user: { id: "UAUTHOR", team_id: "T1" },
     api_app_id: "AREACTPING",
     channel: { id: CHANNEL },
-    container: { channel_id: CHANNEL, thread_ts: MENTION_TS },
+    container: { channel_id: CHANNEL },
     response_url: HOOK,
     trigger_id: "123.456.abc",
     actions: [{ action_id: action }],
@@ -58,8 +58,8 @@ describe("Slack mentions, /reactping, and menu buttons", { skip: dbSkip }, () =>
   /** What each respond call sent: its visibility, thread, and message text. */
   const responses = () =>
     app.slack.callsTo("respond").map((c) => {
-      const [url, message, options] = c.args as [string, { text: string }, { visibility: string; threadTs?: string }];
-      return { url, visibility: options.visibility, thread: options.threadTs, text: message.text };
+      const [url, message, options] = c.args as [string, { text: string }, { visibility: string }];
+      return { url, visibility: options.visibility, text: message.text };
     });
 
   it("flows 4, 5, 8: /reactping answers privately, and only `install` is public", async () => {
@@ -167,14 +167,40 @@ describe("Slack mentions, /reactping, and menu buttons", { skip: dbSkip }, () =>
     assert.match(JSON.stringify(message.blocks), /"Try again".*"action_id":"rp_test".*"Report a problem"/);
   });
 
-  it("flow 1.2: shares publicly in the menu's thread, then confirms privately", async () => {
+  it("flow 1.2: shares publicly where the menu is, then confirms privately", async () => {
     await signedAction(app, button("rp_share"));
     await app.settle();
     assert.deepEqual(
-      responses().map((r) => [r.visibility, r.thread, r.text.slice(0, 22)]),
+      responses().map((r) => [r.visibility, r.text.slice(0, 22)]),
       [
-        ["in_channel", MENTION_TS, "Never miss a reaction "],
-        ["ephemeral", MENTION_TS, "✅ Shared successfully!"],
+        ["in_channel", "Never miss a reaction "],
+        ["ephemeral", "✅ Shared successfully!"],
+      ],
+    );
+  });
+
+  it("flow 1.2: a menu inside a thread answers there with the bot token, never the response URL", async () => {
+    const inThread = { container: { channel_id: CHANNEL, thread_ts: MENTION_TS } };
+    await signedAction(app, button("rp_share", inThread));
+    await app.settle();
+    await signedAction(app, button("rp_test", inThread));
+    await app.settle();
+    assert.equal(app.slack.callsTo("respond").length, 0);
+    const [card, testDm] = app.slack.callsTo("postMessage").map((c) => c.args);
+    assert.deepEqual([card![1], (card![3] as { threadTs: string }).threadTs], [CHANNEL, MENTION_TS]);
+    assert.equal(testDm![1], "UAUTHOR");
+    assert.deepEqual(
+      app.slack
+        .callsTo("postEphemeral")
+        .map(({ args: [, channel, user, message, thread] }) => [
+          channel,
+          user,
+          (message as { text: string }).text,
+          thread,
+        ]),
+      [
+        [CHANNEL, "UAUTHOR", "✅ Shared successfully!", MENTION_TS],
+        [CHANNEL, "UAUTHOR", "✅ Test notification sent!", MENTION_TS],
       ],
     );
   });

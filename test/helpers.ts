@@ -127,7 +127,7 @@ export class FakeSlack implements SlackApi {
   async respond(
     url: string,
     message: SlackMessage,
-    options: { visibility: "ephemeral" | "in_channel"; threadTs?: string },
+    options: { visibility: "ephemeral" | "in_channel" },
   ): Promise<void> {
     this.record("respond", url, message, options);
   }

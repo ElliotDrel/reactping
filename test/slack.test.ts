@@ -126,13 +126,12 @@ describe("Slack client adapter", () => {
     assert.deepEqual(await slack.authTest("xoxb-1"), { teamId: "T1", url: "https://acme.slack.com/" });
   });
 
-  it("answers response URLs through the injected fetch with the visibility and thread Slack needs", async () => {
+  it("answers response URLs through the injected fetch with the visibility Slack needs", async () => {
     const url = "https://hooks.slack.com/actions/T1/1/abc";
     const { slack, requests } = api(() => new Response("ok"));
-    await slack.respond(url, { text: "card" }, { visibility: "in_channel", threadTs: "1700000000.000100" });
+    await slack.respond(url, { text: "card" }, { visibility: "in_channel" });
     assert.deepEqual(JSON.parse(requests[0]!.raw), {
       text: "card",
-      thread_ts: "1700000000.000100",
       response_type: "in_channel",
       replace_original: false,
       unfurl_links: false,
