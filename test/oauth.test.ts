@@ -83,7 +83,10 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.ok(String(welcome!.args[2]).includes(`<${SITE}/feedback?utm_source=slack&amp;utm_medium=welcome_dm|`));
       // The text above is only the notification fallback; the DM itself renders the approved buttons.
       const blocks = JSON.stringify((welcome!.args[3] as { blocks: unknown[] }).blocks);
-      assert.match(blocks, /Welcome to ReactPing! 🎉.*Send test notification.*Share ReactPing.*Give feedback/);
+      assert.match(
+        blocks,
+        /Welcome to ReactPing! 🎉.*"Send test notification".*"rp_test".*"Share ReactPing".*"rp_share".*"Give feedback".*"rp_feedback"/,
+      );
       const [home] = app.slack.callsTo("publishHome");
       assert.deepEqual(home!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
       assert.ok(JSON.stringify(home!.args[2]).includes("/feedback?utm_source=slack&amp;utm_medium=home_tab|"));

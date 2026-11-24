@@ -83,9 +83,15 @@ export function createEngagement(store: Store, slack: SlackApi, site: string) {
   const failed = (step: string) => (error: unknown) =>
     log("warn", "engagement_failed", { step, error: classifySlackError(error).message });
 
-  /** Private to the requester: Slack's ephemeral response, else an ephemeral message from the bot. */
+  /** Private to the requester: Slack's ephemeral response, else (or if that fails) an ephemeral bot message. */
   async function reply(ctx: Context, message: SlackMessage): Promise<void> {
-    if (ctx.response) return slack.respond(ctx.response, message, { visibility: "ephemeral", threadTs: ctx.thread });
+    if (ctx.response) {
+      const sent = await slack.respond(ctx.response, message, { visibility: "ephemeral", threadTs: ctx.thread }).then(
+        () => true,
+        (error: unknown) => (failed("reply")(error), false),
+      );
+      if (sent) return;
+    }
     const bot = await store.workspaceBot(ctx.team);
     if (!bot || !ctx.channel) return log("info", "engagement_unanswered", { reason: "no_bot_token" });
     await slack.postEphemeral(bot, ctx.channel, ctx.user, message, ctx.thread);

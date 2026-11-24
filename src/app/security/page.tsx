@@ -43,10 +43,10 @@ export default function Security() {
           <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L429-L463`}>
             See the event handling
           </a>
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L210`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L216`}>
             See mention and command handling
           </a>
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L146-L228`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L146-L236`}>
             See every Slack call it makes
           </a>
         </p>
@@ -54,7 +54,8 @@ export default function Security() {
         <h2>Minimal storage</h2>
         <p>
           One row per connected person: your Slack workspace and user IDs, the workspace URL, and encrypted access
-          tokens. Everything else is totals with no IDs, and feedback you choose to send.
+          tokens. Connection events record the workspace ID; reaction counts are hourly totals with no IDs; feedback you
+          send is kept separately.
         </p>
         <p className="actions">
           <a

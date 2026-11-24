@@ -159,6 +159,8 @@ describe("Slack mentions, /reactping, and menu buttons", { skip: dbSkip }, () =>
       responses().map((r) => r.text),
       ["⚠️ Couldn't send your test notification."],
     );
+    const [, message] = app.slack.callsTo("respond")[0]!.args as [string, { blocks: unknown[] }];
+    assert.match(JSON.stringify(message.blocks), /"Try again".*"action_id":"rp_test".*"Report a problem"/);
   });
 
   it("flow 1.2: shares publicly in the menu's thread, then confirms privately", async () => {

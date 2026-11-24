@@ -200,15 +200,23 @@ export function createSlackApi(options: {
           ...(threadTs ? { thread_ts: threadTs } : {}),
           response_type: visibility,
           replace_original: false,
+          unfurl_links: false,
+          unfurl_media: false,
         }),
         redirect: "error",
         signal: AbortSignal.timeout(SLACK_TIMEOUT_MS),
       });
-      // Slack answers "ok", or an error code as plain text or JSON; only the code is kept.
+      // Success is "ok", empty, or JSON with ok: true. Anything else failed; only a short error code is kept.
       const body = (await res.text()).trim();
-      const code = /^[a-z_]{1,64}$/.test(body) ? body : "response_failed";
-      if (!res.ok) throw new SlackCallError("failed", code);
-      if (body.startsWith("{") && JSON.parse(body).ok === false) throw new SlackCallError("failed", "response_failed");
+      let ok = res.ok && (body === "" || body === "ok");
+      if (res.ok && body.startsWith("{")) {
+        try {
+          ok = JSON.parse(body).ok === true;
+        } catch {
+          ok = false;
+        }
+      }
+      if (!ok) throw new SlackCallError("failed", /^[a-z_]{1,64}$/.test(body) ? body : "response_failed");
     },
 
     async publishHome(botToken, userId, view) {

@@ -135,10 +135,18 @@ describe("Slack client adapter", () => {
       thread_ts: "1700000000.000100",
       response_type: "in_channel",
       replace_original: false,
+      unfurl_links: false,
+      unfurl_media: false,
     });
     const failed = api(() => new Response("channel_not_found", { status: 404 }));
     assert.equal(
       (await rejection(failed.slack.respond(url, { text: "x" }, { visibility: "ephemeral" }))).message,
+      "channel_not_found",
+    );
+    // A 200 carrying an error is still a failure, so a share never reports false success.
+    const quiet = api(() => new Response("channel_not_found"));
+    assert.equal(
+      (await rejection(quiet.slack.respond(url, { text: "x" }, { visibility: "ephemeral" }))).message,
       "channel_not_found",
     );
   });

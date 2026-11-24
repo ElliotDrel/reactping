@@ -96,7 +96,7 @@ Reviewed November 13, 2026: [Vercel Node.js functions](https://vercel.com/docs/f
 
 ## Rolling out mentions and `/reactping` (1.4)
 
-1. Apply `supabase/migrations/20261123000000_reactping_feedback_menu_source.sql` (it only allows the `slack_menu` feedback source), then deploy.
+1. Apply `supabase/migrations/20261123000000_reactping_feedback_menu_source.sql` (it adds `slack_menu` to the allowed feedback sources), then deploy.
 2. Update the Slack app from the manifest: bot scopes `app_mentions:read` and `commands`, bot event `app_mention`, and the `/reactping` command pointing at `POST /api/slack/commands`.
 3. Slack asks existing workspaces to approve the new scopes. Until someone in a workspace reconnects, reaction DMs keep working but mentions and `/reactping` there don't. Reconnecting shows "You're already connected!" and sends no second welcome DM.
 

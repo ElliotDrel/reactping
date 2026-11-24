@@ -32,6 +32,19 @@ function render(message: SlackMessage): { text: string[]; buttons: string[]; pri
 }
 
 describe("approved Slack menus (issue #5)", () => {
+  it("wires every button to its handler or the right link", () => {
+    const ids = (message: SlackMessage) =>
+      JSON.stringify(message.blocks).match(/"action_id":"[a-z_]+"(,"url":"[^"]+")?/g);
+    assert.deepEqual(ids(menu(SITE, "T1", true)), [
+      '"action_id":"rp_test"',
+      '"action_id":"rp_share"',
+      `"action_id":"rp_feedback","url":"${SITE}/feedback?utm_source=slack&utm_medium=slack_menu"`,
+    ]);
+    assert.deepEqual(ids(installCard(SITE, "T1")), [
+      `"action_id":"rp_connect","url":"${SITE}/api/slack/install?team=T1"`,
+    ]);
+  });
+
   it("flow 1: connected menu copy and button order", () => {
     assert.deepEqual(render(menu(SITE, "T1", true)), {
       text: ["✅ You're connected!\n\nI'll notify you whenever someone reacts to your messages."],

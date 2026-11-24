@@ -131,7 +131,7 @@ export default function Home() {
               </div>
               <div>
                 <dt>No message history</dt>
-                <dd>Only messages that @mention it.</dd>
+                <dd>Only messages with reactions or @mentions.</dd>
               </div>
               <div>
                 <dt>Minimal storage</dt>
