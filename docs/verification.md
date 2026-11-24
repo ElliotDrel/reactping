@@ -34,7 +34,9 @@ Run these on iOS (Safari) and Android (Chrome), using a signed-in Slack workspac
 
 See [Slack deep linking](https://docs.slack.dev/interactivity/deep-linking/) and [notification preferences](https://slack.com/help/articles/201355156-Configure-your-Slack-notifications).
 
-## Mentions and `/reactping` acceptance checks (pending, issue #5)
+## Mentions and `/reactping` acceptance checks (partly verified, issue #5)
+
+Desktop results are in the November 24 log entry. Still pending: mobile, a second (teammate) account, share from a new welcome DM, person-to-person DMs, admin approval, and reauthorizing another workspace.
 
 Use two accounts (recommender and teammate) on desktop, iOS, and Android. Automated tests cover copy, button order, visibility, signatures, and workspace checks; these need live Slack:
 
@@ -50,6 +52,23 @@ Use two accounts (recommender and teammate) on desktop, iOS, and Android. Automa
 Not tested by design: Slack retries (ignored) and outage recovery (no backfill).
 
 ## Log
+
+**November 24, 2026: mentions and `/reactping` live on desktop.** After #6 deployed and the Slack app gained `app_mentions:read`, `commands`, the `app_mention` event, and `/reactping`, one connected account tested in a private channel:
+
+- `/reactping` and Send test notification worked: the private menu appeared, the test DM arrived, and "Test notification sent!" showed with Open DM.
+- `/reactping settings` showed the help menu.
+- Reconnecting showed "You're already connected!" with no second welcome DM.
+
+Two bugs were found and fixed the same day:
+
+- **Invisible mention reply (#8).** A top-level mention's private menu went into a new thread, which Slack doesn't show without replies. Menus now appear inline at top level and in the thread for threaded mentions.
+- **Threaded share fails (#9).** Every `response_url` post from a threaded menu failed with `wrong_thread_ts`. Threads now use the bot token.
+
+After both fixes:
+
+- A top-level mention showed the inline menu. Share posted the public card plus "Shared successfully!".
+- A mention inside a thread showed its menu there. Share posted the card in the thread, Send test notification delivered, and no `engagement_failed` logs appeared.
+- `@ReactPing install` posted the public card in the channel.
 
 **November 19, 2026: Next.js migration and per-workspace self-testing.** After `v1.2.0` (Next.js) deployed, every page, `/api/health`, `/api/stats`, the old-host redirect, and Add to Slack (302 to Slack with the `__Host-` cookie) checked out; an unsigned event POST returned 401. With `SELF_REACTION_TEAMS` set to the development workspace and a redeploy, a self-reaction in `#home` produced a DM with the message preview, `reaction_outcomes` logged `sent`, and the Home tab showed "Testing mode is on". This also confirms Slack events reach the Next.js API in production.
 
