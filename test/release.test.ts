@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { nextRelease } from "../scripts/release.mjs";
+import { changedReleases, nextRelease } from "../scripts/release.mjs";
 
 const REPO = "https://github.com/ElliotDrel/reactping";
 const changelog = (unreleased: string) =>
@@ -34,6 +34,14 @@ describe("release", () => {
       assert.equal(release.version, version, heading);
       assert.ok(release.changelog.includes("- Costs $& and $1.\n"), heading);
     }
+  });
+
+  it("flags a merge that slipped new entries into an already released version", () => {
+    const base = nextRelease(changelog("\n### Added\n\n- Shipped.\n"), "1.3.0", "2026-11-24")!.changelog;
+    const misMerged = base.replace("- Shipped.\n", "- Shipped.\n- Branch cut before the release.\n");
+    const correct = base.replace("## [Unreleased]\n", "## [Unreleased]\n\n### Added\n\n- New.\n");
+    assert.deepEqual(changedReleases(base, misMerged), ["1.4.0"]);
+    assert.deepEqual(changedReleases(base, correct), []);
   });
 
   it("bumps the patch version for fixes alone", () => {
