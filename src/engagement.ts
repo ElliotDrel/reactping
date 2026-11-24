@@ -1,138 +1,210 @@
+/**
+ * Mentions, `/reactping`, and the menu buttons (issue #5). Identity comes only from Slack's signed team and user
+ * fields; replies stay in that workspace. Private status goes through Slack's ephemeral responses; only the generic
+ * install card is ever posted publicly.
+ */
 import type { Store } from "./db.ts";
-import type { SlackApi, SlackMessage } from "./slack.ts";
-import { hmac } from "./crypto.ts";
+import { log } from "./log.ts";
 import {
-  APP, CHANNEL, TEAM, TS, USER, SHARE_MODAL, TEST_TEXT, commandText, installCard, menu,
-  shareFallback, shareView, testResult, valid,
+  commandWord,
+  installCard,
+  menu,
+  SHARE_ACTION,
+  SHARE_MODAL,
+  SHARED_TEXT,
+  shareFallback,
+  shareView,
+  TEST_ACTION,
+  TEST_TEXT,
+  testResult,
+  type SlackMessage,
 } from "./menu.ts";
+import { APP_ID, CHANNEL_ID, classifySlackError, TEAM_ID, TS, USER_ID, type SlackApi } from "./slack.ts";
 
-type Context = { team: string; user: string; channel?: string; thread?: string; app?: string; response?: string; welcome?: boolean };
-export type Interaction = {
+/** Where a request came from: the signed workspace and user, plus where Slack lets ReactPing answer. */
+interface Context {
+  team: string;
+  user: string;
+  app?: string;
+  channel?: string;
+  thread?: string;
+  /** Slack's per-request reply URL (commands, buttons). Mentions have none and use the bot token instead. */
+  response?: string;
+}
+
+export interface Interaction {
   type?: unknown;
   team?: { id?: unknown } | null;
   user?: { id?: unknown; team_id?: unknown } | null;
   is_enterprise_install?: unknown;
   api_app_id?: unknown;
-  actions?: { action_id?: unknown; value?: unknown }[];
-  channel?: { id?: unknown };
-  container?: { channel_id?: unknown; thread_ts?: unknown };
-  message?: { thread_ts?: unknown };
-  response_url?: unknown;
   trigger_id?: unknown;
-  view?: { callback_id?: unknown; state?: { values?: { destination?: { conversation?: { selected_conversation?: unknown } } } } };
-  response_urls?: { block_id?: unknown; action_id?: unknown; channel_id?: unknown; response_url?: unknown }[];
-};
+  response_url?: unknown;
+  actions?: { action_id?: unknown }[];
+  channel?: { id?: unknown } | null;
+  container?: { channel_id?: unknown; thread_ts?: unknown } | null;
+  message?: { thread_ts?: unknown } | null;
+  view?: {
+    callback_id?: unknown;
+    state?: { values?: { destination?: { conversation?: { selected_conversation?: unknown } } } };
+  } | null;
+  response_urls?: { channel_id?: unknown; response_url?: unknown }[];
+}
 
+export interface MentionEvent {
+  user?: unknown;
+  text?: unknown;
+  channel?: unknown;
+  ts?: unknown;
+  thread_ts?: unknown;
+  bot_id?: unknown;
+  subtype?: unknown;
+  /** Set for people from another organization in a shared channel; they never get this workspace's menus. */
+  user_team?: unknown;
+}
+
+const is = (value: unknown, pattern: RegExp): value is string => typeof value === "string" && pattern.test(value);
+const opt = (value: unknown, pattern: RegExp) => (is(value, pattern) ? value : undefined);
+
+/** Only Slack's own response hosts, so a forged payload can't turn ReactPing into a request proxy. */
 export function responseUrl(value: unknown): string | undefined {
-  if (typeof value !== "string" || value.length > 2048) return;
+  if (typeof value !== "string" || value.length > 2048) return undefined;
   try {
     const url = new URL(value);
-    if (url.origin !== "https://hooks.slack.com" || url.username || url.password || url.search || url.hash) return;
-    if (!/^\/(commands|actions|app|app-actions)\/[A-Z0-9]+\/[^/]+\/[^/]+$/.test(url.pathname)) return;
+    if (url.origin !== "https://hooks.slack.com" || url.username || url.password || url.search || url.hash)
+      return undefined;
     return url.href;
-  } catch { return; }
-}
-export function createEngagement(store: Store, slack: SlackApi, site: string, key: Buffer) {
-  const claim = (id: string) => store.claimEngagement(hmac(key, id, "hex"));
-  async function privateReply(ctx: Context, message: SlackMessage): Promise<void> {
-    if (ctx.response) {
-      try { await slack.respond(ctx.response, message, "ephemeral"); return; } catch { /* native fallback */ }
-    }
-    const bot = await store.workspaceBot(ctx.team);
-    if (!bot) return;
-    if (ctx.channel && !ctx.welcome) {
-      try { await slack.postEphemeral(bot.botToken, ctx.channel, ctx.user, message, ctx.thread); return; } catch { /* DM fallback */ }
-    }
-    await slack.postMessage(bot.botToken, ctx.user, message.text, { blocks: message.blocks });
+  } catch {
+    return undefined;
   }
-  async function share(ctx: Context, confirm = false): Promise<void> {
+}
+
+export function createEngagement(store: Store, slack: SlackApi, site: string) {
+  const failed = (step: string) => (error: unknown) =>
+    log("warn", "engagement_failed", { step, error: classifySlackError(error).message });
+
+  /** Private to the requester: Slack's ephemeral response, else an ephemeral message from the bot. */
+  async function reply(ctx: Context, message: SlackMessage): Promise<void> {
+    if (ctx.response) return slack.respond(ctx.response, message, { visibility: "ephemeral", threadTs: ctx.thread });
+    const bot = await store.workspaceBot(ctx.team);
+    if (!bot || !ctx.channel) return log("info", "engagement_unanswered", { reason: "no_bot_token" });
+    await slack.postEphemeral(bot, ctx.channel, ctx.user, message, ctx.thread);
+  }
+
+  /** Posts the public card where the person asked. Confirms only after Slack accepted it; else offers the link. */
+  async function share(ctx: Context, confirm: boolean): Promise<void> {
     const card = installCard(site, ctx.team);
     try {
-      if (ctx.response) await slack.respond(ctx.response, card, "in_channel");
+      if (ctx.response) await slack.respond(ctx.response, card, { visibility: "in_channel", threadTs: ctx.thread });
       else {
         const bot = await store.workspaceBot(ctx.team);
-        if (!bot || !ctx.channel || ctx.channel.startsWith("D")) throw new Error("share_unavailable");
-        await slack.postMessage(bot.botToken, ctx.channel, card.text, { blocks: card.blocks, threadTs: ctx.thread });
+        if (!bot || !ctx.channel) throw new Error("no_bot_token");
+        await slack.postMessage(bot, ctx.channel, card.text, { blocks: card.blocks, threadTs: ctx.thread });
       }
-    } catch {
-      await privateReply(ctx, shareFallback(site, ctx.team));
-      return;
+    } catch (error) {
+      failed("share")(error);
+      return reply(ctx, shareFallback(site, ctx.team));
     }
-    if (confirm) await privateReply(ctx, { text: "✅ Shared successfully!" });
+    if (confirm) await reply(ctx, { text: SHARED_TEXT });
   }
+
+  /** Sends the test DM with the same token real notifications use, and records nothing as a real reaction. */
   async function test(ctx: Context): Promise<void> {
     const installation = await store.get(ctx.team, ctx.user);
-    if (!installation) { await privateReply(ctx, menu(site, ctx.team, false)); return; }
-    const bot = await store.workspaceBot(ctx.team);
-    let success = false;
-    try { await slack.postMessage(installation.botToken, ctx.user, TEST_TEXT); success = true; } catch { /* report failure */ }
-    await privateReply(ctx, testResult(site, ctx.team, ctx.app ?? bot?.appId ?? null, success));
+    if (!installation) return reply(ctx, menu(site, ctx.team, false));
+    let sent = true;
+    await slack.postMessage(installation.botToken, ctx.user, TEST_TEXT).catch((error: unknown) => {
+      failed("test")(error);
+      sent = false;
+    });
+    await reply(ctx, testResult(site, ctx.team, ctx.app, sent));
   }
-  async function dispatch(ctx: Context, command: string): Promise<void> {
-    if (command === "install") { await share(ctx); return; }
-    if (command === "test") { await test(ctx); return; }
+
+  async function command(ctx: Context, word: string): Promise<void> {
+    if (word === "install") return share(ctx, false);
+    if (word === "test") return test(ctx);
     const connected = Boolean(await store.get(ctx.team, ctx.user));
-    await privateReply(ctx, menu(site, ctx.team, connected, command !== "" && command !== "help"));
+    await reply(ctx, menu(site, ctx.team, connected, word !== "" && word !== "help"));
   }
-  async function mention(team: string, event: { user?: unknown; text?: unknown; channel?: unknown; ts?: unknown; thread_ts?: unknown; bot_id?: unknown; subtype?: unknown; user_team?: unknown }, app: unknown, eventId: unknown): Promise<void> {
-    if (!valid(event.user, USER) || !valid(event.channel, CHANNEL) || !valid(event.ts, TS) ||
-        typeof event.text !== "string" || event.bot_id || event.subtype ||
-        (event.user_team !== undefined && event.user_team !== team) ||
-        typeof eventId !== "string" || !/^[A-Za-z0-9_-]{1,128}$/.test(eventId)) return;
-    if (!await claim(`mention:${team}:${eventId}`)) return;
-    const thread = valid(event.thread_ts, TS) ? event.thread_ts : event.ts;
-    await dispatch({ team, user: event.user, channel: event.channel, thread, app: valid(app, APP) ? app : undefined }, commandText(event.text, true));
-  }
-  async function slash(form: URLSearchParams, raw: string): Promise<void> {
-    const team = form.get("team_id"), user = form.get("user_id"), channel = form.get("channel_id");
-    if (form.get("command") !== "/reactping" || !valid(team, TEAM) || !valid(user, USER) ||
-        !valid(channel, CHANNEL) || form.get("is_enterprise_install") === "true") return;
-    if (!await claim(`slash:${raw}`)) return;
-    const app = form.get("api_app_id");
-    await dispatch({ team, user, channel, app: valid(app, APP) ? app : undefined, response: responseUrl(form.get("response_url")) }, commandText(form.get("text") ?? "", false));
-  }
-  function context(payload: Interaction): Context | undefined {
-    const team = payload.team?.id, user = payload.user?.id;
-    if (!valid(team, TEAM) || !valid(user, USER) || payload.is_enterprise_install === true ||
-        (payload.user?.team_id !== undefined && payload.user.team_id !== team)) return;
-    const channel = payload.channel?.id ?? payload.container?.channel_id;
-    const thread = payload.container?.thread_ts ?? payload.message?.thread_ts;
-    return { team, user, channel: valid(channel, CHANNEL) ? channel : undefined,
-      thread: valid(thread, TS) ? thread : undefined, app: valid(payload.api_app_id, APP) ? payload.api_app_id : undefined,
-      response: responseUrl(payload.response_url), welcome: payload.actions?.[0]?.value === "welcome" };
-  }
-  async function openShare(payload: Interaction, raw: string): Promise<void> {
-    const ctx = context(payload);
-    if (!ctx || !await claim(`action:${raw}`)) return;
-    if (!await store.get(ctx.team, ctx.user)) { await privateReply(ctx, menu(site, ctx.team, false)); return; }
-    const bot = await store.workspaceBot(ctx.team);
-    if (bot && typeof payload.trigger_id === "string") {
-      try { await slack.openView(bot.botToken, payload.trigger_id, shareView(site, ctx.team)); return; } catch { /* fallback */ }
-    }
-    await privateReply(ctx, shareFallback(site, ctx.team));
-  }
-  async function action(payload: Interaction, raw: string): Promise<void> {
-    const ctx = context(payload);
-    if (!ctx) return;
-    const action = payload.actions?.[0]?.action_id;
-    if (payload.type === "view_submission" && payload.view?.callback_id === SHARE_MODAL) {
-      if (!await claim(`view:${raw}`) || !await store.get(ctx.team, ctx.user)) return;
-      const dest = payload.view.state?.values?.destination?.conversation?.selected_conversation;
-      if (!valid(dest, CHANNEL)) return;
-      const target = payload.response_urls?.find(r => r.block_id === "destination" && r.action_id === "conversation" && r.channel_id === dest);
-      const reply = responseUrl(target?.response_url);
-      if (!reply) { await privateReply(ctx, shareFallback(site, ctx.team)); return; }
-      try { await slack.respond(reply, installCard(site, ctx.team), "in_channel"); }
-      catch { await privateReply(ctx, shareFallback(site, ctx.team)); return; }
-      await privateReply(ctx, { text: "✅ Shared successfully!" });
-      return;
-    }
-    if (payload.type !== "block_actions" || (action !== "rp_test" && action !== "rp_share")) return;
-    if (!await claim(`action:${raw}`)) return;
-    if (action === "rp_test") { await test(ctx); return; }
-    if (!await store.get(ctx.team, ctx.user)) { await privateReply(ctx, menu(site, ctx.team, false)); return; }
-    if (ctx.welcome || !ctx.channel) { await privateReply(ctx, shareFallback(site, ctx.team)); return; }
-    await share(ctx, true);
-  }
-  return { mention, slash, action, openShare };
+
+  return {
+    /** `app_mention`: Slack only sends it from conversations ReactPing is in. Replies go in the mention's thread. */
+    async mention(team: string, event: MentionEvent, app: unknown): Promise<void> {
+      if (!is(event.user, USER_ID) || !is(event.channel, CHANNEL_ID) || !is(event.ts, TS)) return;
+      if (typeof event.text !== "string" || event.bot_id !== undefined || event.subtype !== undefined) return;
+      if (event.user_team !== undefined && event.user_team !== team) return;
+      const ctx = { team, user: event.user, channel: event.channel, app: opt(app, APP_ID) };
+      await command({ ...ctx, thread: opt(event.thread_ts, TS) ?? event.ts }, commandWord(event.text));
+    },
+
+    /** `/reactping [install]`, answered through the command's response URL (works in DMs without membership). */
+    async slash(form: URLSearchParams): Promise<void> {
+      const team = form.get("team_id");
+      const user = form.get("user_id");
+      if (form.get("command") !== "/reactping" || !is(team, TEAM_ID) || !is(user, USER_ID)) return;
+      if (form.get("is_enterprise_install") === "true") return;
+      const response = responseUrl(form.get("response_url"));
+      if (!response) return;
+      const ctx = { team, user, response, channel: opt(form.get("channel_id"), CHANNEL_ID) };
+      await command({ ...ctx, app: opt(form.get("api_app_id"), APP_ID) }, commandWord(form.get("text") ?? ""));
+    },
+
+    /**
+     * Menu buttons and the share modal. Returns true when it handled the payload. Opening the modal is awaited
+     * because Slack's trigger_id expires within seconds; everything else runs after the acknowledgement.
+     */
+    async interaction(payload: Interaction, background: (task: () => Promise<void>) => void): Promise<boolean> {
+      const team = payload.team?.id;
+      const user = payload.user?.id;
+      const userTeam = payload.user?.team_id;
+      if (!is(team, TEAM_ID) || !is(user, USER_ID) || payload.is_enterprise_install === true) return false;
+      if (userTeam !== undefined && userTeam !== team) return false;
+      const ctx: Context = { team, user, app: opt(payload.api_app_id, APP_ID) };
+
+      if (payload.type === "view_submission" && payload.view?.callback_id === SHARE_MODAL) {
+        const destination = payload.view.state?.values?.destination?.conversation?.selected_conversation;
+        const target = payload.response_urls?.find((r) => r.channel_id === destination);
+        const response = responseUrl(target?.response_url);
+        background(async () => {
+          // Without a response URL for the chosen conversation there is no private channel to answer on either.
+          if (!response) return log("info", "engagement_unanswered", { reason: "no_destination_url" });
+          // The confirmation or fallback link appears privately to the sharer in the conversation they chose.
+          const posted = await slack.respond(response, installCard(site, team), { visibility: "in_channel" }).then(
+            () => true,
+            (error: unknown) => (failed("modal")(error), false),
+          );
+          await slack.respond(response, posted ? { text: SHARED_TEXT } : shareFallback(site, team), {
+            visibility: "ephemeral",
+          });
+        });
+        return true;
+      }
+
+      const action = payload.actions?.[0]?.action_id;
+      if (payload.type !== "block_actions" || (action !== TEST_ACTION && action !== SHARE_ACTION)) return false;
+      ctx.channel = opt(payload.channel?.id ?? payload.container?.channel_id, CHANNEL_ID);
+      ctx.thread = opt(payload.container?.thread_ts ?? payload.message?.thread_ts, TS);
+      ctx.response = responseUrl(payload.response_url);
+      if (action === TEST_ACTION) {
+        background(() => test(ctx));
+        return true;
+      }
+      // In any DM (including ReactPing's own) ask where to share instead of posting into that DM.
+      if (!ctx.channel || ctx.channel.startsWith("D")) {
+        const bot = await store.workspaceBot(team);
+        const trigger = typeof payload.trigger_id === "string" ? payload.trigger_id : undefined;
+        const opened =
+          bot && trigger
+            ? await slack.openView(bot, trigger, shareView(site, team)).then(
+                () => true,
+                (error: unknown) => (failed("open_modal")(error), false),
+              )
+            : false;
+        if (!opened) background(() => reply(ctx, shareFallback(site, team)));
+        return true;
+      }
+      background(() => share(ctx, true));
+      return true;
+    },
+  };
 }

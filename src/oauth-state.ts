@@ -1,7 +1,7 @@
 import { hmac, randomToken, safeEqual } from "./crypto.ts";
 
 export const OAUTH_STATE_TTL_SECONDS = 10 * 60;
-const FORMAT = /^v1\.([A-Za-z0-9_-]{43})\.(\d{10})(?:\.(T[A-Z0-9]{1,31}))?\.([A-Za-z0-9_-]{43})$/;
+const FORMAT = /^v1\.([A-Za-z0-9_-]{43})\.(\d{10})\.([A-Za-z0-9_-]{43})$/;
 
 /**
  * Stateless OAuth CSRF protection. The `state` sent to Slack is a random nonce; the browser that started the
@@ -9,10 +9,10 @@ const FORMAT = /^v1\.([A-Za-z0-9_-]{43})\.(\d{10})(?:\.(T[A-Z0-9]{1,31}))?\.([A-
  * purpose only. The callback accepts only a matching, unexpired, untampered pair, so a callback opened in
  * another browser, or after the link expires, fails. Nothing is stored in the database.
  */
-export function createOAuthState(key: Buffer, nowMs: number, team?: string): { state: string; cookie: string } {
+export function createOAuthState(key: Buffer, nowMs: number): { state: string; cookie: string } {
   const nonce = randomToken();
   const expires = Math.floor(nowMs / 1000) + OAUTH_STATE_TTL_SECONDS;
-  const payload = `v1.${nonce}.${expires}${team ? `.${team}` : ""}`;
+  const payload = `v1.${nonce}.${expires}`;
   return { state: nonce, cookie: `${payload}.${hmac(key, payload, "base64url")}` };
 }
 
@@ -24,13 +24,8 @@ export function verifyOAuthState(
 ): boolean {
   const match = cookie ? FORMAT.exec(cookie) : null;
   if (!match || !state) return false;
-  const [, nonce, expires, team, mac] = match;
-  if (!safeEqual(mac!, hmac(key, `v1.${nonce}.${expires}${team ? `.${team}` : ""}`, "base64url"))) return false;
+  const [, nonce, expires, mac] = match;
+  if (!safeEqual(mac!, hmac(key, `v1.${nonce}.${expires}`, "base64url"))) return false;
   if (Number(expires) <= Math.floor(nowMs / 1000)) return false;
   return safeEqual(nonce!, state);
-}
-
-/** Call only after verifyOAuthState succeeds. */
-export function oauthWorkspace(cookie: string | undefined): string | undefined {
-  return cookie ? FORMAT.exec(cookie)?.[3] : undefined;
 }

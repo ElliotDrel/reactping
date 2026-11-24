@@ -97,16 +97,17 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       }
     });
 
-    it("preselects the shared workspace and rejects a different authorized workspace", async () => {
+    it("passes the shared workspace to Slack as a hint and trusts the workspace Slack actually authorized", async () => {
       const browser = new Browser(app);
       const res = await browser.request("/api/slack/install?team=T1");
       const url = new URL(res.headers.get("location")!);
       assert.equal(url.searchParams.get("team"), "T1");
-      app.slack.oauthResults.set("wrong-team", oauthResult("T2", "UOTHER"));
-      const mismatch = await browser.callback({ code: "wrong-team", state: url.searchParams.get("state")! });
-      assert.equal(mismatch.status, 400);
-      assert.match(await mismatch.text(), /Wrong workspace/);
-      assert.equal(await app.store.get("T2", "UOTHER"), undefined);
+      assert.equal((await new Browser(app).request("/api/slack/install?team=bad")).status, 400);
+      // Slack drops the hint when the person isn't signed in to that workspace; the grant they approved still counts.
+      app.slack.oauthResults.set("other-team", oauthResult("T2", "UOTHER"));
+      const result = await browser.callback({ code: "other-team", state: url.searchParams.get("state")! });
+      assert.equal(result.status, 200);
+      assert.ok(await app.store.get("T2", "UOTHER"));
     });
 
     it("shared link authorizes the clicking user without repeating welcome", async () => {
@@ -126,11 +127,16 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.equal(app.slack.callsTo("postMessage").length, 1);
     });
 
-    it("keeps the originating workspace on admin approval retry", async () => {
+    it("sends admin-approval errors back to Slack's approval flow without claiming success", async () => {
       const browser = new Browser(app);
-      const result = await browser.callback({ error: "app_not_admin_approved", state: await browser.beginInstall("T1") });
+      const result = await browser.callback({
+        error: "app_not_admin_approved",
+        state: await browser.beginInstall("T1"),
+      });
       assert.equal(result.status, 403);
-      assert.match(await result.text(), /href="\/api\/slack\/install\?team=T1">Request approval in Slack/);
+      const html = await result.text();
+      assert.match(html, /Administrator approval required/);
+      assert.match(html, /href="\/api\/slack\/install">Request approval in Slack/);
       assert.equal(app.slack.callsTo("oauthAccess").length, 0);
     });
 

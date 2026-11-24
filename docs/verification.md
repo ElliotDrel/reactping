@@ -34,6 +34,19 @@ Run these on iOS (Safari) and Android (Chrome), using a signed-in Slack workspac
 
 See [Slack deep linking](https://docs.slack.dev/interactivity/deep-linking/) and [notification preferences](https://slack.com/help/articles/201355156-Configure-your-Slack-notifications).
 
+## Mentions and `/reactping` acceptance checks (pending, issue #5)
+
+Use two accounts (recommender and teammate) on desktop, iOS, and Android. Automated tests cover copy, button order, visibility, signatures, and workspace checks; these need live Slack:
+
+- Bare `@ReactPing` from a connected and an unconnected account: private menu in the mention's thread.
+- Send test notification: test DM arrives, Open DM opens the right workspace's ReactPing DM. Push on mobile only if observed.
+- Share ReactPing from a threaded menu: card posts in that thread (relies on `thread_ts` in the button's container), then the private confirmation.
+- `@ReactPing install`, `/reactping install` in a channel and in a person-to-person DM (where Slack may refuse a public post: expect the copyable link).
+- Share from the welcome DM: the picker opens; picking a channel, a person, and a group DM each posts the card there with a private confirmation.
+- Teammate taps Connect ReactPing on the card: Slack preselects the workspace, the teammate's own account connects, welcome DM has three buttons. Reconnect shows "You're already connected!" with no second welcome.
+- A workspace requiring admin approval: record what Slack shows and whether the callback ever returns `app_not_admin_approved` or `admin_approval_required` (unverified error codes).
+- After deploy, reauthorize an existing workspace for the new scopes; reaction DMs, Home tab, and Disconnect still work.
+
 Not tested by design: Slack retries (ignored) and outage recovery (no backfill).
 
 ## Log
@@ -61,10 +74,3 @@ Not tested by design: Slack retries (ignored) and outage recovery (no backfill).
 **November 13, 2026: Slack-only version deployed.** Hosted checks without Slack calls passed: pages and security headers, 404s for removed routes, install redirect with a Secure HttpOnly cookie, callback without a cookie 400, unsigned or badly signed Slack requests 401. The previous account-backed backend (Supabase Auth, delivery cron, Vault secrets, unused Vercel variables) was then removed.
 
 Earlier builds (an October SQLite service and a November account-backed version) are in git history.
-
-## Interactive onboarding — pending live acceptance (#5)
-
-- Verify connected/unconnected bare mention, test (success/failure), share (thread and public), feedback, welcome DM button order, and unknown command menus.
-- Verify /reactping and /reactping install in channels and person-to-person DMs; confirm response URL fallback and no public personal status. Test modal destination selection and selectable copy link.
-- Verify teammate-specific OAuth, workspace hint/mismatch, already connected, cancellation and admin approval, on desktop/iOS/Android. Reauthorize old installations and confirm disconnect/uninstall and reaction delivery still work.
-- Confirm Slack notification settings permit the test push before claiming mobile push coverage. No live verification yet.

@@ -23,29 +23,39 @@ export default function Security() {
         </p>
 
         <h2>Four permissions</h2>
-        <p>ReactPing asks Slack to see reactions, send messages, respond to mentions, and accept slash commands.</p>
+        <p>
+          ReactPing asks Slack to see reactions, send messages as ReactPing, see messages that @mention ReactPing, and
+          add the /reactping command. It can't read channel history.
+        </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L3-L4`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L4-L5`}>
             See the permissions
           </a>
         </p>
 
         <h2>Reactions and direct interactions</h2>
         <p>
-          Only reactions and explicit app interactions are processed. When someone reacts to your message, ReactPing checks it's someone else's reaction to
-          your message in the same workspace, then sends your DM.
+          When someone reacts to your message, ReactPing checks it's someone else's reaction to your message in the same
+          workspace, then sends your DM. It answers only when you @mention it, type /reactping, or tap its buttons, and
+          your connection status is only ever shown to you.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L434-L467`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L429-L463`}>
             See the event handling
           </a>
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L124-L202`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L210`}>
+            See mention and command handling
+          </a>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L146-L228`}>
             See every Slack call it makes
           </a>
         </p>
 
         <h2>Minimal storage</h2>
-        <p>Slack IDs, workspace URL, encrypted access tokens, and short-lived replay-prevention digests. A workspace bot grant remains until the app is removed.</p>
+        <p>
+          One row per connected person: your Slack workspace and user IDs, the workspace URL, and encrypted access
+          tokens. Everything else is totals with no IDs, and feedback you choose to send.
+        </p>
         <p className="actions">
           <a
             className="btn btn-quiet btn-small"

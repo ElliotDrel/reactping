@@ -13,7 +13,7 @@ ReactPing is a Next.js App Router app on Vercel: prerendered pages plus one API 
 - **Disconnect:** identity comes only from the signed payload's `team.id` and `user.id`. Exactly that row is deleted, then the user's token is revoked and Home shows Not connected. The shared bot token is never revoked by Disconnect; removing the app does that.
 - **Slack client:** `@slack/web-api` with retries off, 5-second timeouts, unfurls off, and a silent logger. Logs are allowlisted structured fields only: never tokens, codes, or message content.
 
-Layout: `src/handler.ts` (routes), `src/db.ts` (store), `src/slack.ts` (Slack client), `src/messages.ts` (DM and Home text), `src/pages.ts` (result pages, stats image), `src/oauth-state.ts`, `src/crypto.ts`, `src/config.ts`, `src/vercel.ts` (environment wiring). Tests are in `test/`.
+Layout: `src/handler.ts` (routes), `src/db.ts` (store), `src/slack.ts` (Slack client), `src/messages.ts` (DM and Home text), `src/menu.ts` and `src/engagement.ts` (mentions, `/reactping`, menu buttons), `src/pages.ts` (result pages, stats image), `src/oauth-state.ts`, `src/crypto.ts`, `src/config.ts`, `src/vercel.ts` (environment wiring). Tests are in `test/`.
 
 ## Data
 
@@ -25,7 +25,7 @@ All tables are in the private `reactping_slack` schema with RLS on, no policies,
 | `activity`          | `connected`, `disconnected`, and `uninstalled` per workspace, with time and install count. No user IDs.                                                     |
 | `counters`          | `notifications_sent` total.                                                                                                                                 |
 | `reaction_outcomes` | Hourly counts of what happened to each reaction event: `sent`, `failed:<Slack error>`, `error:<name>`, `self`, `not_connected`, `ignored`, `retry`. No IDs. |
-| `feedback`          | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`, `slack_menu`), `status`, `note`.                              |
+| `feedback`          | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`, `slack_menu`), `status`, `note`.                |
 
 `GET /api/stats` renders the workspace and notification totals as an edge-cached SVG for the homepage. Feedback `source` comes from the UTM tags in the form page's Referer. Edit feedback `status` (`new`, `viewed`, `resolved`, `declined`) and `note` in the Supabase Table Editor; a trigger maintains `status_at`.
 
@@ -60,6 +60,7 @@ If a required variable is missing or invalid, the function logs the variable nam
 | `GET /api/slack/install`        | `/connect`'s "Continue to Slack"        |
 | `GET /api/slack/oauth/callback` | OAuth & Permissions → Redirect URL      |
 | `POST /api/slack/events`        | Event Subscriptions → Request URL       |
+| `POST /api/slack/commands`      | Slash Commands → `/reactping` URL       |
 | `POST /api/slack/interactions`  | Interactivity & Shortcuts → Request URL |
 | `POST /api/feedback`            | The `/feedback` form                    |
 | `GET /api/stats`                | The homepage stats image                |
@@ -77,7 +78,7 @@ If a required variable is missing or invalid, the function logs the variable nam
 - **Missed notifications:** expected occasionally and never backfilled. Check the function logs for `notify_failed` or `background_failed`.
 - **Supabase idle pause (accepted risk, November 15, 2026):** Free projects may pause after about a week of low activity. Notifications then stop until the project is restored from the Supabase dashboard, and missed reactions are not backfilled. Elliot accepts this risk: do not add a keep-alive. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
 - **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the `installations` rows; everyone adds ReactPing again.
-- **Changed domain:** update `PUBLIC_SITE_URL`, redeploy, update the three Slack URLs, then verify a fresh reaction end to end. Also update the host and key file in `scripts/submit-indexnow.mjs`.
+- **Changed domain:** update `PUBLIC_SITE_URL`, redeploy, update the four Slack URLs, then verify a fresh reaction end to end. Also update the host and key file in `scripts/submit-indexnow.mjs`.
 - **IndexNow:** `.github/workflows/indexnow.yml` waits for the deploy after any push to `main` that changes `public/`, `src/app/`, or `CHANGELOG.md`, then `scripts/submit-indexnow.mjs` sends every sitemap URL to IndexNow (Bing and others; Google doesn't use it). Run it by hand from the Actions tab. A 200 or 202 means received, not indexed.
 - **Outage alerts:** every reaction event logs one `reaction` line with its outcome and adds to `reaction_outcomes`. Alerts go to a private Slack channel through an incoming webhook (a separate "ReactPing Alerts" app, so ReactPing's own scopes don't change): the app posts each new feedback and each failed DM (the same failure at most once per 30 minutes per instance), and a daily Supabase cron job (`supabase/ops/daily-alert.sql`, pg_cron + pg_net, webhook URL in Vault as `reactping_alert_webhook`) posts when no reaction events arrived in 24 hours. `GET /api/health` summarizes the last 24 hours by outcome. Vercel keeps runtime logs for only an hour on the Hobby plan, so check soon after an alert.
 - **Search consoles:** reactping.com is a Domain property in Google Search Console, verified by a Cloudflare TXT record (keep it), and imported into Bing Webmaster Tools from there. Both have `sitemap.xml`.
@@ -93,6 +94,10 @@ If a required variable is missing or invalid, the function logs the variable nam
 
 Reviewed November 13, 2026: [Vercel Node.js functions](https://vercel.com/docs/functions/runtimes/node-js), [`@vercel/functions`](https://vercel.com/docs/functions/functions-api-reference/vercel-functions-package), [Events API](https://docs.slack.dev/apis/events-api/), [`app_home_opened`](https://docs.slack.dev/reference/events/app_home_opened/), [`views.publish`](https://docs.slack.dev/reference/methods/views.publish/). Reviewed October 23, 2026: [`reaction_added`](https://docs.slack.dev/reference/events/reaction_added/), [OAuth scopes](https://docs.slack.dev/authentication/installing-with-oauth/), [`chat.postMessage`](https://docs.slack.dev/reference/methods/chat.postMessage/), [distribution](https://docs.slack.dev/app-management/distribution/).
 
-## Engagement rollout
+## Rolling out mentions and `/reactping` (1.4)
 
-Apply `supabase/migrations/20261123000000_reactping_engagement.sql` before deploying. Update the Slack manifest, including the /reactping command URL, bot event and scopes. Existing workspace admins may have to approve the new bot scopes; have a member reauthorize in each workspace. The workspace bot grant is encrypted separately so unconnected users can get help even after the last individual disconnects; uninstall or bot revocation deletes that grant. Existing rows supply the legacy bot token until reauthorization. Commands and button requests use Slack signatures and short-lived keyed replay digests. Response URLs are not stored or logged. OAuth links carry only a workspace hint, bound to signed browser state; a different workspace is rejected. Slack controls consent, admin approval and ephemeral visibility. For modal sharing Slack controls submit placement and clipboard access: show a selectable installation link and use its native Share ReactPing submit button.
+1. Apply `supabase/migrations/20261123000000_reactping_feedback_menu_source.sql` (it only allows the `slack_menu` feedback source), then deploy.
+2. Update the Slack app from the manifest: bot scopes `app_mentions:read` and `commands`, bot event `app_mention`, and the `/reactping` command pointing at `POST /api/slack/commands`.
+3. Slack asks existing workspaces to approve the new scopes. Until someone in a workspace reconnects, reaction DMs keep working but mentions and `/reactping` there don't. Reconnecting shows "You're already connected!" and sends no second welcome DM.
+
+Behavior worth knowing: replies to commands and buttons go through Slack's per-request `response_url` (never stored or logged); mentions reply with the workspace's bot token from its most recent connection, so a workspace where everyone has disconnected gets no reply to mentions. The `?team=` on install links is only a hint for Slack's workspace picker; the callback trusts the workspace Slack actually authorized. Duplicates rely on Slack's own behavior: event retries are ignored, and commands and buttons are not retried by Slack.

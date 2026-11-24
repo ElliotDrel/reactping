@@ -22,8 +22,7 @@ export default function Privacy() {
         <p>
           For each person who connects, in each workspace: the Slack workspace ID, user ID, workspace URL, encrypted
           access tokens, and when the connection was created and updated. That is what lets ReactPing recognize you and
-          send your DMs. The workspace bot grant remains while ReactPing is installed, even if everyone disconnects.
-          We keep short-lived keyed digests of commands and button events to prevent duplicate actions, not their text.
+          send your DMs.
         </p>
         <p>
           We track when you connect and when you disconnect, and keep hourly totals of reactions handled and DMs sent,
@@ -46,8 +45,9 @@ export default function Privacy() {
 
         <h2>How we use it</h2>
         <p>
-          Only to deliver reaction notifications, respond to explicit app mentions and commands, share installation links on request, and manage your connection. Notifications stay in the workspace where
-          the reaction happened. No advertising or sale of data.
+          Only to deliver reaction notifications, send test notifications you ask for, answer when you @mention
+          ReactPing or use /reactping, post its install card where you ask, and manage your connection. Notifications
+          stay in the workspace where the reaction happened. No advertising or sale of data.
         </p>
 
         <h2>Security and cookies</h2>

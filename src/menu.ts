@@ -1,69 +1,122 @@
+/** Block Kit for the approved in-Slack menus (issue #5). Pure builders: copy, button labels, and order live here. */
 import type { View } from "@slack/web-api";
-import type { SlackMessage } from "./slack.ts";
 
-type Blocks = NonNullable<SlackMessage["blocks"]>;
-const section = (text: string): Blocks[number] => ({ type: "section", text: { type: "mrkdwn", text } });
-const context = (text: string): Blocks[number] => ({ type: "context", elements: [{ type: "mrkdwn", text }] });
-function action(label: string, id: string, opts: { url?: string; value?: string; style?: "primary" } = {}): Blocks[number] {
-  return { type: "actions", elements: [{ type: "button", text: { type: "plain_text", text: label }, action_id: id, ...opts }] };
-}
-export const TEAM = /^T[A-Z0-9]{1,31}$/;
-export const USER = /^[UW][A-Z0-9]{1,31}$/;
-export const CHANNEL = /^[CGD][A-Z0-9]{1,31}$/;
-export const APP = /^A[A-Z0-9]{2,31}$/;
-export const TS = /^\d{1,12}\.\d{6}$/;
-export const valid = (v: unknown, pattern: RegExp): v is string => typeof v === "string" && pattern.test(v);
-export const SHARE_MODAL = "reactping_share_destination";
-export const TEST_TEXT = "🧪 *Test notification*\n\nSomeone reacted 🎉 to your message.\n\nThis is what your future reaction notifications will look like.";
-export const installLink = (site: string, team: string) => `${site}/api/slack/install?team=${encodeURIComponent(team)}`;
-const feedback = (site: string, welcome = false) => `${site}/feedback?utm_source=slack&utm_medium=${welcome ? "welcome_dm" : "mention_menu"}`;
+type Block = View["blocks"][number];
+export type SlackMessage = { text: string; blocks?: Block[] };
 
-export function installCard(site: string, team: string): SlackMessage {
-  const text = "Never miss a reaction 🔔\nGet a DM whenever someone reacts to your Slack messages.";
-  return { text, blocks: [
-    section("*Never miss a reaction 🔔*\nGet a DM whenever someone reacts to your Slack messages."),
-    action("Connect ReactPing", "rp_connect", { url: installLink(site, team), style: "primary" }),
-    context("Free · Already available in this workspace"),
-  ] };
+export const TEST_ACTION = "rp_test";
+export const SHARE_ACTION = "rp_share";
+export const SHARE_MODAL = "rp_share_destination";
+export const TEST_TEXT =
+  "🧪 *Test notification*\n\nSomeone reacted 🎉 to your message.\n\nThis is what your future reaction notifications will look like.";
+export const SHARED_TEXT = "✅ Shared successfully!";
+
+const section = (text: string): Block => ({ type: "section", text: { type: "mrkdwn", text } });
+const footer: Block = {
+  type: "context",
+  elements: [{ type: "mrkdwn", text: "Free · Already available in this workspace" }],
+};
+/** One button per actions block, so Slack stacks them vertically in the approved order. */
+function button(text: string, action_id: string, extra: { url?: string; style?: "primary" } = {}): Block {
+  return { type: "actions", elements: [{ type: "button", text: { type: "plain_text", text }, action_id, ...extra }] };
 }
-function actions(site: string, welcome: boolean): Blocks {
-  const value = welcome ? "welcome" : "conversation";
+
+/** A workspace hint for Slack's OAuth screen; Slack treats it as a preference, and the callback trusts only Slack's answer. */
+export const installLink = (site: string, team: string) => `${site}/api/slack/install?team=${team}`;
+const feedback = (site: string, medium: "welcome_dm" | "slack_menu") =>
+  `${site}/feedback?utm_source=slack&utm_medium=${medium}`;
+const connect = (site: string, team: string) =>
+  button("Connect ReactPing", "rp_connect", { url: installLink(site, team), style: "primary" });
+
+function connectedActions(site: string, medium: "welcome_dm" | "slack_menu"): Block[] {
   return [
-    action("Send test notification", "rp_test", { value }),
-    action("Share ReactPing", "rp_share", { value }),
-    action("Give feedback", "rp_feedback", { url: feedback(site, welcome) }),
+    button("Send test notification", TEST_ACTION),
+    button("Share ReactPing", SHARE_ACTION),
+    button("Give feedback", "rp_feedback", { url: feedback(site, medium) }),
   ];
 }
-export function menu(site: string, team: string, connected: boolean, unknown = false): SlackMessage {
-  const text = connected
-    ? unknown ? "Here's what I can help you with:" : "✅ You're connected!\nI'll notify you whenever someone reacts to your messages."
-    : "Hey! 👋 I send you a DM whenever someone reacts to your Slack messages.\n\nYou're not connected yet. Connect your account to get started!";
-  return { text, blocks: [section(text), ...(connected ? actions(site, false) : [
-    action("Connect ReactPing", "rp_connect", { url: installLink(site, team), style: "primary" }),
-    action("Give feedback", "rp_feedback", { url: feedback(site) }),
-    context("Free · Already available in this workspace"),
-  ])] };
+
+/** The public card: generic copy only, so any teammate who clicks starts OAuth for their own account. */
+export function installCard(site: string, team: string): SlackMessage {
+  return {
+    text: "Never miss a reaction 🔔 Get a DM whenever someone reacts to your Slack messages.",
+    blocks: [
+      section("*Never miss a reaction 🔔*\n\nGet a DM whenever someone reacts to your Slack messages."),
+      connect(site, team),
+      footer,
+    ],
+  };
 }
+
+/** The private menu for a mention or `/reactping`; `help` is the reply to an unrecognized command (flow 8). */
+export function menu(site: string, team: string, connected: boolean, help = false): SlackMessage {
+  if (!connected) {
+    const text =
+      "Hey! 👋 I send you a DM whenever someone reacts to your Slack messages.\n\nYou're not connected yet. Connect your account to get started!";
+    return {
+      text,
+      blocks: [
+        section(text),
+        connect(site, team),
+        button("Give feedback", "rp_feedback", { url: feedback(site, "slack_menu") }),
+        footer,
+      ],
+    };
+  }
+  const text = help
+    ? "Here's what I can help you with:"
+    : "✅ You're connected!\n\nI'll notify you whenever someone reacts to your messages.";
+  return { text, blocks: [section(text), ...connectedActions(site, "slack_menu")] };
+}
+
 export function welcomeMenu(site: string, fallback: string): SlackMessage {
-  return { text: fallback, blocks: [
-    section("Welcome to ReactPing! 🎉\n\nYou're all set. Whenever someone reacts to your messages, I'll notify you here."),
-    ...actions(site, true),
-    context("Notifications are best effort, never backfilled, and message text is never stored. Disconnect from the Home tab. Replies to this DM aren't read."),
-  ] };
+  return {
+    text: fallback,
+    blocks: [
+      section(
+        "Welcome to ReactPing! 🎉\n\nYou're all set. Whenever someone reacts to your messages, I'll notify you here.",
+      ),
+      ...connectedActions(site, "welcome_dm"),
+      {
+        type: "context",
+        elements: [
+          {
+            type: "mrkdwn",
+            text: "Best effort: an occasional notification can be missed and nothing is backfilled. Message text is never stored. Disconnect from the Home tab. Replies to this DM aren't read.",
+          },
+        ],
+      },
+    ],
+  };
 }
-export function testResult(site: string, team: string, app: string | null, success: boolean): SlackMessage {
-  const text = success ? "✅ Test notification sent!" : "⚠️ Couldn't send your test notification.";
-  return { text, blocks: [section(text), ...(success ? (app && APP.test(app) ? [
-    action("Open DM", "rp_open", { url: `https://slack.com/app_redirect?app=${app}&team=${team}` }),
-  ] : []) : [
-    action("Try again", "rp_test", { value: "conversation" }),
-    action("Report a problem", "rp_feedback", { url: feedback(site) }),
-  ])] };
+
+/** Flow 1.1 success, or flow 10 failure. `app` comes from Slack's signed payload. */
+export function testResult(site: string, team: string, app: string | undefined, sent: boolean): SlackMessage {
+  if (!sent) {
+    const text = "⚠️ Couldn't send your test notification.";
+    return {
+      text,
+      blocks: [
+        section(text),
+        button("Try again", TEST_ACTION),
+        button("Report a problem", "rp_feedback", { url: feedback(site, "slack_menu") }),
+      ],
+    };
+  }
+  const text = "✅ Test notification sent!";
+  const open = app
+    ? [button("Open DM ↗", "rp_open", { url: `https://slack.com/app_redirect?app=${app}&team=${team}` })]
+    : [];
+  return { text, blocks: [section(text), ...open] };
 }
+
+/** When Slack won't let ReactPing post the card: the real link, selectable, never a false success. */
 export function shareFallback(site: string, team: string): SlackMessage {
   const link = installLink(site, team);
-  return { text: `Copy installation link: ${link}`, blocks: [section("Couldn't share directly. Copy installation link:"), section(link)] };
+  return { text: `Copy this link to share ReactPing: ${link}`, blocks: [section(`Copy installation link:\n${link}`)] };
 }
+
+/** Flow 6: the destination picker for shares started from a DM, so the card never lands in ReactPing's own DM. */
 export function shareView(site: string, team: string): View {
   return {
     type: "modal",
@@ -73,19 +126,30 @@ export function shareView(site: string, team: string): View {
     close: { type: "plain_text", text: "Cancel" },
     blocks: [
       {
-        type: "input", block_id: "destination",
+        type: "input",
+        block_id: "destination",
         label: { type: "plain_text", text: "Who would you like to share ReactPing with?" },
         element: {
-          type: "conversations_select", action_id: "conversation",
+          type: "conversations_select",
+          action_id: "conversation",
           placeholder: { type: "plain_text", text: "Select a person or channel" },
           response_url_enabled: true,
-          filter: { exclude_external_shared_channels: true, include: ["public", "private", "im", "mpim"] },
+          filter: {
+            include: ["public", "private", "im", "mpim"],
+            exclude_bot_users: true,
+            exclude_external_shared_channels: true,
+          },
         },
       },
-      { type: "section", text: { type: "mrkdwn", text: `*Copy installation link*\n${installLink(site, team)}` } },
+      section(`*Copy installation link*\n${installLink(site, team)}`),
     ],
   };
 }
-export function commandText(text: string, mention: boolean): string {
-  return (mention ? text.replace(/^<@[A-Z0-9]+>\s*/i, "") : text).trim().toLowerCase();
+
+/** The lowercased command word: text after the leading @ReactPing mention, or after `/reactping`. */
+export function commandWord(text: string): string {
+  return text
+    .replace(/^\s*<@[A-Z0-9]+>/i, "")
+    .trim()
+    .toLowerCase();
 }

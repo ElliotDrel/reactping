@@ -127,11 +127,11 @@ export default function Home() {
             <dl className="claims">
               <div>
                 <dt>Four permissions</dt>
-                <dd>Reactions, messages, mentions, commands.</dd>
+                <dd>Reactions, DMs, @mentions, /reactping.</dd>
               </div>
               <div>
-                <dt>Explicit interactions</dt>
-                <dd>No message history.</dd>
+                <dt>No message history</dt>
+                <dd>Only messages that @mention it.</dd>
               </div>
               <div>
                 <dt>Minimal storage</dt>

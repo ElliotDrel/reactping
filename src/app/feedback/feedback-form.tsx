@@ -16,7 +16,14 @@ export function FeedbackForm() {
   return (
     <form className="form" method="post" action="/api/feedback" onSubmit={captureSubmission}>
       <label htmlFor="message">Feedback</label>
-      <textarea id="message" name="message" rows={6} maxLength={5000} placeholder="Tell us what's on your mind..." required></textarea>
+      <textarea
+        id="message"
+        name="message"
+        rows={6}
+        maxLength={5000}
+        placeholder="Tell us what's on your mind..."
+        required
+      ></textarea>
       <p className="hint">Want to hear back when it ships? Add your name and email. Both optional.</p>
       <label htmlFor="name">
         Name <span>(optional)</span>

@@ -1,6 +1,7 @@
 /** The small HTML pages the OAuth callback returns. Static text and Slack links built from validated IDs. */
 
-export type Outcome = "connected" | "cancelled" | "expired" | "failed" | "enterprise" | "scopes" | "feedback" | "already" | "approval" | "workspace";
+export type Outcome =
+  "connected" | "already" | "approval" | "cancelled" | "expired" | "failed" | "enterprise" | "scopes" | "feedback";
 
 const COPY: Record<Outcome, { title: string; body: string }> = {
   connected: {
@@ -14,10 +15,6 @@ const COPY: Record<Outcome, { title: string; body: string }> = {
   approval: {
     title: "Administrator approval required",
     body: "Your workspace requires approval before you can connect ReactPing.",
-  },
-  workspace: {
-    title: "Wrong workspace",
-    body: "Return to Slack and open the connection link for the workspace you want to connect.",
   },
   cancelled: {
     title: "Nothing was installed",
@@ -62,11 +59,10 @@ export const INSTALL_PATH = "/api/slack/install";
 
 type SlackDestination = { appId: string; teamId: string };
 
-export function resultPage(outcome: Outcome, status: number, cookie: string, destination?: SlackDestination, hint?: string): Response {
+export function resultPage(outcome: Outcome, status: number, cookie: string, destination?: SlackDestination): Response {
   const { title, body } = COPY[outcome];
   const app = destination && encodeURIComponent(destination.appId);
   const team = destination && encodeURIComponent(destination.teamId);
-  const approvalLink = hint && /^T[A-Z0-9]{1,31}$/.test(hint) ? `${INSTALL_PATH}?team=${hint}` : INSTALL_PATH;
   const actions =
     outcome === "feedback"
       ? [`<a class="btn btn-large" href="/">Back to ReactPing</a>`]
@@ -78,10 +74,15 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, des
             app && team
               ? `<a class="btn btn-quiet btn-large" href="https://slack.com/app_redirect?app=${app}&amp;team=${team}">Open via Slack website</a>`
               : "",
-            outcome === "connected" ? `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>` : "",
+            // Without a Slack link, "already" still needs a way forward.
+            outcome === "connected" || !(app && team)
+              ? `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>`
+              : "",
           ]
         : [
-            `<a class="btn btn-large" href="${outcome === "approval" ? approvalLink : CONNECT_PATH}">${outcome === "approval" ? "Request approval in Slack" : "Try again"}</a>`,
+            outcome === "approval"
+              ? `<a class="btn btn-large" href="${INSTALL_PATH}">Request approval in Slack</a>`
+              : `<a class="btn btn-large" href="${CONNECT_PATH}">Try again</a>`,
             `<a class="btn btn-quiet btn-large" href="/">Back to ReactPing</a>`,
           ];
   const html = `<!doctype html>
