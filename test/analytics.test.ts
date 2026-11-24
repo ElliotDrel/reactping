@@ -27,8 +27,9 @@ describe("website analytics", () => {
         body: { api_key: TOKEN, event: "slack_installed", distinct_id: "019a-visitor" },
       },
     ]);
-    // Without the cookie the install still counts, under a one-off ID.
+    // Without the cookie there is nothing to attribute; Supabase's activity table already counts the install.
     await captureInstall(TOKEN, "https://us.i.posthog.com", null, fake);
-    assert.match(String(sent[1]!.body.distinct_id), /^install_/);
+    await captureInstall(TOKEN, "https://us.i.posthog.com", "ph_other_posthog=x", fake);
+    assert.equal(sent.length, 1);
   });
 });
