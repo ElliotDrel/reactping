@@ -43,10 +43,10 @@ export default function Security() {
           <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L429-L463`}>
             See the event handling
           </a>
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L216`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L220`}>
             See mention and command handling
           </a>
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L146-L236`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L146-L242`}>
             See every Slack call it makes
           </a>
         </p>

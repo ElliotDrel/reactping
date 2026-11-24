@@ -134,13 +134,17 @@ export function createEngagement(store: Store, slack: SlackApi, site: string) {
   }
 
   return {
-    /** `app_mention`: Slack only sends it from conversations ReactPing is in. Replies go in the mention's thread. */
+    /**
+     * `app_mention`: Slack only sends it from conversations ReactPing is in. Replies stay where the mention was:
+     * inside its thread, or inline for a top-level mention. A private reply in a new thread is invisible, because
+     * Slack shows no reply indicator for ephemeral-only threads.
+     */
     async mention(team: string, event: MentionEvent, app: unknown): Promise<void> {
       if (!is(event.user, USER_ID) || !is(event.channel, CHANNEL_ID) || !is(event.ts, TS)) return;
       if (typeof event.text !== "string" || event.bot_id !== undefined || event.subtype !== undefined) return;
       if (event.user_team !== undefined && event.user_team !== team) return;
       const ctx = { team, user: event.user, channel: event.channel, app: opt(app, APP_ID) };
-      await command({ ...ctx, thread: opt(event.thread_ts, TS) ?? event.ts }, commandWord(event.text));
+      await command({ ...ctx, thread: opt(event.thread_ts, TS) }, commandWord(event.text));
     },
 
     /** `/reactping [install]`, answered through the command's response URL (works in DMs without membership). */
