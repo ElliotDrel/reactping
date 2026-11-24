@@ -187,8 +187,12 @@ describe("Slack mentions, /reactping, and menu buttons", { skip: dbSkip }, () =>
     await app.settle();
     assert.equal(app.slack.callsTo("respond").length, 0);
     const [card, testDm] = app.slack.callsTo("postMessage").map((c) => c.args);
-    assert.deepEqual([card![1], (card![3] as { threadTs: string }).threadTs], [CHANNEL, MENTION_TS]);
-    assert.equal(testDm![1], "UAUTHOR");
+    assert.deepEqual(
+      [card![0], card![1], (card![3] as { threadTs: string }).threadTs],
+      ["xoxb-T1", CHANNEL, MENTION_TS],
+    );
+    assert.deepEqual(testDm!.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
+    assert.ok(app.slack.callsTo("postEphemeral").every((c) => c.args[0] === "xoxb-T1"));
     assert.deepEqual(
       app.slack
         .callsTo("postEphemeral")
