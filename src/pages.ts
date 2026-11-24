@@ -1,4 +1,4 @@
-/** The small HTML pages the OAuth callback returns. Static text only; the one link is built from validated IDs. */
+/** The small HTML pages the OAuth callback returns. Static text and Slack links built from validated IDs. */
 
 export type Outcome = "connected" | "cancelled" | "expired" | "failed" | "enterprise" | "scopes" | "feedback";
 
@@ -13,7 +13,7 @@ const COPY: Record<Outcome, { title: string; body: string }> = {
   },
   expired: {
     title: "This link expired",
-    body: "For your security, Add to Slack has to be finished in the same browser within 10 minutes. Please start again.",
+    body: "For your security, Add to Slack has to be finished in the same browser within 10 minutes. On mobile, open ReactPing in Safari or Chrome and stay in that browser until you see the connected page. Please start again.",
   },
   failed: {
     title: "Slack couldn't finish connecting",
@@ -48,15 +48,22 @@ export const CONNECT_PATH = "/connect";
 /** Straight to Slack's approval page. Used after a successful install, when the person has already seen /connect. */
 export const INSTALL_PATH = "/api/slack/install";
 
-export function resultPage(outcome: Outcome, status: number, cookie: string, slackLink?: string): Response {
+type SlackDestination = { appId: string; teamId: string };
+
+export function resultPage(outcome: Outcome, status: number, cookie: string, destination?: SlackDestination): Response {
   const { title, body } = COPY[outcome];
+  const app = destination && encodeURIComponent(destination.appId);
+  const team = destination && encodeURIComponent(destination.teamId);
   const actions =
     outcome === "feedback"
       ? [`<a class="btn btn-large" href="/">Back to ReactPing</a>`]
       : outcome === "connected"
         ? [
-            slackLink
-              ? `<a class="btn btn-large" href="${slackLink.replace(/&/g, "&amp;")}">Open ReactPing in Slack</a>`
+            app && team
+              ? `<a class="btn btn-large" href="slack://app?team=${team}&amp;id=${app}&amp;tab=messages">Open Slack app</a>`
+              : "",
+            app && team
+              ? `<a class="btn btn-quiet btn-large" href="https://slack.com/app_redirect?app=${app}&amp;team=${team}">Open via Slack website</a>`
               : "",
             `<a class="btn btn-quiet btn-large" href="${INSTALL_PATH}">Add another workspace</a>`,
           ]
@@ -80,6 +87,7 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, sla
       <h1>${title}</h1>
       <p class="lede">${body}</p>
       <div class="actions">${actions.join("")}</div>
+      ${outcome === "connected" ? '<p class="note">Want alerts on your phone even while using desktop Slack? In the Slack mobile app, tap your profile picture → Notifications → Notify me on mobile and choose “Immediately, even if I’m active”. Make sure Slack notifications are enabled on your phone.</p>' : ""}
     </main>
   </body>
 </html>

@@ -224,8 +224,11 @@ export function createHandler(deps: Deps | null): Handler {
   async function callback(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const clear = stateCookie("", 0);
-    const page = (status: number, outcome: Parameters<typeof resultPage>[0], link?: string) =>
-      resultPage(outcome, status, clear, link);
+    const page = (
+      status: number,
+      outcome: Parameters<typeof resultPage>[0],
+      link?: { appId: string; teamId: string },
+    ) => resultPage(outcome, status, clear, link);
 
     // Wrong browser, expired, forged, or tampered state all look the same.
     if (!verifyOAuthState(stateKey, readCookie(request, cookieName), url.searchParams.get("state"), now())) {
@@ -291,7 +294,7 @@ export function createHandler(deps: Deps | null): Handler {
       await home(installation, true);
     });
     const appId = result.appId && APP_ID.test(result.appId) ? result.appId : null;
-    return page(200, "connected", appId ? `https://slack.com/app_redirect?app=${appId}&team=${teamId}` : undefined);
+    return page(200, "connected", appId ? { appId, teamId } : undefined);
   }
 
   // Events
