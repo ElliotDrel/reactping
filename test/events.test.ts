@@ -218,14 +218,22 @@ describe("Slack events", { skip: dbSkip }, () => {
       assert.equal(button?.url, "https://reactping.example.test/api/slack/install?team=T1");
     });
 
-    it("still publishes Home, without the prompt, when Slack's scope check fails", async () => {
+    it("still publishes Home, without the prompt, when the scope check or token lookup fails", async () => {
       app.slack.authTest = async () => {
         throw new Error("ratelimited");
       };
       await signedEvent(app, eventEnvelope("T1", { type: "app_home_opened", user: "UAUTHOR", tab: "home" }));
       await app.settle();
-      const [call] = app.slack.callsTo("publishHome");
-      assert.doesNotMatch(JSON.stringify(call!.args[2]), /Reconnect ReactPing/);
+      const workspaceBot = app.store.workspaceBot.bind(app.store);
+      app.store.workspaceBot = async () => {
+        throw new Error("connection terminated");
+      };
+      await signedEvent(app, eventEnvelope("T1", { type: "app_home_opened", user: "UAUTHOR", tab: "home" }));
+      await app.settle();
+      app.store.workspaceBot = workspaceBot;
+      const homes = app.slack.callsTo("publishHome");
+      assert.equal(homes.length, 2);
+      for (const call of homes) assert.doesNotMatch(JSON.stringify(call.args[2]), /Reconnect ReactPing/);
     });
 
     it("does nothing for the Messages tab or users who are not connected", async () => {
