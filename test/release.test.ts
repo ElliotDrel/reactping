@@ -27,10 +27,19 @@ describe("release", () => {
     assert.equal(nextRelease(changelog("\n### Fixed\n\n- A bug.\n"), "1.4.0", "2026-11-25")!.version, "1.4.1");
   });
 
-  it("releases the real changelog's current entries", async () => {
+  it("ignores empty feature headings when choosing the bump", () => {
+    const fixOnly = changelog("\n### Added\n\n### Fixed\n\n- A bug.\n");
+    assert.equal(nextRelease(fixOnly, "1.4.0", "2026-11-25")!.version, "1.4.1");
+  });
+
+  it("can always release the real CHANGELOG.md, so its format stays parseable", async () => {
     const { readFile } = await import("node:fs/promises");
     const real = await readFile(new URL("../CHANGELOG.md", import.meta.url), "utf8");
-    const release = nextRelease(real, "9.9.9", "2026-01-01");
-    if (release) assert.match(release.changelog, /^\[unreleased\]: .+\/compare\/v9\.10\.0\.\.\.HEAD$/m);
+    const withFix = real.replace("## [Unreleased]\n", "## [Unreleased]\n\n### Fixed\n\n- Probe.\n");
+    const release = nextRelease(withFix, "9.9.9", "2026-01-01")!;
+    const v = release.version;
+    assert.ok(["9.9.10", "9.10.0"].includes(v));
+    assert.ok(release.changelog.includes(`## [Unreleased]\n\n## [${v}] - 2026-01-01\n`));
+    assert.ok(release.changelog.includes(`/compare/v${v}...HEAD\n[${v}]: `));
   });
 });

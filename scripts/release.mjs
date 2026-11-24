@@ -12,7 +12,10 @@ export function nextRelease(changelog, version, date) {
   const entries = match?.[1] ?? "";
   if (!/^- /m.test(entries)) return null;
   const [major, minor, patch] = version.split(".").map(Number);
-  const feature = /^### (Added|Changed|Deprecated|Removed)$/m.test(entries);
+  // Only headings that actually list entries count, so an empty "### Added" can't force a minor bump.
+  const feature = entries
+    .split(/^(?=### )/m)
+    .some((section) => /^### (Added|Changed|Deprecated|Removed)\n/.test(section) && /^- /m.test(section));
   const next = feature ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
   const released = changelog
     .replace(match[0], `## [Unreleased]\n\n## [${next}] - ${date}\n${entries}`)
