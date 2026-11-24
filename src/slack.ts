@@ -209,14 +209,20 @@ export function createSlackApi(options: {
       // Success is "ok", empty, or JSON with ok: true. Anything else failed; only a short error code is kept.
       const body = (await res.text()).trim();
       let ok = res.ok && (body === "" || body === "ok");
-      if (res.ok && body.startsWith("{")) {
+      let code: unknown = body;
+      if (body.startsWith("{")) {
         try {
-          ok = JSON.parse(body).ok === true;
+          const json = JSON.parse(body) as { ok?: unknown; error?: unknown };
+          ok = res.ok && json.ok === true;
+          code = json.error;
         } catch {
           ok = false;
         }
       }
-      if (!ok) throw new SlackCallError("failed", /^[a-z_]{1,64}$/.test(body) ? body : "response_failed");
+      if (!ok) {
+        const short = typeof code === "string" && /^[a-z_]{1,64}$/.test(code) ? code : undefined;
+        throw new SlackCallError("failed", short ?? `response_failed_${res.status}`);
+      }
     },
 
     async publishHome(botToken, userId, view) {

@@ -90,9 +90,10 @@ describe("Slack mentions, /reactping, and menu buttons", { skip: dbSkip }, () =>
     assert.equal(app.slack.calls.length, 0);
   });
 
-  it("flows 1-3: mentions reply privately in the mention's thread; install posts the card there", async () => {
+  it("flows 1-3: mentions reply privately where they were sent; install posts the card there", async () => {
+    const THREAD = "1699999998.000001";
     await signedEvent(app, mention("UAUTHOR", "<@U0BOT>"));
-    await signedEvent(app, mention("UOTHER", "<@U0BOT> hello"));
+    await signedEvent(app, mention("UOTHER", "<@U0BOT> hello", { thread_ts: THREAD }));
     await signedEvent(app, mention("UOTHER", "<@U0BOT> install", { thread_ts: "1699999999.000001" }));
     await app.settle();
     const ephemeral = app.slack.callsTo("postEphemeral").map((c) => c.args);
@@ -105,13 +106,13 @@ describe("Slack mentions, /reactping, and menu buttons", { skip: dbSkip }, () =>
         thread,
       ]),
       [
-        ["xoxb-T1", CHANNEL, "UAUTHOR", "✅ You're connected!", MENTION_TS],
+        ["xoxb-T1", CHANNEL, "UAUTHOR", "✅ You're connected!", undefined],
         [
           "xoxb-T1",
           CHANNEL,
           "UOTHER",
           "Hey! 👋 I send you a DM whenever someone reacts to your Slack messages.",
-          MENTION_TS,
+          THREAD,
         ],
       ],
     );

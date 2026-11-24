@@ -48,8 +48,8 @@ const SOURCE_LINKS: Record<string, RegExp[]> = {
     /USER_SCOPES = \["reactions:read"\]/,
   ],
   "src/handler.ts#L429-L463": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
-  "src/engagement.ts#L82-L216": [/export function createEngagement\(/, /postEphemeral/, /installCard/, /openView/],
-  "src/slack.ts#L146-L236": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /respond/, /publishHome/, /revoke/],
+  "src/engagement.ts#L82-L220": [/export function createEngagement\(/, /postEphemeral/, /installCard/, /openView/],
+  "src/slack.ts#L146-L242": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /respond/, /publishHome/, /revoke/],
   "supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24": [
     /create table reactping_slack\.installations/,
     /primary key \(team_id, user_id\)/,

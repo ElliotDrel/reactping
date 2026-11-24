@@ -38,7 +38,7 @@ See [Slack deep linking](https://docs.slack.dev/interactivity/deep-linking/) and
 
 Use two accounts (recommender and teammate) on desktop, iOS, and Android. Automated tests cover copy, button order, visibility, signatures, and workspace checks; these need live Slack:
 
-- Bare `@ReactPing` from a connected and an unconnected account: private menu in the mention's thread.
+- Bare `@ReactPing` from a connected and an unconnected account: private menu inline for a top-level mention, inside the thread for a threaded one.
 - Send test notification: test DM arrives, Open DM opens the right workspace's ReactPing DM. Push on mobile only if observed.
 - Share ReactPing from a threaded menu: card posts in that thread (relies on `thread_ts` in the button's container), then the private confirmation.
 - `@ReactPing install`, `/reactping install` in a channel and in a person-to-person DM (where Slack may refuse a public post: expect the copyable link).

@@ -149,5 +149,16 @@ describe("Slack client adapter", () => {
       (await rejection(quiet.slack.respond(url, { text: "x" }, { visibility: "ephemeral" }))).message,
       "channel_not_found",
     );
+    // JSON errors keep Slack's code so logs say why; anything else keeps only the status.
+    const coded = api(() => json({ ok: false, error: "invalid_thread_ts" }, { status: 400 }));
+    assert.equal(
+      (await rejection(coded.slack.respond(url, { text: "x" }, { visibility: "ephemeral" }))).message,
+      "invalid_thread_ts",
+    );
+    const opaque = api(() => new Response("<html>nope</html>", { status: 500 }));
+    assert.equal(
+      (await rejection(opaque.slack.respond(url, { text: "x" }, { visibility: "ephemeral" }))).message,
+      "response_failed_500",
+    );
   });
 });
