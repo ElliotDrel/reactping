@@ -9,6 +9,12 @@ features:
   bot_user:
     display_name: ReactPing
     always_online: false
+  slash_commands:
+    - command: /reactping
+      url: https://YOUR_SITE_HOST/api/slack/commands
+      description: Manage your ReactPing connection
+      usage_hint: "[install]"
+      should_escape: false
   app_home:
     home_tab_enabled: true
     messages_tab_enabled: true
@@ -22,6 +28,8 @@ oauth_config:
       - reactions:read
     bot:
       - chat:write
+      - app_mentions:read
+      - commands
 settings:
   event_subscriptions:
     request_url: https://YOUR_SITE_HOST/api/slack/events
@@ -29,6 +37,7 @@ settings:
       - reaction_added
     bot_events:
       - app_home_opened
+      - app_mention
       - app_uninstalled
       - tokens_revoked
   interactivity:

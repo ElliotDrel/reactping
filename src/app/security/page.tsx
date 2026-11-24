@@ -3,7 +3,7 @@ import { Footer, Header, pageMetadata } from "../site.tsx";
 export const metadata = pageMetadata({
   title: "How ReactPing protects your messages",
   description:
-    "ReactPing asks Slack for three permissions, never stores your messages, encrypts its tokens, and runs no tracking. Every claim links to the code.",
+    "ReactPing asks Slack for four permissions, never stores your messages, encrypts its tokens, and runs no tracking. Every claim links to the code.",
   path: "/security",
 });
 
@@ -22,30 +22,41 @@ export default function Security() {
           source, and every claim below links to the exact code.
         </p>
 
-        <h2>Two permissions</h2>
-        <p>ReactPing asks Slack to see reactions and to send you a DM. Nothing else.</p>
+        <h2>Four permissions</h2>
+        <p>
+          ReactPing asks Slack to see reactions, send messages as ReactPing, see messages that @mention ReactPing, and
+          add the /reactping command. It can't read channel history.
+        </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L3-L4`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L4-L5`}>
             See the permissions
           </a>
         </p>
 
-        <h2>Reactions only</h2>
+        <h2>Reactions and direct interactions</h2>
         <p>
-          No other data is needed. When someone reacts to your message, ReactPing checks it's someone else's reaction to
-          your message in the same workspace, then sends your DM.
+          When someone reacts to your message, ReactPing checks it's someone else's reaction to your message in the same
+          workspace, then sends your DM. It answers only when you @mention it, type /reactping, or tap its buttons, and
+          your connection status is only ever shown to you.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L407-L441`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L429-L463`}>
             See the event handling
           </a>
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L119-L168`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L216`}>
+            See mention and command handling
+          </a>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L146-L236`}>
             See every Slack call it makes
           </a>
         </p>
 
         <h2>Minimal storage</h2>
-        <p>One database table: your Slack workspace and user IDs, the workspace URL, and encrypted access tokens.</p>
+        <p>
+          One row per connected person: your Slack workspace and user IDs, the workspace URL, and encrypted access
+          tokens. Connection events record the workspace ID; reaction counts are hourly totals with no IDs; feedback you
+          send is kept separately.
+        </p>
         <p className="actions">
           <a
             className="btn btn-quiet btn-small"

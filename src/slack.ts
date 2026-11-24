@@ -1,8 +1,16 @@
 import { ErrorCode, LogLevel, WebClient, type Logger, type View, type WebClientOptions } from "@slack/web-api";
+import type { SlackMessage } from "./menu.ts";
 
-export const BOT_SCOPES = ["chat:write"];
+export const BOT_SCOPES = ["chat:write", "app_mentions:read", "commands"];
 export const USER_SCOPES = ["reactions:read"];
 export const SLACK_TIMEOUT_MS = 5_000;
+
+/** Slack ID formats, checked before any ID from a request is used. */
+export const TEAM_ID = /^T[A-Z0-9]{1,31}$/;
+export const USER_ID = /^[UW][A-Z0-9]{1,31}$/;
+export const APP_ID = /^A[A-Z0-9]{2,31}$/;
+export const CHANNEL_ID = /^[CGD][A-Z0-9]{1,31}$/;
+export const TS = /^\d{1,12}\.\d{6}$/;
 
 export type SlackErrorKind = "rate_limited" | "revoked" | "failed";
 
@@ -40,7 +48,26 @@ export interface SlackApi {
   oauthAccess(code: string, redirectUri: string): Promise<OAuthResult>;
   /** Workspace ID and URL that a bot token belongs to. */
   authTest(botToken: string): Promise<{ teamId: string | null; url: string | null }>;
-  postMessage(botToken: string, channel: string, text: string): Promise<void>;
+  postMessage(
+    botToken: string,
+    channel: string,
+    text: string,
+    options?: { blocks?: SlackMessage["blocks"]; threadTs?: string },
+  ): Promise<void>;
+  postEphemeral(
+    botToken: string,
+    channel: string,
+    user: string,
+    message: SlackMessage,
+    threadTs?: string,
+  ): Promise<void>;
+  openView(botToken: string, triggerId: string, view: View): Promise<void>;
+  /** Answers through a Slack response URL from a command, button, or modal. */
+  respond(
+    url: string,
+    message: SlackMessage,
+    options: { visibility: "ephemeral" | "in_channel"; threadTs?: string },
+  ): Promise<void>;
   publishHome(botToken: string, userId: string, view: View): Promise<void>;
   revoke(token: string): Promise<void>;
   /** The reacted-to message (reactions.get with the author's user token), for the DM preview and emoji totals. */
@@ -145,10 +172,51 @@ export function createSlackApi(options: {
       return { teamId: text(res.team_id), url: text(res.url) };
     },
 
-    async postMessage(botToken, channel, message) {
+    async postMessage(botToken, channel, message, options) {
       await call(() =>
-        client.chat.postMessage({ token: botToken, channel, text: message, unfurl_links: false, unfurl_media: false }),
+        client.chat.postMessage({
+          token: botToken,
+          channel,
+          text: message,
+          ...(options?.blocks ? { blocks: options.blocks } : {}),
+          ...(options?.threadTs ? { thread_ts: options.threadTs } : {}),
+          unfurl_links: false,
+          unfurl_media: false,
+        }),
       );
+    },
+    async postEphemeral(botToken, channel, user, message, threadTs) {
+      await call(() => client.chat.postEphemeral({ token: botToken, channel, user, ...message, thread_ts: threadTs }));
+    },
+    async openView(botToken, triggerId, view) {
+      await call(() => client.views.open({ token: botToken, trigger_id: triggerId, view }));
+    },
+    async respond(url, message, { visibility, threadTs }) {
+      const res = await (options.fetch ?? fetch)(url, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...message,
+          ...(threadTs ? { thread_ts: threadTs } : {}),
+          response_type: visibility,
+          replace_original: false,
+          unfurl_links: false,
+          unfurl_media: false,
+        }),
+        redirect: "error",
+        signal: AbortSignal.timeout(SLACK_TIMEOUT_MS),
+      });
+      // Success is "ok", empty, or JSON with ok: true. Anything else failed; only a short error code is kept.
+      const body = (await res.text()).trim();
+      let ok = res.ok && (body === "" || body === "ok");
+      if (res.ok && body.startsWith("{")) {
+        try {
+          ok = JSON.parse(body).ok === true;
+        } catch {
+          ok = false;
+        }
+      }
+      if (!ok) throw new SlackCallError("failed", /^[a-z_]{1,64}$/.test(body) ? body : "response_failed");
     },
 
     async publishHome(botToken, userId, view) {

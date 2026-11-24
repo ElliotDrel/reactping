@@ -45,8 +45,9 @@ export default function Privacy() {
 
         <h2>How we use it</h2>
         <p>
-          Only to deliver reaction notifications and manage your connection. Notifications stay in the workspace where
-          the reaction happened. No advertising or sale of data.
+          Only to deliver reaction notifications, send test notifications you ask for, answer when you @mention
+          ReactPing or use /reactping, post its install card where you ask, and manage your connection. Notifications
+          stay in the workspace where the reaction happened. No advertising or sale of data.
         </p>
 
         <h2>Security and cookies</h2>

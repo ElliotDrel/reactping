@@ -15,8 +15,8 @@ export default function Feedback() {
       <Header />
 
       <main id="main" className="page wrap">
-        <h1>Send feedback</h1>
-        <p className="lede">What's working, what's not, what you'd add. Every message is read.</p>
+        <h1>Give us feedback</h1>
+        <p className="lede">Found a bug? Have an idea? We'd love to hear it.</p>
         <FeedbackForm />
         <p className="hint">Need help? Email elliotdrel@gmail.com.</p>
       </main>

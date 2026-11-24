@@ -24,7 +24,7 @@ export default function HowItWorks() {
           Not with an alert. Slack lists reactions in its Activity tab, but its notification settings cover direct
           messages, mentions, thread replies, and keywords, not reactions. ReactPing fills that gap: a DM for each
           reaction on your message, with who reacted, the emoji, a one-line preview, and a link back. It's free forever
-          and open source, asks for two permissions, and never stores your message text.
+          and open source, asks for four permissions, and never stores your message text.
         </p>
         <p className="actions">
           <a className="btn btn-quiet" href="https://slack.com/help/articles/360025446073-Guide-to-Slack-notifications">
@@ -64,7 +64,7 @@ export default function HowItWorks() {
 
         <h2>Built to respect your privacy</h2>
         <p>
-          Two permissions, no tracking, and your messages are never stored. Every claim links to the open-source code.
+          Four permissions, no tracking, and your messages are never stored. Every claim links to the open-source code.
         </p>
         <p className="actions">
           <a className="btn btn-quiet" href="/security">

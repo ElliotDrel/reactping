@@ -95,6 +95,15 @@ export class Store {
     return rows[0] ? this.toInstallation(rows[0] as Row) : undefined;
   }
 
+  /** The workspace's bot token, from its most recent installation; none once everyone has disconnected. */
+  async workspaceBot(teamId: string): Promise<string | undefined> {
+    const { rows } = await this.pool.query(
+      `select * from ${TABLE} where team_id = $1 order by updated_at desc limit 1`,
+      [teamId],
+    );
+    return rows[0] ? this.toInstallation(rows[0] as Row).botToken : undefined;
+  }
+
   /** Deletes exactly this installation and returns it (for revoking its user grant), if it existed. */
   async delete(teamId: string, userId: string): Promise<Installation | undefined> {
     const { rows } = await this.pool.query(`delete from ${TABLE} where team_id = $1 and user_id = $2 returning *`, [
@@ -203,7 +212,7 @@ export type ReactionOutcome =
   "sent" | "self" | "not_connected" | "ignored" | "retry" | `failed:${string}` | `error:${string}`;
 
 /** Where the feedback form was opened from: the website itself, or the link in ReactPing's welcome DM or Home tab. */
-export type FeedbackSource = "website" | "slack_welcome" | "slack_home";
+export type FeedbackSource = "website" | "slack_welcome" | "slack_home" | "slack_menu";
 
 export interface Feedback {
   source: FeedbackSource;

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Mentions and `/reactping`.** Mention @ReactPing or type `/reactping` for a private menu: send a test notification, share ReactPing with teammates, or give feedback. `@ReactPing install` and `/reactping install` post a card any teammate can tap to connect their own account. Needs two more Slack permissions (`app_mentions:read`, `commands`); existing workspaces approve them by reconnecting.
 - **Mobile onboarding.** Open ReactPing's Messages tab in the native Slack app after connecting, with a browser fallback and instructions for mobile notification timing.
 
 ### Changed
