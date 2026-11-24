@@ -42,6 +42,8 @@ describe("release", () => {
     const correct = base.replace("## [Unreleased]\n", "## [Unreleased]\n\n### Added\n\n- New.\n");
     assert.deepEqual(changedReleases(base, misMerged), ["1.4.0"]);
     assert.deepEqual(changedReleases(base, correct), []);
+    const handBumped = nextRelease(correct, "1.4.0", "2026-11-25")!.changelog;
+    assert.deepEqual(changedReleases(base, handBumped), ["1.5.0"]);
   });
 
   it("bumps the patch version for fixes alone", () => {

@@ -37,7 +37,9 @@ export function changedReleases(base, head) {
       ]),
     );
   const now = sections(head);
-  return [...sections(base)].filter(([version, text]) => now.get(version) !== text).map(([version]) => version);
+  const before = sections(base);
+  // Only the release workflow adds versions (straight to main), so a PR that adds or edits one is wrong either way.
+  return [...new Set([...before.keys(), ...now.keys()])].filter((version) => before.get(version) !== now.get(version));
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href && process.argv[2] === "--verify") {

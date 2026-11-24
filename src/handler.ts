@@ -170,8 +170,18 @@ export function createHandler(deps: Deps | null): Handler {
   async function home(installation: Pick<Installation, "botToken" | "userId" | "teamId">, connected: boolean) {
     const includeSelfReactions = config.selfReactionTeams.includes(installation.teamId);
     // Slack only grants scopes added after install when someone reconnects, so workspaces installed before
-    // mentions and /reactping get a reconnect prompt. Checked live, so it disappears once anyone reconnects.
-    const scopes = connected ? (await slack.authTest(installation.botToken).catch(() => null))?.scopes : undefined;
+    // mentions and /reactping get a reconnect prompt. Checked live with the workspace's newest bot token, so it
+    // disappears for everyone once anyone reconnects. A failed check is logged and simply omits the prompt.
+    const scopes = connected
+      ? (
+          await slack
+            .authTest((await store.workspaceBot(installation.teamId)) ?? installation.botToken)
+            .catch((error: unknown) => {
+              log("warn", "home_scope_check_failed", { error: classifySlackError(error).message });
+              return null;
+            })
+        )?.scopes
+      : undefined;
     const upgrade = scopes !== undefined && BOT_SCOPES.some((scope) => !scopes.includes(scope));
     const reconnectUrl = upgrade ? installLink(config.siteUrl, installation.teamId) : undefined;
     await slack.publishHome(

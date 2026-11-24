@@ -210,12 +210,12 @@ describe("Slack events", { skip: dbSkip }, () => {
       app.slack.botScopes = ["chat:write"];
       await signedEvent(app, eventEnvelope("T1", { type: "app_home_opened", user: "UAUTHOR", tab: "home" }));
       await app.settle();
-      const view = JSON.stringify(app.slack.callsTo("publishHome")[0]!.args[2]);
-      assert.match(view, /mention @ReactPing or type `\/reactping`/);
-      assert.match(
-        view,
-        /"text":"Reconnect ReactPing".*"url":"https:\/\/reactping\.example\.test\/api\/slack\/install\?team=T1"/,
-      );
+      const view = app.slack.callsTo("publishHome")[0]!.args[2] as {
+        blocks: { elements?: { text?: { text: string }; url?: string }[] }[];
+      };
+      assert.match(JSON.stringify(view), /mention @ReactPing or type `\/reactping`/);
+      const button = view.blocks.flatMap((b) => b.elements ?? []).find((e) => e.text?.text === "Reconnect ReactPing");
+      assert.equal(button?.url, "https://reactping.example.test/api/slack/install?team=T1");
     });
 
     it("still publishes Home, without the prompt, when Slack's scope check fails", async () => {
