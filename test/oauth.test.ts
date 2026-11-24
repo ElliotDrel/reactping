@@ -60,6 +60,8 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       const html = await res.text();
       assert.match(html, /ReactPing is connected/);
       assert.match(html, /https:\/\/slack\.com\/app_redirect\?app=AREACTPING&amp;team=T1/);
+      assert.match(html, /slack:\/\/app\?team=T1&amp;id=AREACTPING&amp;tab=messages/);
+      assert.match(html, /Notify me on mobile/);
       assert.match(html, /href="\/api\/slack\/install">Add another workspace</);
       assert.equal(res.headers.get("referrer-policy"), "no-referrer");
       assert.match(res.headers.get("set-cookie")!, /Max-Age=0/);
@@ -83,6 +85,16 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.deepEqual(home!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
       assert.ok(JSON.stringify(home!.args[2]).includes("/feedback?utm_source=slack&amp;utm_medium=home_tab|"));
       assert.equal(app.slack.callsTo("revoke").length, 0);
+    });
+
+    it("does not create Slack links from a missing or malformed app ID", async () => {
+      for (const appId of [null, 'A1"bad']) {
+        const res = await new Browser(app).connect("T1", "UAUTHOR", { appId });
+        assert.equal(res.status, 200);
+        const html = await res.text();
+        assert.doesNotMatch(html, /href="slack:\/\/|href="https:\/\/slack\.com\/app_redirect/);
+        assert.match(html, /Add another workspace/);
+      }
     });
 
     it("keeps each workspace and user separate and replaces tokens on reinstall", async () => {

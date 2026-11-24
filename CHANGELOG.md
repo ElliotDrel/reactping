@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Mobile onboarding.** Open ReactPing's Messages tab in the native Slack app after connecting, with a browser fallback and instructions for mobile notification timing.
+
 ### Changed
 
 - **Install analytics.** PostHog records an install only when it can be tied to a website visit. Install totals come from ReactPing's own database.

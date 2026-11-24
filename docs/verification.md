@@ -22,6 +22,18 @@ Automated tests mock Slack. This page records what was observed live on the host
 | Callback replay or another browser shows "This link expired"                | Unverified |                                 |
 | Function logs contain no tokens, codes, or message content                  | Unverified |                                 |
 
+## Mobile acceptance checks (pending)
+
+Run these on iOS (Safari) and Android (Chrome), using a signed-in Slack workspace:
+
+- Open `/connect` in the browser, approve the requested scopes, and confirm the connected page and welcome DM.
+- Tap Open Slack app and verify the correct workspace and ReactPing Messages tab open. Verify the HTTPS fallback separately, including when the app is absent.
+- Connect on desktop and confirm the same account receives reaction DMs on mobile without another connection.
+- Enable immediate mobile notifications in Slack, allow OS notifications, and test a real reaction with desktop Slack active. Confirm the push opens the DM and its message link opens the original message.
+- Disconnect via the Home tab and verify further reactions do not notify. Confirm cancelling or changing browsers during OAuth still fails safely.
+
+See [Slack deep linking](https://docs.slack.dev/interactivity/deep-linking/) and [notification preferences](https://slack.com/help/articles/201355156-Configure-your-Slack-notifications).
+
 Not tested by design: Slack retries (ignored) and outage recovery (no backfill).
 
 ## Log

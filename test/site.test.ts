@@ -44,7 +44,7 @@ const REPO = "https://github.com/ElliotDrel/reactping/blob/main/";
  */
 const SOURCE_LINKS: Record<string, RegExp[]> = {
   "src/slack.ts#L3-L4": [/BOT_SCOPES = \["chat:write"\]/, /USER_SCOPES = \["reactions:read"\]/],
-  "src/handler.ts#L404-L438": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
+  "src/handler.ts#L407-L441": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
   "src/slack.ts#L119-L168": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /publishHome/, /revoke/],
   "supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24": [
     /create table reactping_slack\.installations/,
@@ -80,6 +80,8 @@ describe("website", () => {
       assert.match(page, phrase);
     }
     assert.match(page, /Everyone connects for themselves/);
+    assert.match(page, /Safari or Chrome/);
+    assert.match(page, /same browser/);
   });
 
   it("keeps the homepage short and headed by the product name without an eyebrow", () => {
@@ -275,12 +277,13 @@ describe("OAuth result pages", () => {
   const outcomes: Outcome[] = ["connected", "cancelled", "expired", "failed", "enterprise", "scopes"];
 
   it("offers Open in Slack and Add another workspace after success", async () => {
-    const page = await resultPage("connected", 200, "c=; Max-Age=0", "https://slack.com/app_redirect?app=A1&team=T1")
-      .text()
-      .then(links);
+    const html = await resultPage("connected", 200, "c=; Max-Age=0", { appId: "A1", teamId: "T1" }).text();
+    const page = links(html);
+    assert.match(html, /Notify me on mobile/);
     assert.deepEqual(page, [
       ["/", "ReactPing"],
-      ["https://slack.com/app_redirect?app=A1&amp;team=T1", "Open ReactPing in Slack"],
+      ["slack://app?team=T1&amp;id=A1&amp;tab=messages", "Open Slack app"],
+      ["https://slack.com/app_redirect?app=A1&amp;team=T1", "Open via Slack website"],
       // Elliot: skip /connect here; the person just went through it, so go straight to Slack's approval page.
       ["/api/slack/install", "Add another workspace"],
     ]);
@@ -289,7 +292,7 @@ describe("OAuth result pages", () => {
   it("still offers Add another workspace when no Slack link can be built", async () => {
     const page = links(await resultPage("connected", 200, "c=; Max-Age=0").text());
     assert.ok(page.some(([href, text]) => href === "/api/slack/install" && text === "Add another workspace"));
-    assert.ok(!page.some(([, text]) => text === "Open ReactPing in Slack"));
+    assert.ok(!page.some(([href]) => href.startsWith("slack://") || href.startsWith("https://slack.com/")));
   });
 
   it("retries failures through /connect, never straight to OAuth", async () => {
@@ -298,7 +301,10 @@ describe("OAuth result pages", () => {
       assert.equal(res.headers.get("referrer-policy"), "no-referrer");
       assert.match(res.headers.get("content-security-policy")!, /default-src 'none'/);
       const page = links(await res.text());
-      if (outcome !== "connected") assert.ok(!page.some(([href]) => href.includes("/api/slack/install")), outcome);
+      if (outcome !== "connected") {
+        assert.ok(!page.some(([href]) => href.includes("/api/slack/install")), outcome);
+        assert.ok(!page.some(([href]) => href.startsWith("slack://")), outcome);
+      }
       if (outcome !== "connected")
         assert.ok(page.some(([href, text]) => href === CONNECT_PATH && text === "Try again"));
     }
