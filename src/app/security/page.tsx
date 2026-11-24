@@ -76,9 +76,9 @@ export default function Security() {
 
         <h2>No tracking</h2>
         <p>
-          ReactPing never tracks what you do in Slack. The website counts visits and installs with PostHog, which sets
-          its own cookie and never receives Slack messages or tokens. The site's security policy allows scripts only
-          from this site and PostHog.
+          ReactPing never tracks what you do in Slack. The website counts visits, and installs that start from them,
+          with PostHog, which sets its own cookie and never receives Slack messages or tokens. The site's security
+          policy allows scripts only from this site and PostHog.
         </p>
         <p className="actions">
           <a className="btn btn-quiet btn-small" href={`${CODE}vercel.json#L9-L10`}>
