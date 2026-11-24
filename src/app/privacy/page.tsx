@@ -60,9 +60,9 @@ export default function Privacy() {
         <h2>Service providers</h2>
         <p>
           Vercel hosts the website and API. Supabase stores connection records. Slack sends reaction events and delivers
-          DMs. PostHog counts website visits and installs. They may keep operational logs such as IP addresses and
-          request times. ReactPing's own logs contain workspace IDs and error codes, never tokens, authorization codes,
-          or message content.
+          DMs. PostHog counts website visits and the installs that start from them. They may keep operational logs such
+          as IP addresses and request times. ReactPing's own logs contain workspace IDs and error codes, never tokens,
+          authorization codes, or message content.
         </p>
 
         <h2>Disconnect and delete</h2>
