@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Install analytics.** PostHog records an install only when it can be tied to a website visit. Install totals come from ReactPing's own database.
+
 ## [1.3.0] - 2026-11-20
 
 Website analytics.
