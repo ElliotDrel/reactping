@@ -8,7 +8,7 @@ import { hmac } from "../src/crypto.ts";
 import { Store, type Installation } from "../src/db.ts";
 import { createHandler, type Handler } from "../src/handler.ts";
 import type { SlackMessage } from "../src/menu.ts";
-import type { OAuthResult, ReactedMessage, SlackApi } from "../src/slack.ts";
+import { BOT_SCOPES, type OAuthResult, type ReactedMessage, type SlackApi } from "../src/slack.ts";
 
 Object.assign(process.env, { NODE_ENV: "test" }); // Next types NODE_ENV as read-only.
 
@@ -100,9 +100,11 @@ export class FakeSlack implements SlackApi {
     if (!result) throw new Error("invalid_code");
     return result;
   }
-  async authTest(botToken: string): Promise<{ teamId: string | null; url: string | null }> {
+  /** Scopes the fake bot token holds; tests drop some to simulate a workspace installed before a scope was added. */
+  botScopes: string[] = [...BOT_SCOPES];
+  async authTest(botToken: string): Promise<{ teamId: string | null; url: string | null; scopes?: string[] }> {
     this.record("authTest", botToken);
-    return { teamId: /^xoxb-(T[A-Z0-9]+)/.exec(botToken)?.[1] ?? null, url: this.workspaceUrl };
+    return { teamId: /^xoxb-(T[A-Z0-9]+)/.exec(botToken)?.[1] ?? null, url: this.workspaceUrl, scopes: this.botScopes };
   }
   async postMessage(
     botToken: string,

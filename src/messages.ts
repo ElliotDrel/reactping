@@ -102,7 +102,36 @@ const BEST_EFFORT =
   "Best effort: if Slack can't reach ReactPing, or a DM fails, that notification is skipped and never backfilled. " +
   "ReactPing never stores message text.";
 
-export function homeView(options: { connected: boolean; siteUrl: string; includeSelfReactions: boolean }): View {
+/** Shown while the workspace's bot lacks scopes added since it was installed (mentions and /reactping). */
+export function upgradeBlocks(reconnectUrl: string): View["blocks"] {
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: "*New:* mention @ReactPing or type `/reactping` to send yourself a test notification or share ReactPing with teammates. Your workspace needs one quick reconnect to turn it on. Your reaction DMs keep working either way.",
+      },
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          style: "primary",
+          text: { type: "plain_text", text: "Reconnect ReactPing" },
+          url: reconnectUrl,
+        },
+      ],
+    },
+  ];
+}
+
+export function homeView(options: {
+  connected: boolean;
+  siteUrl: string;
+  includeSelfReactions: boolean;
+  reconnectUrl?: string;
+}): View {
   if (!options.connected) {
     return {
       type: "home",
@@ -129,6 +158,7 @@ export function homeView(options: { connected: boolean; siteUrl: string; include
           text: `*Connected.* When someone else reacts to one of your messages in this workspace, ReactPing DMs you here with the emoji, who reacted, and a link back.\n\n*Have feedback or found a bug?* Tell us with this short form: <${escapeMrkdwn(feedbackLink(options.siteUrl, "home_tab"))}|send feedback>.`,
         },
       },
+      ...(options.reconnectUrl ? upgradeBlocks(options.reconnectUrl) : []),
       {
         type: "context",
         elements: [

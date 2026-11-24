@@ -121,9 +121,18 @@ describe("Slack client adapter", () => {
     });
   });
 
-  it("reads the workspace ID and URL from auth.test", async () => {
-    const { slack } = api(() => json({ ok: true, team_id: "T1", url: "https://acme.slack.com/" }));
-    assert.deepEqual(await slack.authTest("xoxb-1"), { teamId: "T1", url: "https://acme.slack.com/" });
+  it("reads the workspace ID, URL, and granted scopes from auth.test", async () => {
+    const { slack } = api(() =>
+      json(
+        { ok: true, team_id: "T1", url: "https://acme.slack.com/" },
+        { headers: { "x-oauth-scopes": "chat:write,commands" } },
+      ),
+    );
+    assert.deepEqual(await slack.authTest("xoxb-1"), {
+      teamId: "T1",
+      url: "https://acme.slack.com/",
+      scopes: ["chat:write", "commands"],
+    });
   });
 
   it("answers response URLs through the injected fetch with the visibility Slack needs", async () => {

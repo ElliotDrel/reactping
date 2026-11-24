@@ -40,13 +40,13 @@ export default function Security() {
           your connection status is only ever shown to you.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L429-L463`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L434-L468`}>
             See the event handling
           </a>
           <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L228`}>
             See mention and command handling
           </a>
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L142-L237`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/slack.ts#L143-L238`}>
             See every Slack call it makes
           </a>
         </p>
