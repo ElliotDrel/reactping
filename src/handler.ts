@@ -224,8 +224,11 @@ export function createHandler(deps: Deps | null): Handler {
   async function callback(request: Request): Promise<Response> {
     const url = new URL(request.url);
     const clear = stateCookie("", 0);
-    const page = (status: number, outcome: Parameters<typeof resultPage>[0], link?: { appId: string; teamId: string }) =>
-      resultPage(outcome, status, clear, link);
+    const page = (
+      status: number,
+      outcome: Parameters<typeof resultPage>[0],
+      link?: { appId: string; teamId: string },
+    ) => resultPage(outcome, status, clear, link);
 
     // Wrong browser, expired, forged, or tampered state all look the same.
     if (!verifyOAuthState(stateKey, readCookie(request, cookieName), url.searchParams.get("state"), now())) {
