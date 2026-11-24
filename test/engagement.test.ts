@@ -138,7 +138,10 @@ describe("Slack mentions, /reactping, and menu buttons", { skip: dbSkip }, () =>
     const dms = app.slack.callsTo("postMessage");
     assert.equal(dms.length, 1);
     assert.deepEqual(dms[0]!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
-    assert.match(String(dms[0]!.args[2]), /^🧪 \*Test notification\*/);
+    assert.equal(
+      dms[0]!.args[2],
+      "🧪 *Test notification*\n\nSomeone reacted 🎉 to your message.\n\nThis is what your future reaction notifications will look like.",
+    );
     assert.deepEqual(
       responses().map((r) => [r.visibility, r.text.split("\n")[0]]),
       [
