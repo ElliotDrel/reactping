@@ -83,10 +83,17 @@ export function createEngagement(store: Store, slack: SlackApi, site: string) {
   const failed = (step: string) => (error: unknown) =>
     log("warn", "engagement_failed", { step, error: classifySlackError(error).message });
 
+  /**
+   * Slack's response URL can't reliably answer inside a thread (it rejects `thread_ts` from an ephemeral menu with
+   * `wrong_thread_ts`), so threads use the bot token. A thread only comes from a mention, so the bot is a member.
+   */
+  const responseOutsideThread = (ctx: Context) => (ctx.thread ? undefined : ctx.response);
+
   /** Private to the requester: Slack's ephemeral response, else (or if that fails) an ephemeral bot message. */
   async function reply(ctx: Context, message: SlackMessage): Promise<void> {
-    if (ctx.response) {
-      const sent = await slack.respond(ctx.response, message, { visibility: "ephemeral", threadTs: ctx.thread }).then(
+    const response = responseOutsideThread(ctx);
+    if (response) {
+      const sent = await slack.respond(response, message, { visibility: "ephemeral" }).then(
         () => true,
         (error: unknown) => (failed("reply")(error), false),
       );
@@ -101,7 +108,8 @@ export function createEngagement(store: Store, slack: SlackApi, site: string) {
   async function share(ctx: Context, confirm: boolean): Promise<void> {
     const card = installCard(site, ctx.team);
     try {
-      if (ctx.response) await slack.respond(ctx.response, card, { visibility: "in_channel", threadTs: ctx.thread });
+      const response = responseOutsideThread(ctx);
+      if (response) await slack.respond(response, card, { visibility: "in_channel" });
       else {
         const bot = await store.workspaceBot(ctx.team);
         if (!bot || !ctx.channel) throw new Error("no_bot_token");

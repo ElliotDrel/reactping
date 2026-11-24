@@ -63,11 +63,7 @@ export interface SlackApi {
   ): Promise<void>;
   openView(botToken: string, triggerId: string, view: View): Promise<void>;
   /** Answers through a Slack response URL from a command, button, or modal. */
-  respond(
-    url: string,
-    message: SlackMessage,
-    options: { visibility: "ephemeral" | "in_channel"; threadTs?: string },
-  ): Promise<void>;
+  respond(url: string, message: SlackMessage, options: { visibility: "ephemeral" | "in_channel" }): Promise<void>;
   publishHome(botToken: string, userId: string, view: View): Promise<void>;
   revoke(token: string): Promise<void>;
   /** The reacted-to message (reactions.get with the author's user token), for the DM preview and emoji totals. */
@@ -191,13 +187,12 @@ export function createSlackApi(options: {
     async openView(botToken, triggerId, view) {
       await call(() => client.views.open({ token: botToken, trigger_id: triggerId, view }));
     },
-    async respond(url, message, { visibility, threadTs }) {
+    async respond(url, message, { visibility }) {
       const res = await (options.fetch ?? fetch)(url, {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
           ...message,
-          ...(threadTs ? { thread_ts: threadTs } : {}),
           response_type: visibility,
           replace_original: false,
           unfurl_links: false,
