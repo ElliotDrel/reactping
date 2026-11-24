@@ -23,6 +23,19 @@ describe("release", () => {
     );
   });
 
+  it("maps every category to its bump and copies entries verbatim", () => {
+    for (const [heading, version] of [
+      ["Changed", "1.5.0"],
+      ["Deprecated", "1.5.0"],
+      ["Removed", "1.5.0"],
+      ["Security", "1.4.1"],
+    ]) {
+      const release = nextRelease(changelog(`\n### ${heading}\n\n- Costs $& and $1.\n`), "1.4.0", "2026-11-25")!;
+      assert.equal(release.version, version, heading);
+      assert.ok(release.changelog.includes("- Costs $& and $1.\n"), heading);
+    }
+  });
+
   it("bumps the patch version for fixes alone", () => {
     assert.equal(nextRelease(changelog("\n### Fixed\n\n- A bug.\n"), "1.4.0", "2026-11-25")!.version, "1.4.1");
   });

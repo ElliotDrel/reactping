@@ -18,7 +18,8 @@ export function nextRelease(changelog, version, date) {
     .some((section) => /^### (Added|Changed|Deprecated|Removed)\n/.test(section) && /^- /m.test(section));
   const next = feature ? `${major}.${minor + 1}.0` : `${major}.${minor}.${patch + 1}`;
   const released = changelog
-    .replace(match[0], `## [Unreleased]\n\n## [${next}] - ${date}\n${entries}`)
+    // A replacer function inserts entries verbatim; a replacement string would expand `$&` and friends.
+    .replace(match[0], () => `## [Unreleased]\n\n## [${next}] - ${date}\n${entries}`)
     .replace(
       /^\[unreleased\]: (.+)\/compare\/v[\d.]+\.\.\.HEAD$/m,
       (_, repo) => `[unreleased]: ${repo}/compare/v${next}...HEAD\n[${next}]: ${repo}/compare/v${version}...v${next}`,

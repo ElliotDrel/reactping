@@ -2,11 +2,13 @@ name: Release
 
 # Every merge to main deploys to production, so whatever sits under [Unreleased] in CHANGELOG.md is already live.
 # This turns it into the next version (scripts/release.mjs), commits that, and tags it, so the changelog and tags
-# never lag behind production. Pushes made with GITHUB_TOKEN don't trigger workflows, so the release commit can't loop.
+# never lag behind production. It runs on every push (not just CHANGELOG.md changes) so a release can't be stranded,
+# and exits when there's nothing to release. Pushes made with GITHUB_TOKEN don't trigger workflows, so the release
+# commit can't loop. Re-run it by hand from the Actions tab.
 on:
+  workflow_dispatch:
   push:
     branches: [main]
-    paths: ["CHANGELOG.md"]
 
 permissions:
   contents: write
