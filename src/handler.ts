@@ -10,6 +10,7 @@ import {
   messagePreview,
   parseWorkspaceUrl,
   reactionNotification,
+  upgradeBlocks,
   welcomeText,
 } from "./messages.ts";
 import { createOAuthState, OAUTH_STATE_TTL_SECONDS, verifyOAuthState } from "./oauth-state.ts";
@@ -43,6 +44,9 @@ export interface Deps {
 
 /** The same failure alerts at most once per 30 minutes per instance, so an outage doesn't flood the channel. */
 const ALERT_REPEAT_MS = 30 * 60_000;
+/** Reconnect reminders for workspaces missing newer scopes: at most this many per person, this far apart. */
+const RECONNECT_PROMPTS = 2;
+const RECONNECT_GAP_MS = 7 * 24 * 3_600_000;
 
 export type Handler = (request: Request) => Promise<Response>;
 
@@ -55,6 +59,12 @@ const REACTION = /^[a-z0-9_+'\-:]{1,100}$/;
 const OAUTH_CODE = /^[A-Za-z0-9._-]{1,256}$/;
 
 const NO_STORE = { "cache-control": "no-store", "x-content-type-options": "nosniff" };
+
+/** Logs a failed step by its Slack error code only, and yields undefined so the caller can carry on. */
+const failedStep = (step: string) => (error: unknown) => {
+  log("warn", "step_failed", { step, error: classifySlackError(error).message });
+  return undefined;
+};
 
 function plain(status: number, body = ""): Response {
   return new Response(body, { status, headers: { ...NO_STORE, "content-type": "text/plain; charset=utf-8" } });
@@ -313,6 +323,9 @@ export function createHandler(deps: Deps | null): Handler {
 
     const existing = await store.get(teamId, userId);
     const installation = await store.upsert({ teamId, userId, workspaceUrl, botToken, userToken });
+    // The grant carries every scope (checked above), and bot scopes belong to the workspace, so this marks the whole
+    // workspace up to date and stops its reconnect reminders.
+    background("scopes", () => store.setBotScopes(teamId, result.botScopes, BOT_SCOPES));
     const appId = result.appId && APP_ID.test(result.appId) ? result.appId : null;
     const destination = appId ? { appId, teamId } : undefined;
     // Reconnecting refreshes the tokens without a second welcome DM (flow 7).
@@ -477,6 +490,43 @@ export function createHandler(deps: Deps | null): Handler {
   }
 
   /**
+   * Daily Vercel Cron: records each workspace's bot scopes (so a SQL query shows who still needs to reconnect) and
+   * DMs people in workspaces missing newer scopes a reconnect link, at most twice and a week apart. Off without
+   * CRON_SECRET. Logs and returns counts only.
+   */
+  async function reconnectReminders(request: Request): Promise<Response> {
+    const secret = config.cronSecret;
+    if (!secret || !safeEqual(request.headers.get("authorization") ?? "", `Bearer ${secret}`)) {
+      return plain(401, "unauthorized");
+    }
+    const totals = { workspaces: 0, outdated: 0, sent: 0, failed: 0 };
+    // Workspaces run in parallel so a few slow Slack calls can't use up the function's time limit.
+    const remind = async (teamId: string) => {
+      totals.workspaces++;
+      const bot = await store.workspaceBot(teamId);
+      const scopes = bot
+        ? await slack.authTest(bot).then((r) => r.scopes, failedStep("reconnect_scope_check"))
+        : undefined;
+      if (!scopes) return;
+      await store.setBotScopes(teamId, scopes, BOT_SCOPES);
+      if (BOT_SCOPES.every((scope) => scopes.includes(scope))) return;
+      totals.outdated++;
+      const link = installLink(config.siteUrl, teamId);
+      const text = `New: mention @ReactPing or type /reactping to send yourself a test notification or share ReactPing with teammates. Reconnect to turn it on: ${link}`;
+      // Claimed before sending, so a failed DM uses up that reminder; the follow-up still comes a week later.
+      for (const person of await store.claimReconnectPrompts(teamId, BOT_SCOPES, RECONNECT_PROMPTS, RECONNECT_GAP_MS)) {
+        await slack.postMessage(person.botToken, person.userId, text, { blocks: upgradeBlocks(link) }).then(
+          () => totals.sent++,
+          (error: unknown) => (failedStep("reconnect_dm")(error), totals.failed++),
+        );
+      }
+    };
+    await Promise.all((await store.teams()).map(remind));
+    log("info", "reconnect_reminders", totals);
+    return new Response(JSON.stringify(totals), { headers: { "content-type": "application/json" } });
+  }
+
+  /**
    * Outage summary for the "When DMs go missing" runbook: 503 when any DM failed in the last 2 hours, or when no
    * reaction events arrived in 24 hours (Slack stopped sending them). Totals only, nothing about who or where.
    */
@@ -576,6 +626,8 @@ export function createHandler(deps: Deps | null): Handler {
         return statsImage(await store.stats());
       case "GET /api/health":
         return health();
+      case "GET /api/cron/reconnect":
+        return reconnectReminders(request);
       default:
         return plain(404, "not_found");
     }

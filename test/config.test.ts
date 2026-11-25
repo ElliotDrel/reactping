@@ -34,6 +34,7 @@ describe("server configuration", () => {
     const loaded = config({ PUBLIC_INSTALL_ENABLED: "false", REACTPING_INSTALLS_ENABLED: "false" });
     assert.deepEqual(Object.keys(loaded).sort(), [
       "alertWebhookUrl",
+      "cronSecret",
       "databaseCa",
       "databaseUrl",
       "encryptionKey",

@@ -40,7 +40,7 @@ export default function Security() {
           your connection status is only ever shown to you.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L443-L477`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L456-L490`}>
             See the event handling
           </a>
           <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L228`}>
@@ -81,7 +81,7 @@ export default function Security() {
           policy allows scripts only from this site and PostHog.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}vercel.json#L9-L10`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}vercel.json#L10-L11`}>
             See the policy
           </a>
         </p>

@@ -22,7 +22,9 @@ export default function Privacy() {
         <p>
           For each person who connects, in each workspace: the Slack workspace ID, user ID, workspace URL, encrypted
           access tokens, and when the connection was created and updated. That is what lets ReactPing recognize you and
-          send your DMs.
+          send your DMs. We also note which Slack permissions your workspace has granted ReactPing, and how many
+          reminders to reconnect we've sent you (at most two) when a new feature needs a permission your workspace
+          hasn't approved yet.
         </p>
         <p>
           We track when you connect and when you disconnect, and keep hourly totals of reactions handled and DMs sent,

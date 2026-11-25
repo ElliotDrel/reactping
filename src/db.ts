@@ -95,6 +95,47 @@ export class Store {
     return rows[0] ? this.toInstallation(rows[0] as Row) : undefined;
   }
 
+  /** Workspaces with at least one connection. */
+  async teams(): Promise<string[]> {
+    const { rows } = await this.pool.query(`select distinct team_id from ${TABLE}`);
+    return rows.map((r) => String(r.team_id));
+  }
+
+  /**
+   * Records the workspace bot's scopes on every row of the workspace. A set covering `required` clears reminder
+   * counts (so a future scope addition starts fresh); an incomplete set never overwrites a complete one, so a slow
+   * check can't undo a reconnect that landed meanwhile.
+   */
+  async setBotScopes(teamId: string, scopes: string[], required: readonly string[]): Promise<void> {
+    await this.pool.query(
+      `update ${TABLE} set bot_scopes = $2::text[],
+         reconnect_prompts = case when $2::text[] @> $3::text[] then 0 else reconnect_prompts end,
+         reconnect_prompted_at = case when $2::text[] @> $3::text[] then null else reconnect_prompted_at end
+       where team_id = $1 and ($2::text[] @> $3::text[] or bot_scopes is null or not bot_scopes @> $3::text[])`,
+      [teamId, scopes, required],
+    );
+  }
+
+  /**
+   * Atomically claims the people due a reconnect reminder (scopes still missing `required`, fewer than `max` sent,
+   * the last at least `gapMs` ago) by counting the reminder before it is sent, so overlapping runs can't both send.
+   */
+  async claimReconnectPrompts(
+    teamId: string,
+    required: readonly string[],
+    max: number,
+    gapMs: number,
+  ): Promise<Installation[]> {
+    const { rows } = await this.pool.query(
+      `update ${TABLE} set reconnect_prompts = reconnect_prompts + 1, reconnect_prompted_at = $5
+       where team_id = $1 and not coalesce(bot_scopes @> $2::text[], false) and reconnect_prompts < $3
+         and (reconnect_prompted_at is null or reconnect_prompted_at <= $4)
+       returning *`,
+      [teamId, required, max, new Date(this.now() - gapMs), new Date(this.now())],
+    );
+    return rows.map((r) => this.toInstallation(r as Row));
+  }
+
   /** The workspace's bot token, from its most recent installation; none once everyone has disconnected. */
   async workspaceBot(teamId: string): Promise<string | undefined> {
     const { rows } = await this.pool.query(

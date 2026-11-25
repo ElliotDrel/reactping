@@ -19,13 +19,13 @@ Layout: `src/handler.ts` (routes), `src/db.ts` (store), `src/slack.ts` (Slack cl
 
 All tables are in the private `reactping_slack` schema with RLS on, no policies, and no `anon`/`authenticated` privileges. Do not expose the schema to the Data API.
 
-| Table               | Contents                                                                                                                                                    |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `installations`     | One row per `(team_id, user_id)`: workspace URL, AES-256-GCM bot and user tokens (associated data binds each to its row and field), times.                  |
-| `activity`          | `connected`, `disconnected`, and `uninstalled` per workspace, with time and install count. No user IDs.                                                     |
-| `counters`          | `notifications_sent` total.                                                                                                                                 |
-| `reaction_outcomes` | Hourly counts of what happened to each reaction event: `sent`, `failed:<Slack error>`, `error:<name>`, `self`, `not_connected`, `ignored`, `retry`. No IDs. |
-| `feedback`          | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`, `slack_menu`), `status`, `note`.                |
+| Table               | Contents                                                                                                                                                                                                                                                                       |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `installations`     | One row per `(team_id, user_id)`: workspace URL, AES-256-GCM bot and user tokens (associated data binds each to its row and field), times. Also the workspace bot's granted scopes (`bot_scopes`) and reconnect reminders sent (`reconnect_prompts`, `reconnect_prompted_at`). |
+| `activity`          | `connected`, `disconnected`, and `uninstalled` per workspace, with time and install count. No user IDs.                                                                                                                                                                        |
+| `counters`          | `notifications_sent` total.                                                                                                                                                                                                                                                    |
+| `reaction_outcomes` | Hourly counts of what happened to each reaction event: `sent`, `failed:<Slack error>`, `error:<name>`, `self`, `not_connected`, `ignored`, `retry`. No IDs.                                                                                                                    |
+| `feedback`          | Website form entries: message, optional name and email, `source` (`website`, `slack_welcome`, `slack_home`, `slack_menu`), `status`, `note`.                                                                                                                                   |
 
 `GET /api/stats` renders the workspace and notification totals as an edge-cached SVG for the homepage. Feedback `source` comes from the UTM tags in the form page's Referer. Edit feedback `status` (`new`, `viewed`, `resolved`, `declined`) and `note` in the Supabase Table Editor; a trigger maintains `status_at`.
 
@@ -50,6 +50,7 @@ All names are in [`.env.example`](../.env.example). Every variable is server-onl
 | `ALERT_WEBHOOK_URL`                 | Optional Slack incoming webhook for operator alerts. Anything but a `hooks.slack.com` URL means off.              |
 | `NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN` | Optional PostHog project token (public). Unset means no website analytics and no install event.                   |
 | `NEXT_PUBLIC_POSTHOG_HOST`          | PostHog ingest host, e.g. `https://us.i.posthog.com`. Required with the token.                                    |
+| `CRON_SECRET`                       | Optional. Vercel Cron sends it as a bearer token to `/api/cron/*`. Unset means the cron routes answer 401.        |
 
 If a required variable is missing or invalid, the function logs the variable names (never values) and every route returns `503 not_configured`.
 
@@ -65,6 +66,7 @@ If a required variable is missing or invalid, the function logs the variable nam
 | `POST /api/feedback`            | The `/feedback` form                    |
 | `GET /api/stats`                | The homepage stats image                |
 | `GET /api/health`               | Outage summary (runbook)                |
+| `GET /api/cron/reconnect`       | Vercel Cron, daily at 16:00 UTC         |
 
 ## Self-hosting
 
@@ -75,6 +77,7 @@ If a required variable is missing or invalid, the function logs the variable nam
 
 ## Operations
 
+- **Applying a migration:** Supabase's `apply_migration` (MCP or dashboard) records the apply time as the version, not the file's timestamp. Apply it before merging, run `list_migrations`, and rename the repo file to the recorded version in the same PR, so `supabase db push` never re-runs it.
 - **Missed notifications:** expected occasionally and never backfilled. Check the function logs for `notify_failed` or `background_failed`.
 - **Supabase idle pause (accepted risk, November 15, 2026):** Free projects may pause after about a week of low activity. Notifications then stop until the project is restored from the Supabase dashboard, and missed reactions are not backfilled. Elliot accepts this risk: do not add a keep-alive. See [Supabase availability guidance](https://supabase.com/docs/guides/deployment/going-into-prod#availability).
 - **Lost `ENCRYPTION_KEY`:** stored tokens can't be decrypted. Delete the `installations` rows; everyone adds ReactPing again.
@@ -101,5 +104,13 @@ Reviewed November 13, 2026: [Vercel Node.js functions](https://vercel.com/docs/f
 1. Apply `supabase/migrations/20261124164842_reactping_feedback_menu_source.sql` (it adds `slack_menu` to the allowed feedback sources), then deploy.
 2. Update the Slack app from the manifest: bot scopes `app_mentions:read` and `commands`, bot event `app_mention`, and the `/reactping` command pointing at `POST /api/slack/commands`.
 3. Slack asks existing workspaces to approve the new scopes. Until someone in a workspace reconnects, reaction DMs keep working but mentions and `/reactping` there don't. Reconnecting shows "You're already connected!" and sends no second welcome DM. Meanwhile the Home tab shows a Reconnect ReactPing button (`/api/slack/install?team=…`, so Slack preselects the workspace) whenever `auth.test` reports the bot is missing any of `BOT_SCOPES`; it disappears once anyone there reconnects.
+4. **Reconnect reminders:** apply `supabase/migrations/20261125175220_reactping_reconnect_reminders.sql` and set `CRON_SECRET` before deploying. A daily Vercel Cron (`vercel.json`, `GET /api/cron/reconnect`, needs `CRON_SECRET`) checks each workspace's bot scopes with `auth.test` and stores them in `bot_scopes` (connecting stores them too). In a workspace missing any of `BOT_SCOPES`, everyone connected gets a DM with the same copy and reconnect link as the Home prompt: at most two, a week apart. Each reminder is claimed atomically before it is sent, so overlapping runs can't double-send, and a failed DM uses up that reminder. A complete set resets the counts, so a future scope addition starts fresh. Who still needs to reconnect:
+
+   ```sql
+   select team_id, count(*) as people, max(reconnect_prompts) as reminders_sent
+   from reactping_slack.installations
+   where bot_scopes is null or not bot_scopes @> array['chat:write', 'app_mentions:read', 'commands']
+   group by team_id;
+   ```
 
 Behavior worth knowing: replies to commands and buttons go through Slack's per-request `response_url` (never stored or logged); mentions reply with the workspace's bot token from its most recent connection, so a workspace where everyone has disconnected gets no reply to mentions. The `?team=` on install links is only a hint for Slack's workspace picker; the callback trusts the workspace Slack actually authorized. Duplicates rely on Slack's own behavior: event retries are ignored, and commands and buttons are not retried by Slack.

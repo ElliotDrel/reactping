@@ -91,6 +91,9 @@ describe("Add to Slack", { skip: dbSkip }, () => {
       assert.deepEqual(home!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
       assert.ok(JSON.stringify(home!.args[2]).includes("/feedback?utm_source=slack&amp;utm_medium=home_tab|"));
       assert.equal(app.slack.callsTo("revoke").length, 0);
+      // The granted bot scopes are recorded, so the workspace counts as up to date for reconnect reminders.
+      const { rows } = await app.store.pool.query("select bot_scopes from reactping_slack.installations");
+      assert.deepEqual(rows, [{ bot_scopes: ["chat:write", "app_mentions:read", "commands"] }]);
     });
 
     it("does not create Slack links from a missing or malformed app ID", async () => {
