@@ -47,7 +47,8 @@ export interface ReactedMessage {
 export interface SlackApi {
   oauthAccess(code: string, redirectUri: string): Promise<OAuthResult>;
   /** Workspace ID and URL that a bot token belongs to. */
-  authTest(botToken: string): Promise<{ teamId: string | null; url: string | null }>;
+  /** The bot's workspace and URL, plus the scopes it holds (from Slack's `x-oauth-scopes` header) when Slack sends them. */
+  authTest(botToken: string): Promise<{ teamId: string | null; url: string | null; scopes?: string[] }>;
   postMessage(
     botToken: string,
     channel: string,
@@ -165,7 +166,7 @@ export function createSlackApi(options: {
 
     async authTest(botToken) {
       const res = await call(() => client.auth.test({ token: botToken }));
-      return { teamId: text(res.team_id), url: text(res.url) };
+      return { teamId: text(res.team_id), url: text(res.url), scopes: res.response_metadata?.scopes };
     },
 
     async postMessage(botToken, channel, message, options) {

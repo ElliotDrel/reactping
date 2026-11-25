@@ -203,6 +203,37 @@ describe("Slack events", { skip: dbSkip }, () => {
       const [call] = app.slack.callsTo("publishHome");
       assert.deepEqual(call!.args.slice(0, 2), ["xoxb-T1", "UAUTHOR"]);
       assert.match(JSON.stringify(call!.args[2]), /"action_id":"disconnect"/);
+      assert.doesNotMatch(JSON.stringify(call!.args[2]), /Reconnect ReactPing/);
+    });
+
+    it("prompts a reconnect, preselecting the workspace, while the bot lacks newer scopes", async () => {
+      app.slack.botScopes = ["chat:write"];
+      await signedEvent(app, eventEnvelope("T1", { type: "app_home_opened", user: "UAUTHOR", tab: "home" }));
+      await app.settle();
+      const view = app.slack.callsTo("publishHome")[0]!.args[2] as {
+        blocks: { elements?: { text?: { text: string }; url?: string }[] }[];
+      };
+      assert.match(JSON.stringify(view), /mention @ReactPing or type `\/reactping`/);
+      const button = view.blocks.flatMap((b) => b.elements ?? []).find((e) => e.text?.text === "Reconnect ReactPing");
+      assert.equal(button?.url, "https://reactping.example.test/api/slack/install?team=T1");
+    });
+
+    it("still publishes Home, without the prompt, when the scope check or token lookup fails", async () => {
+      app.slack.authTest = async () => {
+        throw new Error("ratelimited");
+      };
+      await signedEvent(app, eventEnvelope("T1", { type: "app_home_opened", user: "UAUTHOR", tab: "home" }));
+      await app.settle();
+      const workspaceBot = app.store.workspaceBot.bind(app.store);
+      app.store.workspaceBot = async () => {
+        throw new Error("connection terminated");
+      };
+      await signedEvent(app, eventEnvelope("T1", { type: "app_home_opened", user: "UAUTHOR", tab: "home" }));
+      await app.settle();
+      app.store.workspaceBot = workspaceBot;
+      const homes = app.slack.callsTo("publishHome");
+      assert.equal(homes.length, 2);
+      for (const call of homes) assert.doesNotMatch(JSON.stringify(call.args[2]), /Reconnect ReactPing/);
     });
 
     it("does nothing for the Messages tab or users who are not connected", async () => {

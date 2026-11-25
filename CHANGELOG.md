@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Reconnect prompt.** Workspaces connected before mentions and `/reactping` see a Reconnect ReactPing button on the Home tab, which preselects their workspace, until anyone there reconnects.
+
 ## [1.4.0] - 2026-11-24
 
 ### Added

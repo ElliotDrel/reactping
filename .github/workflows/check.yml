@@ -30,4 +30,11 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
+      # A branch cut before a release can auto-merge its entries into the released section without a conflict.
+      - name: Keep released changelog sections unchanged
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch --depth=1 origin "$GITHUB_BASE_REF"
+          git show FETCH_HEAD:CHANGELOG.md > "$RUNNER_TEMP/base-changelog.md"
+          node scripts/release.mjs --verify "$RUNNER_TEMP/base-changelog.md"
       - run: npm run check
