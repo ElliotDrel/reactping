@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Announcements.** Occasional DMs about updates (or a holiday note), sent once to each person connected before it was written, with a **Mute announcements** button. Muting lasts until you disconnect; reaction DMs are unaffected.
+
 ## [1.6.0] - 2026-11-25
 
 ### Added

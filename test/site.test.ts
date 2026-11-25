@@ -47,7 +47,7 @@ const SOURCE_LINKS: Record<string, RegExp[]> = {
     /BOT_SCOPES = \["chat:write", "app_mentions:read", "commands"\]/,
     /USER_SCOPES = \["reactions:read"\]/,
   ],
-  "src/handler.ts#L456-L490": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
+  "src/handler.ts#L465-L499": [/async function deliver\(/, /item_user: authorId, reaction/, /postMessage\(/],
   "src/engagement.ts#L82-L228": [/export function createEngagement\(/, /postEphemeral/, /installCard/, /openView/],
   "src/slack.ts#L143-L238": [/return \{/, /oauthAccess/, /authTest/, /postMessage/, /respond/, /publishHome/, /revoke/],
   "supabase/migrations/20261113000000_reactping_slack_installations.sql#L14-L24": [

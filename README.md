@@ -12,13 +12,13 @@ Why it exists: Slack lists reactions in its Activity tab, but its [notification 
 
 - **Same workspace only.** A reaction notifies only that workspace's connected author. There is no cross-workspace routing.
 - **Slack is the account.** You are your Slack workspace ID plus user ID. No email or password.
-- **Stores no messages.** The preview is fetched when the DM is sent and never stored or logged. ReactPing stores encrypted tokens, granted permissions, and reconnect reminders sent per connected person, workspace-level connect and disconnect events, a total of notifications sent, and hourly counts of reaction outcomes for outage alerts.
+- **Stores no messages.** The preview is fetched when the DM is sent and never stored or logged. ReactPing stores encrypted tokens, granted permissions, and reconnect reminders sent, and announcement delivery and mute status per connected person, workspace-level connect and disconnect events, a total of notifications sent, and hourly counts of reaction outcomes for outage alerts.
 - **Best effort.** Slack's request is acknowledged immediately and the DM is sent right after. Nothing is queued, retried, or backfilled, so an occasional notification can be lost.
 - **Disconnect anytime** from ReactPing's Home tab in Slack, or remove the app from the workspace.
 
 ## Scope
 
-V1 is the above, plus a welcome DM, the Home tab, a website feedback form, and in-Slack help and sharing through @ReactPing mentions and `/reactping` (approved in [issue #5](https://github.com/ElliotDrel/reactping/issues/5), November 23, 2026). ReactPing is free forever: no paid plan, trial, or ads (Elliot's decision, November 17, 2026; superseded: billing listed as deferred). Deferred: a single inbox across workspaces, digests, per-emoji filters, backfill, and Enterprise Grid installs.
+V1 is the above, plus a welcome DM, the Home tab, a website feedback form, and in-Slack help and sharing through @ReactPing mentions and `/reactping` (approved in [issue #5](https://github.com/ElliotDrel/reactping/issues/5), November 23, 2026), plus rare announcement DMs with a mute button and reconnect reminders when a new feature needs a permission (Elliot, November 25, 2026). ReactPing is free forever: no paid plan, trial, or ads (Elliot's decision, November 17, 2026; superseded: billing listed as deferred). Deferred: a single inbox across workspaces, digests, per-emoji filters, backfill, and Enterprise Grid installs.
 
 Ship criteria (all met November 17, 2026): the hosted app works end to end in more than one workspace, Disconnect and uninstall delete the person's or workspace's data, and no message content is collected. Live coverage is in [verification](docs/verification.md).
 

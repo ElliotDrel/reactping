@@ -24,7 +24,8 @@ export default function Privacy() {
           access tokens, and when the connection was created and updated. That is what lets ReactPing recognize you and
           send your DMs. We also note which Slack permissions your workspace has granted ReactPing, and how many
           reminders to reconnect we've sent you (at most two) when a new feature needs a permission your workspace
-          hasn't approved yet.
+          hasn't approved yet. For occasional announcements, we note the last one we sent you and whether you muted
+          them.
         </p>
         <p>
           We track when you connect and when you disconnect, and keep hourly totals of reactions handled and DMs sent,
@@ -48,8 +49,9 @@ export default function Privacy() {
         <h2>How we use it</h2>
         <p>
           Only to deliver reaction notifications, send test notifications you ask for, answer when you @mention
-          ReactPing or use /reactping, post its install card where you ask, and manage your connection. Notifications
-          stay in the workspace where the reaction happened. No advertising or sale of data.
+          ReactPing or use /reactping, post its install card where you ask, remind you to reconnect when a new feature
+          needs it, send occasional announcements you can mute, and manage your connection. Reaction notifications stay
+          in the workspace where the reaction happened. No advertising or sale of data.
         </p>
 
         <h2>Security and cookies</h2>

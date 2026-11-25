@@ -17,9 +17,9 @@ describe("reconnect reminders (daily cron)", { skip: dbSkip }, () => {
 
   const run = async (auth = `Bearer ${SECRET}`) => {
     const res = await app.handler(
-      new Request(`${SITE}/api/cron/reconnect`, { headers: auth ? { authorization: auth } : {} }),
+      new Request(`${SITE}/api/cron/daily`, { headers: auth ? { authorization: auth } : {} }),
     );
-    return { status: res.status, body: res.status === 200 ? await res.json() : null };
+    return { status: res.status, body: res.status === 200 ? (await res.json()).reconnect : null };
   };
   const dmsTo = () => app.slack.callsTo("postMessage").map((c) => c.args[1]);
   const rows = async () =>

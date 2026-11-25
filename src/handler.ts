@@ -10,11 +10,14 @@ import {
   messagePreview,
   parseWorkspaceUrl,
   reactionNotification,
+  announcementMessage,
+  MUTE_ACTION,
+  MUTED_TEXT,
   upgradeBlocks,
   welcomeText,
 } from "./messages.ts";
 import { createOAuthState, OAUTH_STATE_TTL_SECONDS, verifyOAuthState } from "./oauth-state.ts";
-import { createEngagement, type Interaction, type MentionEvent } from "./engagement.ts";
+import { createEngagement, responseUrl, type Interaction, type MentionEvent } from "./engagement.ts";
 import { installLink, welcomeMenu } from "./menu.ts";
 import { resultPage, statsImage } from "./pages.ts";
 import {
@@ -60,9 +63,15 @@ const OAUTH_CODE = /^[A-Za-z0-9._-]{1,256}$/;
 
 const NO_STORE = { "cache-control": "no-store", "x-content-type-options": "nosniff" };
 
+/** Prefixes an object's keys, for flat log fields. */
+const prefix = (p: string, o: Record<string, number>) =>
+  Object.fromEntries(Object.entries(o).map(([k, v]) => [p + k, v]));
+
 /** Logs a failed step by its Slack error code only, and yields undefined so the caller can carry on. */
 const failedStep = (step: string) => (error: unknown) => {
-  log("warn", "step_failed", { step, error: classifySlackError(error).message });
+  // Slack client errors carry a "slack_*" code; anything else (a database error) logs its name, not "request_failed".
+  const fromSlack = error instanceof SlackCallError || String((error as { code?: unknown })?.code).startsWith("slack_");
+  log("warn", "step_failed", { step, error: fromSlack ? classifySlackError(error).message : (error as Error)?.name });
   return undefined;
 };
 
@@ -489,16 +498,29 @@ export function createHandler(deps: Deps | null): Handler {
     return "sent";
   }
 
-  /**
-   * Daily Vercel Cron: records each workspace's bot scopes (so a SQL query shows who still needs to reconnect) and
-   * DMs people in workspaces missing newer scopes a reconnect link, at most twice and a week apart. Off without
-   * CRON_SECRET. Logs and returns counts only.
-   */
-  async function reconnectReminders(request: Request): Promise<Response> {
+  /** Daily Vercel Cron: reconnect reminders, then any due announcement. Off without CRON_SECRET; counts only. */
+  async function daily(request: Request): Promise<Response> {
     const secret = config.cronSecret;
     if (!secret || !safeEqual(request.headers.get("authorization") ?? "", `Bearer ${secret}`)) {
       return plain(401, "unauthorized");
     }
+    // Each step is isolated, so a failure in one never skips the other.
+    const step = <T>(name: string, task: () => Promise<T>) => task().catch(failedStep(name));
+    const totals = {
+      reconnect: (await step("daily_reconnect", reconnectReminders)) ?? null,
+      announcement: (await step("daily_announcement", announce)) ?? null,
+    };
+    log("info", "daily_cron", { ...totals.reconnect, ...prefix("announcement_", totals.announcement ?? {}) });
+    // A failed step still lets the other run, but fails the request so Vercel Cron shows the run as failed.
+    const status = totals.reconnect && totals.announcement ? 200 : 500;
+    return new Response(JSON.stringify(totals), { status, headers: { "content-type": "application/json" } });
+  }
+
+  /**
+   * Records each workspace's bot scopes (so a SQL query shows who still needs to reconnect) and DMs people in
+   * workspaces missing newer scopes a reconnect link, at most twice and a week apart.
+   */
+  async function reconnectReminders() {
     const totals = { workspaces: 0, outdated: 0, sent: 0, failed: 0 };
     // Workspaces run in parallel so a few slow Slack calls can't use up the function's time limit.
     const remind = async (teamId: string) => {
@@ -522,8 +544,29 @@ export function createHandler(deps: Deps | null): Handler {
       }
     };
     await Promise.all((await store.teams()).map(remind));
-    log("info", "reconnect_reminders", totals);
-    return new Response(JSON.stringify(totals), { headers: { "content-type": "application/json" } });
+    return totals;
+  }
+
+  /**
+   * DMs the newest due announcement once to everyone connected before it was created who hasn't muted them.
+   * Claimed before sending, so overlapping runs can't double-send and a failed DM isn't retried.
+   */
+  async function announce() {
+    const totals = { id: 0, sent: 0, failed: 0 };
+    const announcement = await store.dueAnnouncement();
+    if (!announcement) return totals;
+    totals.id = announcement.id;
+    const message = announcementMessage(announcement.text);
+    const people = await store.claimAnnouncement(announcement.id, announcement.createdAt);
+    await Promise.all(
+      people.map((person) =>
+        slack.postMessage(person.botToken, person.userId, message.text, { blocks: message.blocks }).then(
+          () => totals.sent++,
+          (error: unknown) => (failedStep("announcement_dm")(error), totals.failed++),
+        ),
+      ),
+    );
+    return totals;
   }
 
   /**
@@ -580,6 +623,13 @@ export function createHandler(deps: Deps | null): Handler {
       typeof userId === "string" &&
       USER_ID.test(userId) &&
       (userTeam === undefined || userTeam === teamId);
+    if (valid && payload.actions?.some((a) => a.action_id === MUTE_ACTION)) {
+      await store.muteAnnouncements(teamId, userId);
+      const response = responseUrl(payload.response_url);
+      if (response)
+        background("mute", () => slack.respond(response, { text: MUTED_TEXT }, { visibility: "ephemeral" }));
+      return plain(200);
+    }
     if (!valid || !payload.actions?.some((a) => a.action_id === DISCONNECT_ACTION)) {
       await engagement.interaction(payload, (task) => background("engagement", task));
       return plain(200);
@@ -626,8 +676,8 @@ export function createHandler(deps: Deps | null): Handler {
         return statsImage(await store.stats());
       case "GET /api/health":
         return health();
-      case "GET /api/cron/reconnect":
-        return reconnectReminders(request);
+      case "GET /api/cron/daily":
+        return daily(request);
       default:
         return plain(404, "not_found");
     }
