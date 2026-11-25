@@ -24,7 +24,8 @@ export default function Privacy() {
           access tokens, and when the connection was created and updated. That is what lets ReactPing recognize you and
           send your DMs. We also note which Slack permissions your workspace has granted ReactPing, and how many
           reminders to reconnect we've sent you (at most two) when a new feature needs a permission your workspace
-          hasn't approved yet.
+          hasn't approved yet. For occasional announcements, we note the last one you received and whether you muted
+          them.
         </p>
         <p>
           We track when you connect and when you disconnect, and keep hourly totals of reactions handled and DMs sent,

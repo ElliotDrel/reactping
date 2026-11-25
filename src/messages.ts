@@ -1,6 +1,24 @@
 import type { View } from "@slack/web-api";
 
 export const DISCONNECT_ACTION = "disconnect";
+export const MUTE_ACTION = "rp_mute";
+export const MUTED_TEXT = "🔕 Announcements muted. Your reaction DMs keep coming.";
+
+/** An announcement DM: the text as written (Slack mrkdwn), with a way to stop future ones. */
+export function announcementMessage(text: string): { text: string; blocks: View["blocks"] } {
+  return {
+    text,
+    blocks: [
+      { type: "section", text: { type: "mrkdwn", text } },
+      {
+        type: "actions",
+        elements: [
+          { type: "button", action_id: MUTE_ACTION, text: { type: "plain_text", text: "Mute announcements" } },
+        ],
+      },
+    ],
+  };
+}
 
 const CHANNEL_ID = /^[CGD][A-Z0-9]{2,31}$/;
 /** Slack message timestamps: seconds, a dot, and exactly six digits of microseconds. Kept as text. */

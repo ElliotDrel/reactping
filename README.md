@@ -12,7 +12,7 @@ Why it exists: Slack lists reactions in its Activity tab, but its [notification 
 
 - **Same workspace only.** A reaction notifies only that workspace's connected author. There is no cross-workspace routing.
 - **Slack is the account.** You are your Slack workspace ID plus user ID. No email or password.
-- **Stores no messages.** The preview is fetched when the DM is sent and never stored or logged. ReactPing stores encrypted tokens, granted permissions, and reconnect reminders sent per connected person, workspace-level connect and disconnect events, a total of notifications sent, and hourly counts of reaction outcomes for outage alerts.
+- **Stores no messages.** The preview is fetched when the DM is sent and never stored or logged. ReactPing stores encrypted tokens, granted permissions, and reconnect reminders sent, and announcement delivery and mute status per connected person, workspace-level connect and disconnect events, a total of notifications sent, and hourly counts of reaction outcomes for outage alerts.
 - **Best effort.** Slack's request is acknowledged immediately and the DM is sent right after. Nothing is queued, retried, or backfilled, so an occasional notification can be lost.
 - **Disconnect anytime** from ReactPing's Home tab in Slack, or remove the app from the workspace.
 

@@ -34,6 +34,7 @@ const MIGRATIONS = [
   read("../supabase/migrations/20261119010000_reactping_outcome_reasons.sql"),
   read("../supabase/migrations/20261124164842_reactping_feedback_menu_source.sql"),
   read("../supabase/migrations/20261125175220_reactping_reconnect_reminders.sql"),
+  read("../supabase/migrations/20261126000000_reactping_announcements.sql"),
 ];
 
 export class Clock {

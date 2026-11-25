@@ -136,6 +136,37 @@ export class Store {
     return rows.map((r) => this.toInstallation(r as Row));
   }
 
+  /** The newest announcement whose send time has come, if any. */
+  async dueAnnouncement(): Promise<{ id: number; text: string; createdAt: Date } | undefined> {
+    const { rows } = await this.pool.query(
+      `select id, text, created_at from reactping_slack.announcements where send_after <= $1 order by id desc limit 1`,
+      [new Date(this.now())],
+    );
+    const row = rows[0];
+    return row ? { id: Number(row.id), text: String(row.text), createdAt: new Date(row.created_at) } : undefined;
+  }
+
+  /**
+   * Atomically claims everyone who should get this announcement (connected before it was created, not muted, not
+   * already sent it or a newer one), so overlapping runs can't both send.
+   */
+  async claimAnnouncement(id: number, createdAt: Date): Promise<Installation[]> {
+    const { rows } = await this.pool.query(
+      `update ${TABLE} set last_announcement_id = $1
+       where last_announcement_id < $1 and not announcements_muted and created_at <= $2
+       returning *`,
+      [id, createdAt],
+    );
+    return rows.map((r) => this.toInstallation(r as Row));
+  }
+
+  async muteAnnouncements(teamId: string, userId: string): Promise<void> {
+    await this.pool.query(`update ${TABLE} set announcements_muted = true where team_id = $1 and user_id = $2`, [
+      teamId,
+      userId,
+    ]);
+  }
+
   /** The workspace's bot token, from its most recent installation; none once everyone has disconnected. */
   async workspaceBot(teamId: string): Promise<string | undefined> {
     const { rows } = await this.pool.query(
