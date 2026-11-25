@@ -502,8 +502,13 @@ export function createHandler(deps: Deps | null): Handler {
     if (!secret || !safeEqual(request.headers.get("authorization") ?? "", `Bearer ${secret}`)) {
       return plain(401, "unauthorized");
     }
-    const totals = { reconnect: await reconnectReminders(), announcement: await announce() };
-    log("info", "daily_cron", { ...totals.reconnect, ...prefix("announcement_", totals.announcement) });
+    // Each step is isolated, so a failure in one never skips the other.
+    const step = <T>(name: string, task: () => Promise<T>) => task().catch(failedStep(name));
+    const totals = {
+      reconnect: (await step("daily_reconnect", reconnectReminders)) ?? null,
+      announcement: (await step("daily_announcement", announce)) ?? null,
+    };
+    log("info", "daily_cron", { ...totals.reconnect, ...prefix("announcement_", totals.announcement ?? {}) });
     return new Response(JSON.stringify(totals), { headers: { "content-type": "application/json" } });
   }
 

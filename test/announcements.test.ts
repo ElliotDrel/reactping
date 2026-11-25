@@ -72,6 +72,20 @@ describe("announcements (daily cron)", { skip: dbSkip }, () => {
     assert.deepEqual(await run(), { id: 2, sent: 0, failed: 0 });
   });
 
+  it("still sends the announcement when the reconnect step fails", async () => {
+    await announce("Still goes out");
+    app.clock.t += 1;
+    app.store.teams = async () => {
+      throw new Error("connection terminated");
+    };
+    const res = await app.handler(
+      new Request(`${SITE}/api/cron/daily`, { headers: { authorization: `Bearer ${SECRET}` } }),
+    );
+    const body = await res.json();
+    assert.equal(body.reconnect, null);
+    assert.deepEqual(body.announcement, { id: 1, sent: 2, failed: 0 });
+  });
+
   it("mutes only the person who taps Mute, for their own workspace, and confirms privately", async () => {
     const mute = (user: Record<string, string>) =>
       signedAction(app, {
