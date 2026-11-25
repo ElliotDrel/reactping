@@ -325,7 +325,7 @@ export function createHandler(deps: Deps | null): Handler {
     const installation = await store.upsert({ teamId, userId, workspaceUrl, botToken, userToken });
     // The grant carries every scope (checked above), and bot scopes belong to the workspace, so this marks the whole
     // workspace up to date and stops its reconnect reminders.
-    background("scopes", () => store.setBotScopes(teamId, result.botScopes, true));
+    background("scopes", () => store.setBotScopes(teamId, result.botScopes, BOT_SCOPES));
     const appId = result.appId && APP_ID.test(result.appId) ? result.appId : null;
     const destination = appId ? { appId, teamId } : undefined;
     // Reconnecting refreshes the tokens without a second welcome DM (flow 7).
@@ -500,30 +500,28 @@ export function createHandler(deps: Deps | null): Handler {
       return plain(401, "unauthorized");
     }
     const totals = { workspaces: 0, outdated: 0, sent: 0, failed: 0 };
-    for (const teamId of await store.teams()) {
+    // Workspaces run in parallel so a few slow Slack calls can't use up the function's time limit.
+    const remind = async (teamId: string) => {
       totals.workspaces++;
       const bot = await store.workspaceBot(teamId);
       const scopes = bot
         ? await slack.authTest(bot).then((r) => r.scopes, failedStep("reconnect_scope_check"))
         : undefined;
-      if (!scopes) continue;
-      const complete = BOT_SCOPES.every((scope) => scopes.includes(scope));
-      await store.setBotScopes(teamId, scopes, complete);
-      if (complete) continue;
+      if (!scopes) return;
+      await store.setBotScopes(teamId, scopes, BOT_SCOPES);
+      if (BOT_SCOPES.every((scope) => scopes.includes(scope))) return;
       totals.outdated++;
       const link = installLink(config.siteUrl, teamId);
       const text = `New: mention @ReactPing or type /reactping to send yourself a test notification or share ReactPing with teammates. Reconnect to turn it on: ${link}`;
-      for (const person of await store.dueReconnectPrompts(teamId, RECONNECT_PROMPTS, RECONNECT_GAP_MS)) {
-        try {
-          await slack.postMessage(person.botToken, person.userId, text, { blocks: upgradeBlocks(link) });
-          await store.recordReconnectPrompt(teamId, person.userId);
-          totals.sent++;
-        } catch (error) {
-          failedStep("reconnect_dm")(error);
-          totals.failed++;
-        }
+      // Claimed before sending, so a failed DM uses up that reminder; the follow-up still comes a week later.
+      for (const person of await store.claimReconnectPrompts(teamId, BOT_SCOPES, RECONNECT_PROMPTS, RECONNECT_GAP_MS)) {
+        await slack.postMessage(person.botToken, person.userId, text, { blocks: upgradeBlocks(link) }).then(
+          () => totals.sent++,
+          (error: unknown) => (failedStep("reconnect_dm")(error), totals.failed++),
+        );
       }
-    }
+    };
+    await Promise.all((await store.teams()).map(remind));
     log("info", "reconnect_reminders", totals);
     return new Response(JSON.stringify(totals), { headers: { "content-type": "application/json" } });
   }

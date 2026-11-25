@@ -79,15 +79,33 @@ describe("reconnect reminders (daily cron)", { skip: dbSkip }, () => {
     }
   });
 
-  it("retries a failed DM on the next run, and skips a workspace whose scopes Slack doesn't report", async () => {
+  it("counts a failed DM as that reminder, and skips a workspace whose scopes Slack doesn't report", async () => {
     app.slack.botScopes = ["chat:write"];
+    const postMessage = app.slack.postMessage.bind(app.slack);
     app.slack.postMessage = async () => {
       throw new Error("channel_not_found");
     };
     assert.deepEqual((await run()).body, { workspaces: 1, outdated: 1, sent: 0, failed: 2 });
-    assert.ok((await rows()).every((r) => r.reconnect_prompts === 0));
+    app.slack.postMessage = postMessage;
+    assert.equal((await run()).body.sent, 0, "claimed reminders aren't resent the same week");
+    app.clock.t += 7 * DAY;
+    assert.equal((await run()).body.sent, 2, "the follow-up still goes out");
 
     app.slack.authTest = async () => ({ teamId: "T1", url: null });
+    app.clock.t += 30 * DAY;
     assert.deepEqual((await run()).body, { workspaces: 1, outdated: 0, sent: 0, failed: 0 });
+  });
+
+  it("never sends twice when runs overlap, and a stale incomplete check can't undo a reconnect", async () => {
+    app.slack.botScopes = ["chat:write"];
+    const [a, b] = await Promise.all([run(), run()]);
+    assert.equal(a.body.sent + b.body.sent, 2);
+    assert.equal(dmsTo().length, 2);
+
+    await app.store.setBotScopes("T1", [...BOT_SCOPES], BOT_SCOPES);
+    await app.store.setBotScopes("T1", ["chat:write"], BOT_SCOPES);
+    assert.ok((await rows()).every((r) => r.bot_scopes.length === BOT_SCOPES.length));
+    app.clock.t += 8 * DAY;
+    assert.deepEqual(await app.store.claimReconnectPrompts("T1", BOT_SCOPES, 2, 7 * DAY), []);
   });
 });
