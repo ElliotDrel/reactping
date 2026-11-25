@@ -3,8 +3,9 @@ name: Release
 # Every merge to main deploys to production, so whatever sits under [Unreleased] in CHANGELOG.md is already live.
 # This turns it into the next version (scripts/release.mjs), commits that, and tags it, so the changelog and tags
 # never lag behind production. It runs on every push (not just CHANGELOG.md changes) so a release can't be stranded,
-# and exits when there's nothing to release. Pushes made with GITHUB_TOKEN don't trigger workflows, so the release
-# commit can't loop. Re-run it by hand from the Actions tab.
+# and exits when there's nothing to release. It pushes with the RELEASE_DEPLOY_KEY deploy key, the only actor allowed
+# to bypass the "main: require CI" ruleset; the release commit then re-runs this workflow, which finds nothing to
+# release and exits. Re-run it by hand from the Actions tab.
 on:
   workflow_dispatch:
   push:
@@ -25,6 +26,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: main
+          ssh-key: ${{ secrets.RELEASE_DEPLOY_KEY }}
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 24
