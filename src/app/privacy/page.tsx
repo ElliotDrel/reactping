@@ -50,8 +50,8 @@ export default function Privacy() {
         <p>
           Only to deliver reaction notifications, send test notifications you ask for, answer when you @mention
           ReactPing or use /reactping, post its install card where you ask, remind you to reconnect when a new feature
-          needs it, send occasional announcements you can mute, and manage your connection. Notifications stay in the
-          workspace where the reaction happened. No advertising or sale of data.
+          needs it, send occasional announcements you can mute, and manage your connection. Reaction notifications stay
+          in the workspace where the reaction happened. No advertising or sale of data.
         </p>
 
         <h2>Security and cookies</h2>

@@ -69,7 +69,9 @@ const prefix = (p: string, o: Record<string, number>) =>
 
 /** Logs a failed step by its Slack error code only, and yields undefined so the caller can carry on. */
 const failedStep = (step: string) => (error: unknown) => {
-  log("warn", "step_failed", { step, error: classifySlackError(error).message });
+  // Slack client errors carry a "slack_*" code; anything else (a database error) logs its name, not "request_failed".
+  const fromSlack = error instanceof SlackCallError || String((error as { code?: unknown })?.code).startsWith("slack_");
+  log("warn", "step_failed", { step, error: fromSlack ? classifySlackError(error).message : (error as Error)?.name });
   return undefined;
 };
 
@@ -509,7 +511,9 @@ export function createHandler(deps: Deps | null): Handler {
       announcement: (await step("daily_announcement", announce)) ?? null,
     };
     log("info", "daily_cron", { ...totals.reconnect, ...prefix("announcement_", totals.announcement ?? {}) });
-    return new Response(JSON.stringify(totals), { headers: { "content-type": "application/json" } });
+    // A failed step still lets the other run, but fails the request so Vercel Cron shows the run as failed.
+    const status = totals.reconnect && totals.announcement ? 200 : 500;
+    return new Response(JSON.stringify(totals), { status, headers: { "content-type": "application/json" } });
   }
 
   /**

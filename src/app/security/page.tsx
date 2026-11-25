@@ -40,7 +40,7 @@ export default function Security() {
           your connection status is only ever shown to you.
         </p>
         <p className="actions">
-          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L463-L497`}>
+          <a className="btn btn-quiet btn-small" href={`${CODE}src/handler.ts#L465-L499`}>
             See the event handling
           </a>
           <a className="btn btn-quiet btn-small" href={`${CODE}src/engagement.ts#L82-L228`}>

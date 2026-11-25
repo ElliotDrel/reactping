@@ -81,6 +81,7 @@ describe("announcements (daily cron)", { skip: dbSkip }, () => {
     const res = await app.handler(
       new Request(`${SITE}/api/cron/daily`, { headers: { authorization: `Bearer ${SECRET}` } }),
     );
+    assert.equal(res.status, 500, "the run shows as failed in Vercel Cron");
     const body = await res.json();
     assert.equal(body.reconnect, null);
     assert.deepEqual(body.announcement, { id: 1, sent: 2, failed: 0 });
