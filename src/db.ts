@@ -95,6 +95,41 @@ export class Store {
     return rows[0] ? this.toInstallation(rows[0] as Row) : undefined;
   }
 
+  /** Workspaces with at least one connection. */
+  async teams(): Promise<string[]> {
+    const { rows } = await this.pool.query(`select distinct team_id from ${TABLE}`);
+    return rows.map((r) => String(r.team_id));
+  }
+
+  /** Records the workspace bot's scopes on every row of the workspace; a complete set clears reminder counts. */
+  async setBotScopes(teamId: string, scopes: string[], complete: boolean): Promise<void> {
+    await this.pool.query(
+      `update ${TABLE} set bot_scopes = $2,
+         reconnect_prompts = case when $3 then 0 else reconnect_prompts end,
+         reconnect_prompted_at = case when $3 then null else reconnect_prompted_at end
+       where team_id = $1`,
+      [teamId, scopes, complete],
+    );
+  }
+
+  /** People in the workspace due a reconnect reminder: fewer than `max` sent, the last one at least `gapMs` ago. */
+  async dueReconnectPrompts(teamId: string, max: number, gapMs: number): Promise<Installation[]> {
+    const { rows } = await this.pool.query(
+      `select * from ${TABLE} where team_id = $1 and reconnect_prompts < $2
+         and (reconnect_prompted_at is null or reconnect_prompted_at <= $3)`,
+      [teamId, max, new Date(this.now() - gapMs)],
+    );
+    return rows.map((r) => this.toInstallation(r as Row));
+  }
+
+  async recordReconnectPrompt(teamId: string, userId: string): Promise<void> {
+    await this.pool.query(
+      `update ${TABLE} set reconnect_prompts = reconnect_prompts + 1, reconnect_prompted_at = $3
+       where team_id = $1 and user_id = $2`,
+      [teamId, userId, new Date(this.now())],
+    );
+  }
+
   /** The workspace's bot token, from its most recent installation; none once everyone has disconnected. */
   async workspaceBot(teamId: string): Promise<string | undefined> {
     const { rows } = await this.pool.query(

@@ -12,6 +12,8 @@ export interface Config {
   selfReactionTeams: string[];
   /** Optional Slack incoming webhook for operator alerts (new feedback, failed DMs). */
   alertWebhookUrl?: string;
+  /** Optional: Vercel Cron sends it as a bearer token. Unset means the cron routes are off. */
+  cronSecret?: string;
 }
 
 export type ConfigResult = { ok: true; config: Config } | { ok: false; problems: string[] };
@@ -82,6 +84,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     alertWebhookUrl: env.ALERT_WEBHOOK_URL?.trim().startsWith("https://hooks.slack.com/")
       ? env.ALERT_WEBHOOK_URL.trim()
       : undefined,
+    cronSecret: env.CRON_SECRET?.trim() || undefined,
   };
   return problems.length ? { ok: false, problems } : { ok: true, config };
 }

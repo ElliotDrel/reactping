@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Reconnect reminders.** In workspaces connected before mentions and `/reactping`, connected people get a DM with a one-tap reconnect link: at most two, a week apart, and none once anyone in the workspace reconnects.
+
 ## [1.5.0] - 2026-11-25
 
 ### Added
