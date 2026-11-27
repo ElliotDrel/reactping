@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Website icons.** Browser tabs adapt to light and dark themes, and saved mobile shortcuts use properly sized Apple and Android icons, including maskable and monochrome variants.
+
+### Fixed
+
+- **Favicon discovery.** The conventional favicon URL now works. All pages, including connection results, share the same icon links.
+
 ## [1.7.0] - 2026-11-25
 
 ### Added

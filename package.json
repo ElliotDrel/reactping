@@ -19,7 +19,9 @@
     "test": "node --test --test-reporter=spec \"test/**/*.test.ts\"",
     "db:test:start": "docker run -d --rm --name reactping-test-db -p 54329:5432 -e POSTGRES_PASSWORD=postgres postgres:17-alpine",
     "db:test:stop": "docker stop reactping-test-db",
-    "check": "npm run format:check && npm run typecheck && npm run lint && npm run build && npm test"
+    "check": "npm run format:check && npm run icons:check && npm run typecheck && npm run lint && npm run build && npm test",
+    "icons:generate": "node scripts/generate-icons.mjs",
+    "icons:check": "node scripts/generate-icons.mjs --check"
   },
   "dependencies": {
     "@slack/web-api": "^8.2.0",
@@ -39,6 +41,7 @@
     "@types/react-dom": "19.2.7",
     "eslint": "^10.13.0",
     "prettier": "^3.9.10",
+    "sharp": "0.35.5",
     "typescript": "~6.0",
     "typescript-eslint": "^8.72.0"
   }
