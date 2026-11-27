@@ -1,7 +1,6 @@
 /* global console, process */
 import { Buffer } from "node:buffer";
 import { createHash } from "node:crypto";
-// Next already depends on sharp. No additional image tooling is required.
 import sharp from "sharp";
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath, URL } from "node:url";
@@ -16,7 +15,13 @@ const square = light.replace('rx="8"', "");
 const maskable = square.replace('<g id="mark">', '<g id="mark" transform="translate(4.8 4.8) scale(0.7)">');
 const monochrome = (color) =>
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">${artwork.replace(/(?:fill|stroke)="#[a-fA-F0-9]+"/g, (attr) => attr.replace(/#[a-fA-F0-9]+/, color))}</svg>\n`;
-const png = (svg, size) => sharp(Buffer.from(svg), { density: 384 }).resize(size, size).png().toBuffer();
+// The source viewBox is 32 units. Rasterize at 2x the target, then downsample;
+// never enlarge a smaller bitmap if the source or density changes.
+const png = (svg, size) =>
+  sharp(Buffer.from(svg), { density: (72 * size * 2) / 32 })
+    .resize(size, size, { withoutEnlargement: true })
+    .png()
+    .toBuffer();
 const outputs = new Map();
 outputs.set("public/assets/favicon-96x96.png", await png(light, 96));
 for (const size of [152, 167, 180]) {

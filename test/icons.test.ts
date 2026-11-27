@@ -3,7 +3,7 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import { describe, it } from "node:test";
 import sharp from "sharp";
-import { resultPage } from "../src/pages.ts";
+import { resultPage, type Outcome } from "../src/pages.ts";
 
 const root = new URL("../", import.meta.url);
 const read = (path: string) => readFileSync(new URL(path, root));
@@ -20,15 +20,19 @@ describe("website icons", () => {
       (file) => file.endsWith(".html") && (!file.startsWith("_") || file === "_not-found.html"),
     );
     const html = pages.map((file) => readFileSync(new URL(file, built), "utf8"));
-    for (const outcome of [
-      "connected",
-      "cancelled",
-      "expired",
-      "failed",
-      "enterprise",
-      "scopes",
-      "feedback",
-    ] as const) {
+    // Exhaustive: a new result type must be covered here before typecheck passes.
+    const outcomes: Record<Outcome, null> = {
+      connected: null,
+      already: null,
+      approval: null,
+      cancelled: null,
+      expired: null,
+      failed: null,
+      enterprise: null,
+      scopes: null,
+      feedback: null,
+    };
+    for (const outcome of Object.keys(outcomes) as Outcome[]) {
       html.push(await resultPage(outcome, 200, "").text());
     }
     for (const page of html) {

@@ -78,7 +78,7 @@ If a required variable is missing or invalid, the function logs the variable nam
 
 ## Website icons
 
-The logo geometry and light/dark palettes live in `public/assets/favicon.svg`. Run `npm run icons:generate` after changing it; `npm run icons:check` is part of local checks and CI and rejects missing or stale exports. The generator uses Sharp, already shipped with Next.js, and also updates the CSP hash that permits the SVG's embedded theme CSS. It does not add a broad inline-style exception.
+The logo geometry and light/dark palettes live in `public/assets/favicon.svg`. Run `npm run icons:generate` after changing it; `npm run icons:check` is part of local checks and CI and rejects missing or stale exports. The generator uses Sharp, pinned as a direct development dependency, rasterizes at twice each target resolution before downsampling without upscaling, and also updates the CSP hash that permits the SVG's embedded theme CSS. It does not add a broad inline-style exception.
 
 - Browser tabs: adaptive SVG, 96 px PNG, and root `/favicon.ico` containing 16/32/48/64 px legacy frames. The SVG keeps the existing colors on light themes and uses a lighter blue tile with a navy bubble on dark themes.
 - Apple home-screen shortcuts: opaque, square 180 px iPhone and 152/167 px iPad icons. The OS supplies the rounded corners. Root `/apple-touch-icon.png` is declared explicitly; the old `/assets/apple-touch-icon.png` remains available.
