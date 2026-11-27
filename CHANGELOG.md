@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-27
+
 ### Added
 
 - **Website icons.** Browser tabs adapt to light and dark themes, and saved mobile shortcuts use properly sized Apple and Android icons, including maskable and monochrome variants.
@@ -128,7 +130,8 @@ Pilot release.
 - **Per person, per workspace.** Each person adds ReactPing for themselves. DMs stay in the workspace where the reaction happened. [5f6d336](https://github.com/ElliotDrel/reactping/commit/5f6d336)
 - **Disconnect.** Disconnect from the app's Home tab. Uninstalling the app deletes the workspace's stored tokens. [5f6d336](https://github.com/ElliotDrel/reactping/commit/5f6d336)
 
-[unreleased]: https://github.com/ElliotDrel/reactping/compare/v1.7.0...HEAD
+[unreleased]: https://github.com/ElliotDrel/reactping/compare/v1.8.0...HEAD
+[1.8.0]: https://github.com/ElliotDrel/reactping/compare/v1.7.0...v1.8.0
 [1.7.0]: https://github.com/ElliotDrel/reactping/compare/v1.6.0...v1.7.0
 [1.6.0]: https://github.com/ElliotDrel/reactping/compare/v1.5.0...v1.6.0
 [1.5.0]: https://github.com/ElliotDrel/reactping/compare/v1.4.0...v1.5.0
