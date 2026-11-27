@@ -1,3 +1,5 @@
+import { ICON_LINKS_HTML } from "./site-icons.ts";
+
 /** The small HTML pages the OAuth callback returns. Static text and Slack links built from validated IDs. */
 
 export type Outcome =
@@ -49,7 +51,7 @@ const HEADERS = {
   // The callback URL carries the one-time OAuth code; never send it onward.
   "referrer-policy": "no-referrer",
   "content-security-policy":
-    "default-src 'none'; style-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+    "default-src 'none'; style-src 'self'; manifest-src 'self'; img-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
 };
 
 /** Every new connection, success or retry, goes through the static /connect instructions first. */
@@ -92,7 +94,7 @@ export function resultPage(outcome: Outcome, status: number, cookie: string, des
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="robots" content="noindex" />
     <title>${title} · ReactPing</title>
-    <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml" />
+    ${ICON_LINKS_HTML}
     <link rel="stylesheet" href="/assets/styles.css" />
   </head>
   <body>

@@ -167,9 +167,9 @@ describe("website", () => {
       }
       const image = new URL(meta("og:image")!).pathname;
       assert.ok(existsSync(new URL(`public${image}`, root)), `${file} og:image ${image} does not exist`);
-      assert.match(page, /<link rel="apple-touch-icon" href="\/assets\/apple-touch-icon\.png"\s*\/>/, file);
+      assert.match(page, /<link rel="apple-touch-icon" href="\/apple-touch-icon\.png" sizes="180x180"\s*\/>/, file);
     }
-    assert.ok(existsSync(new URL("public/assets/apple-touch-icon.png", root)));
+    assert.ok(existsSync(new URL("public/apple-touch-icon.png", root)));
   });
 
   it("lets search engines index exactly the canonical pages, all listed in the sitemap", () => {

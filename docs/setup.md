@@ -76,6 +76,21 @@ If a required variable is missing or invalid, the function logs the variable nam
 3. **Slack:** create an app from [`slack-manifest.template.yaml`](../slack-manifest.template.yaml) with `YOUR_SITE_HOST` replaced. Deploy first: Slack verifies the event URL on save. The manifest sets user scope `reactions:read`, bot scopes `chat:write`, `app_mentions:read`, and `commands`, the user event `reaction_added`, bot events `app_mention`, `app_home_opened`, `app_uninstalled`, and `tokens_revoked`, the Home tab, interactivity, and token rotation off. It can't set the icon: upload `slack-app-icon.png` (1024 px) under **Basic Information → Display Information**. To allow other workspaces, enable **Manage Distribution → Share Your App with Other Workspaces**, and share `<PUBLIC_SITE_URL>/api/slack/install` (or the site), never Slack's raw authorize link, so the state cookie is set.
 4. **Verify:** add the app, check for the welcome DM and the Home tab, then have someone else react to your message. Record what you observe in [verification](verification.md).
 
+## Website icons
+
+The logo geometry and light/dark palettes live in `public/assets/favicon.svg`. Run `npm run icons:generate` after changing it; `npm run icons:check` is part of local checks and CI and rejects missing or stale exports. The generator uses Sharp, already shipped with Next.js, and also updates the CSP hash that permits the SVG's embedded theme CSS. It does not add a broad inline-style exception.
+
+- Browser tabs: adaptive SVG, 96 px PNG, and root `/favicon.ico` containing 16/32/48/64 px legacy frames. The SVG keeps the existing colors on light themes and uses a lighter blue tile with a navy bubble on dark themes.
+- Apple home-screen shortcuts: opaque, square 180 px iPhone and 152/167 px iPad icons. The OS supplies the rounded corners. Root `/apple-touch-icon.png` is declared explicitly; the old `/assets/apple-touch-icon.png` remains available.
+- Android and desktop shortcuts: 192/512 px color icons, separate maskable versions with all artwork inside the central 40%-radius safe circle, and a monochrome icon declared in `site.webmanifest`.
+- Safari pinned tabs: a black SVG mask, tinted with the brand blue by the browser. Transparent black and white logo exports are also available at `/assets/logo-black.svg` and `/assets/logo-white.svg`.
+
+`src/site-icons.ts` supplies the same links to the Next layout and standalone connection/feedback result pages. The manifest leaves display mode at the browser default: ReactPing is a Slack app, and saving the website does not add offline functionality or a separate web app.
+
+Verification covers exported dimensions and opacity, maskable crop safety, ICO directory integrity, every built page/result page's links, and the production CSP hash. Browser-emulated light/dark and mobile views do not replace testing an actual iOS/Android home-screen installation.
+
+Sources: [adaptive SVG](https://web.dev/articles/building/an-adaptive-favicon), [manifest and maskable icons](https://web.dev/learn/pwa/web-app-manifest), [Apple home-screen icons](https://developer.apple.com/library/archive/documentation/AppleApplications/Reference/SafariWebContent/ConfiguringWebApplications/ConfiguringWebApplications.html), [Google Search favicon requirements](https://developers.google.com/search/docs/appearance/favicon-in-search). Reviewed November 27, 2026.
+
 ## Operations
 
 - **Sending an announcement (updates, holiday notes):** add a row in Supabase. The next daily run (16:00 UTC) DMs it once to everyone connected before the row was created who hasn't tapped **Mute announcements**. Only the newest due row goes out; older unsent ones are skipped. Keep them rare. Each DM is claimed before it's sent, so a failed DM isn't retried. Check the `daily_cron` log line for `announcement_sent`.
